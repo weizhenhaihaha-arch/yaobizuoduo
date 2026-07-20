@@ -82,7 +82,7 @@
 - 2026-07-20 Asia/Shanghai: confirmed the existing `妖币雷达做多` directory is linked to `https://github.com/weizhenhaihaha-arch/yaobi-radar.git`, whose current planning is for short-reversal signals; it was left unchanged.
 - 2026-07-20 Asia/Shanghai: initialized this directory as a new local Git repository with branch `main`.
 - `origin` is now attached to `https://github.com/weizhenhaihaha-arch/yaobizuoduo.git`.
-- 2026-07-21 Asia/Shanghai: local remote configuration remains correct, but direct GitHub HTTPS access still fails. The authenticated GitHub connector returns 404 for `weizhenhaihaha-arch/yaobizuoduo` and lists only `weizhenhaihaha-arch/yaobi-radar` as accessible, so the target repository must be created or granted to the connector before publication.
+- 2026-07-21 Asia/Shanghai: `origin` connectivity to `weizhenhaihaha-arch/yaobizuoduo` is verified. The remote `main` initially contained one independent `LICENSE` commit, while local `main` contained the full project history; publication must preserve both histories without a force push.
 - 2026-07-20 Asia/Shanghai: secret-pattern scan and staged whitespace check passed; first local documentation commit is `6952aa3`.
 - 2026-07-20 Asia/Shanghai: first `git push -u origin main` attempt failed because the GitHub connection was reset; remote publication remains unverified.
 - 2026-07-20 Asia/Shanghai: second push attempt failed to connect to `github.com:443`; local commits remain ready to publish when network access is available.
@@ -98,7 +98,7 @@
 
 ## Open items
 
-- Create `weizhenhaihaha-arch/yaobizuoduo` or grant the GitHub connector access to it, then publish the clean local `main` branch; do not upload this independent project into `yaobi-radar`.
+- Keep `origin` on `weizhenhaihaha-arch/yaobizuoduo`; never upload this independent project into `yaobi-radar`.
 - V1 targets Binance and OKX USDT perpetual contracts only; spot remains outside V1.
 - Define the exact entry trigger, signal validity window, invalidation condition, and repeat-signal cooldown.
 - Decide whether the first release includes Telegram alerts.
@@ -114,6 +114,7 @@
 
 ### 2026-07-21
 
+- Verified the new GitHub repository over HTTPS, configured local `main` to track `origin/main`, and confirmed the only remote-only file before publication was `LICENSE`. The autonomous supervisor was paused during history reconciliation to prevent concurrent commits.
 - Completed the bounded M7-T02 validation repair: current exchange and prior-status types are proven before set/map operations, known delivery statuses use consistent case normalization, and every delivered case variant requires `delivered_at`. Regression tests cover all three review defects; all task checks passed and no live infrastructure, provider, automation, strategy, or trading behavior was added.
 - Main AG review rejected M7-T02 for bounded fail-closed defects in operational-health validation: unhashable exchange and prior-status fields raise before structured handling, and a case-variant delivered state without delivery time is misclassified healthy. All declared suites and repository scans otherwise passed; repair remains limited to validation ordering, consistent delivered-state validation, and regression coverage.
 - Completed the M7-T02 worker transition: added the pure injected operational-health assessor, deterministic fixture and unit coverage, and the bounded `operational-health.v1` contract. Assessments preserve stable source/time/reason evidence, malformed and unknown inputs fail closed with sanitized copy, and a recovered state requires matching prior-unhealthy evidence; no live monitoring, delivery provider, automation, infrastructure, strategy, or trading behavior was added.
