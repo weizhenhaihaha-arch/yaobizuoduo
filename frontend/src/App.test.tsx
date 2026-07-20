@@ -2,8 +2,9 @@ import { act } from "react";
 import type { ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
-import App, { DashboardPage } from "./App";
+import App, { DashboardPage, RadarApp, ResultsPage, SignalDetailPage } from "./App";
 import { developmentDashboard } from "./fixtures/dashboard";
+import { developmentSignalDetail, developmentStatistics } from "./fixtures/results";
 
 let root: Root | undefined;
 
@@ -55,5 +56,52 @@ describe("beginner radar homepage", () => {
     act(() => root?.render(<DashboardPage state="empty" dashboard={{ ...developmentDashboard, confirmed: [], potential: [], no_signal: [], recent_invalidations: [], empty_reason: "当前没有满足确认条件的做多信号。" }} />));
     text(container, "当前没有可考虑的信号");
     text(container, "当前没有满足确认条件的做多信号。");
+  });
+});
+
+describe("detail, history, and observation statistics", () => {
+  it("navigates from a homepage signal to an explainable detail view", () => {
+    const container = render(<RadarApp />);
+    const detailButton = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("查看详情"));
+    act(() => detailButton?.click());
+    text(container, "先看结论");
+    text(container, "为什么出现：成交活跃度上升 · 趋势条件已确认");
+    text(container, "跌破参考入场保护线后，停止按此信号继续观察入场");
+    text(container, "状态时间线");
+    expect(container.querySelector("button[aria-current='page']")?.textContent).toBe("信号");
+  });
+
+  it("keeps complete, incomplete, and unevaluated outcomes separate", () => {
+    const container = render(<SignalDetailPage detail={developmentSignalDetail} />);
+    text(container, "5 分钟");
+    text(container, "完整");
+    text(container, "不完整：窗口结束价格缺失");
+    text(container, "策略盈亏为“未评估”");
+    expect(container.textContent).not.toContain("胜率");
+  });
+
+  it("shows observation-only statistics and explicit empty history", () => {
+    const container = render(<ResultsPage history={[]} statistics={developmentStatistics} />);
+    text(container, "观察到的最高涨幅");
+    text(container, "策略盈亏：未评估");
+    text(container, "还没有历史信号记录；不会用虚构结果填充。");
+  });
+
+  it("labels history price observations, incomplete windows, and strategy status", () => {
+    const container = render(<ResultsPage statistics={developmentStatistics} />);
+    text(container, "价格观察：最高涨幅 +1.00% · 含不完整窗口 · 策略盈亏未评估");
+    text(container, "价格观察：暂无完整窗口 · 策略盈亏未评估");
+  });
+
+  it("provides keyboard buttons for all primary views and responsive structures", () => {
+    const container = render(<RadarApp initialView="results" />);
+    const nav = container.querySelector("nav[aria-label='主导航']");
+    expect(nav?.querySelectorAll("button")).toHaveLength(3);
+    expect(container.querySelector(".stats-grid")).not.toBeNull();
+    expect(container.querySelector(".history-list")).not.toBeNull();
+    const helpButton = Array.from(nav?.querySelectorAll("button") ?? []).find((button) => button.textContent === "帮助");
+    act(() => helpButton?.click());
+    text(container, "信号消失是什么意思？");
+    text(container, "它不是做空建议");
   });
 });

@@ -4,7 +4,7 @@
 - Status: Draft
 - Last refreshed: 2026-07-20
 - Primary product surfaces: signal dashboard, signal detail, signal history and outcome statistics
-- Evidence reviewed: product discussion; repository contains no existing UI, assets, or frontend components
+- Evidence reviewed: product discussion, approved `api.v1` DTO boundary, and the reviewed M6 homepage/components
 
 ## Brand
 - Personality: calm, clear, practical, and trustworthy
@@ -84,11 +84,15 @@
 - Test/screenshot expectations: verify responsive dashboard, priority sorting, simultaneous signals, new signal, signal disappearance, stale data, loading/error/empty states, and keyboard focus; M6 uses deterministic `api.v1` DTO-shaped development fixtures only
 
 ## M6 implementation decisions
-- The first frontend surface is a single beginner homepage; detail, history, statistics, live HTTP, and SSE are intentionally deferred.
+- M6-T01 established the beginner homepage; M6-T02 adds deterministic signal detail, history, observation statistics, and help views. Live HTTP and SSE remain deferred.
 - A visible `开发 / 测试数据` badge and footer disclaimer distinguish fixtures from production data; the page makes no strategy calculation or profitability claim.
 - The page order is summary, confirmed, potential, collapsed no-signal, and recent invalidations. Each card exposes exchange text, action, reason, freshness, quality, entry reference, and invalidation context.
 - Stale or unusable DTOs show a warning and disabled action copy. Loading, empty, and transport-error states use text-first status panels with `role="status"` or `role="alert"`.
 - Cards are keyboard focusable, the page has a skip link and semantic headings, and motion is disabled under `prefers-reduced-motion`.
+- Primary navigation uses keyboard-operable Signals, Results, and Help controls without adding a routing server. Detail views preserve the Signals navigation context and provide an explicit back action.
+- Signal detail remains conclusion-first: current action, plain-language reasons, entry reference, invalidation meaning, data health, state timeline, then fixed-window observations.
+- Results show price observations and completeness separately from strategy results. `not_evaluated` is rendered as “策略盈亏：未评估”; null or missing observations are never replaced with inferred values.
+- Mobile uses single-column content and horizontally scrollable accessible outcome tables; desktop expands detail/statistics/history layouts with the existing 700px breakpoint.
 
 ## Open questions
 - [ ] USDT perpetual only or spot plus perpetual / product owner

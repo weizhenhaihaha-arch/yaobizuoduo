@@ -4,7 +4,7 @@
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries now exist through M5: normalized adapters, deterministic lifecycle, replay/outcome evaluation, and a transport-agnostic read-only API service. No live exchange transport, frontend, or trading execution is implemented.
+- Offline application boundaries and the deterministic frontend now exist through M6-T02: normalized adapters, lifecycle, replay/outcome evaluation, read-only API service, beginner dashboard, signal detail, history, observation statistics, and help. No live exchange transport or trading execution is implemented.
 
 ## Confirmed requirements
 
@@ -56,6 +56,7 @@
 - M5-T02 adds `api/transport.py`, injected FastAPI GET routes, approved-event SSE framing, sanitized error envelopes, `requirements-api.txt`, and offline interface tests. The transport has no default live client and only accepts injected read-model/service dependencies. `SignalNotFoundError` is raised only for absent IDs; transport maps only that exception to 404, while malformed-record `KeyError` failures use sanitized 500 responses.
 - M5-T03 adds the forward-only PostgreSQL schema in `db/migrations/001_m5_read_model.sql` and the injected DB-API `PostgresReadModel` in `persistence/postgres_read_model.py`. The adapter uses parameterized SELECTs only, closes cursors safely, performs no commit/rollback, preserves M1 event/availability timestamps and reason codes, and rejects malformed rows or evaluated strategy results.
 - M6-T01 adds an isolated React/TypeScript Vite frontend under `frontend/` with deterministic `api.v1` DTO-shaped fixtures only. The homepage is mobile-first, shows summary/confirmed/potential/collapsed no-signal/recent-invalidations groups, exchange text labels, action/reason/freshness/quality/entry/invalidation fields, stale disabled copy, and accessible loading/empty/error states without live transport or strategy calculation.
+- M6-T02 adds keyboard-operable Signals/Results/Help navigation plus deterministic signal detail, state timeline, fixed-window outcome, history, observation-statistics, and help views. Complete/incomplete price observations remain distinct from strategy PnL, which stays visibly `not_evaluated`; missing outcomes fail closed without inferred values.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M6 after M5 passed review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - The chat execution AG `Aquinas` completed M6-T01 and was closed before enabling the autonomous CLI supervisor, preventing concurrent runtimes from modifying the repository.
@@ -93,7 +94,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - FastAPI, PostgreSQL contract/read-model, and React/TypeScript are confirmed for the current implementation path; live infrastructure integration remains later work.
-- M0 through M5 and M6-T01 are complete and approved; M6-T02 detail/history/statistics implementation is active.
+- M0 through M5 and M6-T01 are complete and approved; M6-T02 implementation is awaiting autonomous review.
 - The autonomous supervisor is authorized to execute one repository-state transition per run using Codex CLI; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -146,6 +147,7 @@
 - Main AG audited M5-T03: 36 tests, deterministic fixture validation, read-only query checks, append-only migration checks, whitespace, and scope/secret checks passed. M5 was approved and M6-T01 frontend foundation/homepage was dispatched.
 - Completed M6-T01 frontend implementation and verification: added Vite/React/TypeScript scaffolding, deterministic development fixture, beginner homepage cards, responsive tokenized CSS, accessibility states, and frontend tests. Clean install used `npm.cmd ci --registry=https://registry.npmmirror.com`; frontend tests passed 3/3 and build passed. Browser screenshot verification was not run because no browser automation dependency was part of the approved frontend scope.
 - Main AG audited M6-T01: frontend tests passed 3/3, Vite production build passed, backend tests passed 36/36, M1 fixtures and scope checks passed. M6-T01 was approved and M6-T02 was dispatched.
+- Completed autonomous worker implementation for M6-T02: added deterministic DTO-shaped detail/outcome/statistics fixtures, accessible in-app navigation, conclusion-first signal detail and timeline, complete/incomplete fixed-window observations, history rows, observation-only statistics, and help copy. Verification passed with 8 frontend tests, frontend build, 36 backend tests, deterministic M1 fixture validation (`c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`), `git diff --check`, and scope/secret scans.
 - User explicitly authorized the full autonomous supervisor. Added repo-driven work/review prompts, exclusive locking, one-transition Codex CLI execution, failure backoff/blocking, runtime status/log files, and a reproducible Windows scheduled-task installer. Retired the chat Aquinas runtime before activation.
 - First real supervisor work invocation exposed two runtime defects: Windows `workspace-write` could not launch PowerShell and Codex returned exit code 0 despite reporting no transition. Codex CLI was updated from 0.144.5 to 0.144.6, but the sandbox defect persisted; a read-only `danger-full-access` probe succeeded. The supervisor now uses structured JSON output plus required Git/status postconditions so semantic failures cannot be marked successful.
 - Deep workflow audit confirmed the scheduled heartbeat was running but lacked stagnation detection, baseline/task mismatch protection, atomic state writes, error signaling, and battery-safe scheduling. These were added and fault-injection verified; the active M6 task baseline was reset after the main AG workflow repair commit.

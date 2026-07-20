@@ -4,7 +4,7 @@
 
 - Task ID: `M6-T02`
 - Milestone: M6 beginner homepage and detail experience
-- Status: dispatched
+- Status: awaiting_review
 - Executor: autonomous Codex CLI worker transition
 - Reviewer: autonomous Codex CLI review transition
 - Previous task result: `M6-T01` passed main AG audit

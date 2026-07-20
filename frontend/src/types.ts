@@ -53,3 +53,51 @@ export type DashboardDto = {
 };
 
 export type PageState = "ready" | "loading" | "empty" | "error";
+
+export type StateEvent = {
+  event_type: string;
+  occurred_at: string;
+  from_state: SignalState | null;
+  to_state: SignalState;
+  reason_codes: string[];
+};
+
+export type Outcome = {
+  signal_id: string;
+  window: "5m" | "15m" | "1h" | "4h" | "1d";
+  entry_price: number;
+  last_price: number | null;
+  highest_price: number | null;
+  lowest_price: number | null;
+  max_rise_pct: number | null;
+  max_drawdown_pct: number | null;
+  peak_time: string | null;
+  drawdown_time: string | null;
+  first_extreme_order: string;
+  complete: boolean;
+  missing_data: string[];
+  strategy_result_status: "not_evaluated";
+  strategy_pnl_pct: null;
+  strategy_result_reason: string;
+};
+
+export type SignalDetailDto = {
+  api_version: "api.v1";
+  signal: Signal;
+  state_events: StateEvent[];
+  outcome_summary: {
+    outcomes: Outcome[];
+    strategy_result_status: "not_evaluated";
+  };
+};
+
+export type StatisticsDto = {
+  api_version: "api.v1";
+  total_signals: number;
+  complete_price_observation_windows: number;
+  incomplete_windows: number;
+  observed_max_rise_pct: number | null;
+  observed_max_drawdown_pct: number | null;
+  strategy_result_status: "not_evaluated";
+  strategy_result_reason: string;
+};
