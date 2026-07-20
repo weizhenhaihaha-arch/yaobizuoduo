@@ -1,0 +1,15 @@
+{
+  "schema_version": "m4.replay.v1",
+  "cases": [
+    {"case_id":"complete-adverse-first","snapshots":[
+      {"snapshot_id":"entry","exchange":"binance","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:00:00Z","available_time":"2026-07-20T00:00:00Z","data_quality":"normal","usable_for_signal":true,"price":100.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"replay-a"},
+      {"snapshot_id":"five-adverse","exchange":"binance","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:02:00Z","available_time":"2026-07-20T00:02:00Z","data_quality":"normal","usable_for_signal":true,"price":98.0,"price_change_pct":0.2,"volume_ratio":1.0,"oi_change_pct":0.0,"structure_id":"replay-a"},
+      {"snapshot_id":"five-high","exchange":"binance","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:05:00Z","available_time":"2026-07-20T00:05:00Z","data_quality":"normal","usable_for_signal":true,"price":105.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"replay-a"},
+      {"snapshot_id":"fifteen-end","exchange":"binance","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:15:00Z","available_time":"2026-07-20T00:15:00Z","data_quality":"normal","usable_for_signal":true,"price":103.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"replay-a"}],"expect":{"armed":true,"five_complete":true,"five_order":"drawdown_first","five_rise":5.0,"five_drawdown":-2.0,"strategy":"not_evaluated"}},
+    {"case_id":"late-data-no-lookahead","snapshots":[
+      {"snapshot_id":"late-entry","exchange":"okx","symbol":"ETHUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:00:00Z","available_time":"2026-07-20T00:00:00Z","data_quality":"normal","usable_for_signal":true,"price":100.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"replay-b"},
+      {"snapshot_id":"late-inside","exchange":"okx","symbol":"ETHUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:04:00Z","available_time":"2026-07-20T00:06:00Z","data_quality":"delayed","usable_for_signal":false,"price":120.0,"price_change_pct":2.0,"volume_ratio":3.0,"oi_change_pct":1.0,"structure_id":"replay-b"}],"expect":{"armed":true,"five_complete":false,"five_missing":"availability_after_window","five_high":100.0,"strategy":"not_evaluated"}},
+    {"case_id":"incomplete-missing-window","snapshots":[
+      {"snapshot_id":"missing-entry","exchange":"binance","symbol":"SOLUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:00:00Z","available_time":"2026-07-20T00:00:00Z","data_quality":"normal","usable_for_signal":true,"price":100.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"replay-c"}],"expect":{"armed":true,"five_complete":false,"five_missing":"no_available_observation"}}
+  ]
+}
