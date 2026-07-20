@@ -63,6 +63,20 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(response.json()["error"]["code"], "internal_error")
         self.assertNotIn("malformed dashboard record", response.text)
 
+    def test_existing_malformed_signal_is_internal_error_for_detail_and_outcomes(self):
+        malformed = armed_record()
+        del malformed["state"]
+        broken_service = ReadOnlyApiService(InMemoryReadModel([malformed], {}, [], []))
+        broken_client = TestClient(create_app(broken_service), raise_server_exceptions=False)
+
+        for path in ("/api/v1/signals/binance-btc", "/api/v1/signals/binance-btc/outcomes"):
+            with self.subTest(path=path):
+                response = broken_client.get(path)
+                self.assertEqual(response.status_code, 500)
+                self.assertEqual(response.json()["error"]["code"], "internal_error")
+                self.assertNotIn("state", response.text)
+                self.assertNotIn("KeyError", response.text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -13,6 +13,10 @@ EXCHANGE_LABELS = {"binance": "币安", "okx": "欧易"}
 CONFIRMED_STATES = {"armed", "active", "weakening"}
 
 
+class SignalNotFoundError(LookupError):
+    """Raised only when a requested signal ID is absent from the read model."""
+
+
 class ReadModel(Protocol):
     def signals(self) -> Iterable[Mapping[str, Any]]: ...
     def signal_events(self, signal_id: str) -> Iterable[Mapping[str, Any]]: ...
@@ -100,7 +104,7 @@ class ReadOnlyApiService:
         for record in self.read_model.signals():
             if record["signal_id"] == signal_id:
                 return record
-        raise KeyError(signal_id)
+        raise SignalNotFoundError(signal_id)
 
     def _signal_dto(self, record: Mapping[str, Any]) -> SignalDTO:
         state = str(record["state"])

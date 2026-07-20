@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .dtos import SignalEventDTO
-from .service import ReadOnlyApiService
+from .service import ReadOnlyApiService, SignalNotFoundError
 
 
 APP_VERSION = "api.v1"
@@ -75,7 +75,7 @@ def create_app(service: ReadOnlyApiService, event_source: Callable[[], Iterable[
     def signal_detail(signal_id: str, api_service: ReadOnlyApiService = Depends(get_service)) -> dict[str, Any]:
         try:
             return api_service.signal_detail(signal_id).to_dict()
-        except KeyError as exc:
+        except SignalNotFoundError as exc:
             raise StarletteHTTPException(status_code=404) from exc
 
     @app.get("/api/v1/signals/{signal_id}/outcomes")
@@ -83,7 +83,7 @@ def create_app(service: ReadOnlyApiService, event_source: Callable[[], Iterable[
         try:
             api_service.signal_detail(signal_id)
             return {"api_version": APP_VERSION, "signal_id": signal_id, "outcomes": [item.to_dict() for item in api_service.outcomes(signal_id)]}
-        except KeyError as exc:
+        except SignalNotFoundError as exc:
             raise StarletteHTTPException(status_code=404) from exc
 
     @app.get("/api/v1/statistics/summary")
