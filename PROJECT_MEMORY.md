@@ -80,7 +80,7 @@
 - 2026-07-20 Asia/Shanghai: confirmed the existing `妖币雷达做多` directory is linked to `https://github.com/weizhenhaihaha-arch/yaobi-radar.git`, whose current planning is for short-reversal signals; it was left unchanged.
 - 2026-07-20 Asia/Shanghai: initialized this directory as a new local Git repository with branch `main`.
 - `origin` is now attached to `https://github.com/weizhenhaihaha-arch/yaobizuoduo.git`.
-- 2026-07-20 Asia/Shanghai: local remote configuration succeeded, but `git ls-remote` received an empty server response, so remote reachability still needs a later retry.
+- 2026-07-21 Asia/Shanghai: local remote configuration remains correct, but direct GitHub HTTPS access still fails. The authenticated GitHub connector returns 404 for `weizhenhaihaha-arch/yaobizuoduo` and lists only `weizhenhaihaha-arch/yaobi-radar` as accessible, so the target repository must be created or granted to the connector before publication.
 - 2026-07-20 Asia/Shanghai: secret-pattern scan and staged whitespace check passed; first local documentation commit is `6952aa3`.
 - 2026-07-20 Asia/Shanghai: first `git push -u origin main` attempt failed because the GitHub connection was reset; remote publication remains unverified.
 - 2026-07-20 Asia/Shanghai: second push attempt failed to connect to `github.com:443`; local commits remain ready to publish when network access is available.
@@ -90,7 +90,7 @@
 
 ## Open items
 
-- Retry `git ls-remote origin`, then publish the first project commit only after reviewing the staged diff.
+- Create `weizhenhaihaha-arch/yaobizuoduo` or grant the GitHub connector access to it, then publish the clean local `main` branch; do not upload this independent project into `yaobi-radar`.
 - V1 targets Binance and OKX USDT perpetual contracts only; spot remains outside V1.
 - Define the exact entry trigger, signal validity window, invalidation condition, and repeat-signal cooldown.
 - Decide whether the first release includes Telegram alerts.
@@ -107,6 +107,7 @@
 ### 2026-07-21
 
 - Completed the M7-T01 worker transition: added the pure station-notification policy, injected restart-safe state/time seams, deterministic fixture and unit coverage, and the bounded M7 contract. The policy fails closed for stale, future, unsupported, malformed, unknown, and empty inputs; it has no live provider, network integration, queue, credentials, exchange connectivity, strategy change, or trading operation.
+- Audited GitHub publication after the user requested a full memory backup. The local branch was clean at `c1f341c`, direct GitHub HTTPS remained unavailable, and the GitHub connector confirmed that `yaobizuoduo` is not present or authorized. Publication is blocked until that repository exists or is granted to the connector; `yaobi-radar` was intentionally left untouched.
 
 ### 2026-07-20
 
