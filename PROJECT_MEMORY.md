@@ -51,6 +51,8 @@
 - A local heartbeat runner is defined at `scripts/ag_heartbeat.ps1`; it writes visible `AG_STATUS.md` and local `AG_HEARTBEAT.log` every three minutes. It reports repository evidence and cannot send chat messages after the conversation closes.
 - When the user explicitly requests live monitoring, the main AG must keep an active monitoring session and emit a window-visible status every three minutes; each report must include evidence and the next workflow action.
 - 2026-07-20 Asia/Shanghai: the local heartbeat runner was syntax-verified and started successfully as PID `17832`; `AG_STATUS.md` was created and showed the current `M1-T01` state.
+- The heartbeat is now designed to support a Windows scheduled task `Codex-Yaobizuoduo-Heartbeat`, which runs the script in one-shot mode every three minutes; the task records evidence but never replaces main AG review.
+- 2026-07-20 Asia/Shanghai: registered and started Windows task `Codex-Yaobizuoduo-Heartbeat`; state was `Ready`, last result `0`, and the next run was scheduled approximately three minutes later.
 - UI/UX decisions are documented in the repository-root `DESIGN.md`, currently a Draft source of truth.
 - A future Telegram notification can mirror signal creation and invalidation, but notification timing and deduplication remain to be designed.
 
@@ -110,3 +112,5 @@
 - Added the visible local heartbeat runner and ignored runtime status files so three-minute repository checks can be inspected without polluting Git history.
 - Fixed the heartbeat PowerShell quoting issue, verified one foreground cycle, and started the hidden three-minute local monitor.
 - Refined the loop to distinguish the local persistent heartbeat from an active chat monitoring session; the latter is required for visible three-minute window reports and is not claimed after the session ends.
+- Reworked the heartbeat script with `-Once` mode so it can run safely under a Windows scheduled task instead of relying only on a long-lived PowerShell process.
+- Replaced the temporary resident heartbeat process with the verified Windows scheduled task; visible status remains in `AG_STATUS.md` and history in `AG_HEARTBEAT.log`.

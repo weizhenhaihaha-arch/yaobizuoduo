@@ -1,12 +1,13 @@
 param(
-    [int]$IntervalSeconds = 180
+    [int]$IntervalSeconds = 180,
+    [switch]$Once
 )
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $statusPath = Join-Path $projectRoot 'AG_STATUS.md'
 $historyPath = Join-Path $projectRoot 'AG_HEARTBEAT.log'
 
-while ($true) {
+function Write-Heartbeat {
     $checkedAt = Get-Date -Format 'yyyy-MM-dd HH:mm:ss K'
     $taskPath = Join-Path $projectRoot 'CURRENT_TASK.md'
     $taskText = if (Test-Path -LiteralPath $taskPath) { Get-Content -Raw -LiteralPath $taskPath } else { '' }
@@ -36,5 +37,11 @@ while ($true) {
     )
     [System.IO.File]::WriteAllText($statusPath, ($status -join [Environment]::NewLine) + [Environment]::NewLine, [System.Text.UTF8Encoding]::new($false))
     Add-Content -LiteralPath $historyPath -Value "$checkedAt | task=$taskId | status=$taskStatus | tree=$workingTree | commit=$latestCommit"
-    Start-Sleep -Seconds $IntervalSeconds
 }
+
+do {
+    Write-Heartbeat
+    if (-not $Once) {
+        Start-Sleep -Seconds $IntervalSeconds
+    }
+} while (-not $Once)
