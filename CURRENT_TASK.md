@@ -4,7 +4,7 @@
 
 - Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: dispatched
+- Status: awaiting_review
 - Executor: autonomous Codex CLI worker transition
 - Reviewer: autonomous Codex CLI review transition
 - Previous task result: `M7-T01` passed autonomous review

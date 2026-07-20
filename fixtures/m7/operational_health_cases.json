@@ -1,0 +1,10 @@
+{
+  "schema_version": "operational-health.v1",
+  "data_health_cases": [
+    {"status": "healthy", "usable": true, "freshness": "fresh", "expected": "healthy"},
+    {"status": "delayed", "usable": false, "freshness": "recent", "expected": "delayed"},
+    {"status": "failed", "usable": false, "freshness": "unknown", "expected": "failed"},
+    {"status": "stale", "usable": false, "freshness": "stale", "expected": "stale"},
+    {"status": "mystery", "usable": false, "freshness": "unknown", "expected": "unknown"}
+  ]
+}

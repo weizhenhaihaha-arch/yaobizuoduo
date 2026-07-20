@@ -4,7 +4,7 @@
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries, the deterministic beginner-facing frontend, and the pure station-notification policy are approved through M7-T01. M7-T02 is `dispatched` for a deterministic offline operational-health assessment boundary; no live notification provider, monitoring infrastructure, exchange transport, or trading execution is implemented.
+- Offline application boundaries, the deterministic beginner-facing frontend, and the pure station-notification policy are approved through M7-T01. M7-T02 has implemented a deterministic offline operational-health assessment boundary and is `awaiting_review`; no live notification provider, monitoring infrastructure, exchange transport, or trading execution is implemented.
 
 ## Confirmed requirements
 
@@ -52,6 +52,8 @@
 - M5 backend/API/storage, all M6 beginner frontend work, and M7-T01 are approved. `M7-T02` is the only active task and is limited to an offline operational-health assessment boundary; live providers, infrastructure, deployment, automation changes, and trading remain unauthorized.
 - M7-T01 adds `notifications/policy.py` over approved `api.v1` `SignalEventDTO` values. Only `new_signal`, `weakening`, and `invalidation` are selectable; exact-event deduplication, signal/event-type cooldown, bounded retry reservation, and restart reconstruction use injected clock and state-store interfaces.
 - M7 station copy is traceable to the source signal/event/time/reasons, states that delivery does not execute a trade, and explicitly states that invalidation is not a short signal. Provisional five-minute event age, ten-minute cooldown, 30-second retry delay, and three-attempt values are notification-operation configuration, not strategy thresholds.
+- M7-T02 adds the pure `operational-health.v1` assessor in `observability/health.py` over approved `DataHealthDTO` and `StoredDelivery` snapshots. It emits stable structured healthy, pending, delayed, retrying, failed, exhausted, recovered, stale, empty, malformed, and unknown assessments using injected time and read-only state; recovery requires matching prior-unhealthy evidence in the injected snapshot.
+- M7-T02 provisional two-minute data-staleness, 30-second pending-delivery, and three-attempt exhaustion values are explicit operational configuration, not strategy thresholds. The boundary and `contracts/M7_OPERATIONAL_HEALTH.md` add no monitor, logger, provider, scheduler, persistence, network, exchange, strategy, or trading integration.
 - M5-T01 repair makes API entry advice fail closed: `can_consider_entry` now requires supported Binance/OKX exchange, `usdt_perpetual`, usable upstream data, fresh/recent freshness, and normal/out-of-order data quality in addition to `armed` state.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
@@ -90,6 +92,7 @@
 - 2026-07-21 Asia/Shanghai: independent M7-T01 review reran 7 focused and all 43 backend tests, 10 frontend tests, the TypeScript/Vite build, M1 fixture validation with the same digest, whitespace, scope, automation-file, and tracked-secret scans successfully. An adversarial malformed DTO probe failed: unhashable `event_type=[]` raises `TypeError` before fail-closed validation. Review requested a validation-order regression repair and did not approve M7-T01.
 - 2026-07-21 Asia/Shanghai: bounded M7-T01 repair verification passed 8 focused notification tests, all 44 backend tests, 10 frontend tests, the TypeScript/Vite build, M1 fixture validation (`c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`), whitespace, scope/automation allowlists, forbidden-implementation scan, and tracked-secret scan. Non-string container/scalar event types now fail closed without reserving state; unsupported strings retain their distinct result.
 - 2026-07-21 Asia/Shanghai: independent M7-T01 repair review passed 8 focused notification tests, all 44 backend tests, 10 frontend tests, the TypeScript/Vite build, M1 fixture validation with the same digest, `git diff --check`, repair scope and automation scans, forbidden-implementation and tracked-secret scans. An adversarial probe confirmed 11 non-string `event_type` shapes plus empty input fail closed without state reservation. M7-T01 is approved.
+- 2026-07-21 Asia/Shanghai: M7-T02 work verification passed 9 focused operational-health tests, all 53 backend tests, 10 frontend tests, the TypeScript/Vite build, and M1 fixture validation (`c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`). Focused coverage includes stable IDs, traceable evidence, all approved states, pending/retry/exhaustion, injected-time staleness, malformed/future inputs, and matching-prior-only recovery.
 
 ## Open items
 
@@ -100,7 +103,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - FastAPI, PostgreSQL contract/read-model, and React/TypeScript are confirmed for the current implementation path; live infrastructure integration remains later work.
-- M0 through M6 and M7-T01 are complete and approved; M7-T02 is dispatched for the next bounded offline operational-health assessment. Telegram evaluation, live delivery/monitoring infrastructure, and continuous paper observation remain later work or unapproved decisions.
+- M0 through M6 and M7-T01 are complete and approved; M7-T02 is implemented and awaiting independent review. Telegram evaluation, live delivery/monitoring infrastructure, continuous paper observation, and M8 work remain later work or unapproved decisions.
 - The autonomous supervisor is authorized to execute one repository-state transition per run using Codex CLI; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -109,6 +112,7 @@
 
 ### 2026-07-21
 
+- Completed the M7-T02 worker transition: added the pure injected operational-health assessor, deterministic fixture and unit coverage, and the bounded `operational-health.v1` contract. Assessments preserve stable source/time/reason evidence, malformed and unknown inputs fail closed with sanitized copy, and a recovered state requires matching prior-unhealthy evidence; no live monitoring, delivery provider, automation, infrastructure, strategy, or trading behavior was added.
 - Completed the M7-T01 worker transition: added the pure station-notification policy, injected restart-safe state/time seams, deterministic fixture and unit coverage, and the bounded M7 contract. The implemented tests cover stale, future, unsupported, common malformed, unknown, and empty inputs, but review found the unhashable event-type gap described below; the module has no live provider, network integration, queue, credentials, exchange connectivity, strategy change, or trading operation.
 - Audited GitHub publication after the user requested a full memory backup. The local branch was clean at `c1f341c`, direct GitHub HTTPS remained unavailable, and the GitHub connector confirmed that `yaobizuoduo` is not present or authorized. Publication is blocked until that repository exists or is granted to the connector; `yaobi-radar` was intentionally left untouched.
 - Main AG review rejected M7-T01 for one fail-closed defect: `_validate` tests membership in the approved-event set before proving `event_type` is a string, so an unhashable malformed value raises `TypeError`. All required standard suites and repository scans otherwise passed; repair is limited to validation ordering and regression coverage for container/scalar non-string event types.
