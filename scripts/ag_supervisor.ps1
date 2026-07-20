@@ -19,6 +19,7 @@ $heartbeatStatusPath = Join-Path $projectRoot 'AG_STATUS.md'
 $basePromptPath = Join-Path $projectRoot 'automation\SUPERVISOR_BASE.md'
 $reviewPromptPath = Join-Path $projectRoot 'automation\REVIEW_PROMPT.md'
 $workPromptPath = Join-Path $projectRoot 'automation\WORK_PROMPT.md'
+$outputSchemaPath = Join-Path $projectRoot 'automation\supervisor_output.schema.json'
 $codexPath = (Get-Command codex.exe -ErrorAction Stop).Source
 $activeStatuses = @('dispatched', 'in_progress', 'repair_requested', 'awaiting_review')
 $lockStream = $null
@@ -76,8 +77,8 @@ function Write-SupervisorStatus {
         "- Selected action: $Action",
         "- Result: $Result",
         "- Details: $Details",
-        '- Runtime: Codex CLI non-interactive, workspace-write sandbox, approvals disabled',
-        '- Safety: one transition per invocation, exclusive lock, failure backoff, no Git push'
+        '- Runtime: Codex CLI non-interactive, danger-full-access fallback, approvals disabled',
+        '- Safety: one transition, exclusive lock, structured output, Git/status postconditions, failure backoff, no Git push'
     )
     Write-Utf8Atomic -Path $statusPath -Content (($content -join [Environment]::NewLine) + [Environment]::NewLine)
 }
@@ -120,11 +121,12 @@ function Invoke-CodexTransition {
     param([string]$Prompt)
     $arguments = @(
         '-a', 'never',
-        '-s', 'workspace-write',
+        '-s', 'danger-full-access',
         '-C', $projectRoot,
         'exec',
         '--ephemeral',
         '--color', 'never',
+        '--output-schema', $outputSchemaPath,
         '--output-last-message', $lastMessagePath,
         '-'
     )
@@ -156,6 +158,18 @@ function Invoke-CodexTransition {
     if ($process.ExitCode -ne 0) {
         throw "Codex exited with code $($process.ExitCode): $stderr"
     }
+    if (-not (Test-Path -LiteralPath $lastMessagePath)) {
+        throw 'Codex produced no structured last-message file.'
+    }
+    try {
+        $result = Get-Content -Raw -LiteralPath $lastMessagePath | ConvertFrom-Json
+    } catch {
+        throw "Codex last message is not valid supervisor JSON: $($_.Exception.Message)"
+    }
+    if ([string]$result.transition_status -ne 'completed') {
+        throw "Codex reported transition_status=$($result.transition_status): $($result.summary)"
+    }
+    return $result
 }
 
 if (-not (Acquire-SupervisorLock)) {
@@ -222,13 +236,30 @@ try {
 
     Write-SupervisorStatus -Action $action -Result 'running' -TaskId $taskId -TaskStatus $taskStatus -Details 'Codex transition is running under the exclusive supervisor lock.'
     Add-SupervisorLog -Message "task=$taskId status=$taskStatus action=$action start"
-    Invoke-CodexTransition -Prompt $prompt
+    $preTransitionHead = $head
+    $transitionResult = Invoke-CodexTransition -Prompt $prompt
+    $postTransitionHead = Get-GitOutput -Arguments @('rev-parse', 'HEAD')
+    $postTaskText = Get-Content -Raw -LiteralPath (Join-Path $projectRoot 'CURRENT_TASK.md')
+    $postTaskId = if ($postTaskText -match 'Task ID:\s*`([^`]+)`') { $Matches[1] } else { 'unknown' }
+    $postTaskStatus = if ($postTaskText -match 'Status:\s*([^\r\n]+)') { $Matches[1].Trim() } else { 'unknown' }
+    if ($postTransitionHead -eq $preTransitionHead) {
+        throw 'Codex returned completed but created no repository commit.'
+    }
+    if ($action -eq 'work' -and $postTaskStatus -notin @('awaiting_review', 'blocked')) {
+        throw "Work transition ended with invalid task status: $postTaskStatus"
+    }
+    if ($action -eq 'review' -and $postTaskStatus -notin @('dispatched', 'repair_requested', 'blocked')) {
+        throw "Review transition ended with invalid task status: $postTaskStatus"
+    }
+    if ([string]$transitionResult.action -ne $action) {
+        throw "Structured result action mismatch: expected $action, got $($transitionResult.action)"
+    }
     powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $projectRoot 'scripts\ag_heartbeat.ps1') -Once | Out-Null
     if ($LASTEXITCODE -ne 0) {
         throw 'Heartbeat refresh failed after Codex transition.'
     }
     Write-SupervisorState -Failures 0 -NextRetryAt '' -Blocked $false -LastAction $action -LastResult 'success'
-    Write-SupervisorStatus -Action $action -Result 'success' -TaskId $taskId -TaskStatus $taskStatus -Details 'Codex completed one transition; repository state will drive the next scheduled run.'
+    Write-SupervisorStatus -Action $action -Result 'success' -TaskId $postTaskId -TaskStatus $postTaskStatus -Details "Commit $postTransitionHead completed one validated transition."
     if (Test-Path -LiteralPath $errorPath) { Remove-Item -LiteralPath $errorPath -Force }
     Add-SupervisorLog -Message "task=$taskId action=$action result=success"
 } catch {

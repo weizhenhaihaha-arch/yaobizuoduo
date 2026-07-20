@@ -12,5 +12,6 @@ Mandatory rules:
 6. Keep changes minimal and atomic. Run the task's required tests and checks. Do not claim success without command evidence.
 7. Perform exactly one supervisor transition in this invocation, then stop.
 8. Use `apply_patch` for repository edits. Do not ask the user routine questions; mark the task blocked only when a genuine external decision or permission is required.
+9. Your final response must satisfy the supplied JSON output schema. Use `transition_status=completed` only after the required repository commit and status transition exist. Use `failed` when tools or validation prevent the transition; never describe an unperformed transition as success.
 
 The Windows supervisor owns this repository while enabled. Do not spawn or coordinate with the retired chat execution AG.

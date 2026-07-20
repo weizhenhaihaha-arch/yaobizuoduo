@@ -209,6 +209,7 @@
 - 审核转换：发现基线后新提交或 `awaiting_review` 时，独立 Codex reviewer 运行验收；不通过只派发返修，通过只记录批准并派发下一个最小任务，然后停止。
 - 并发保护：`.ag_supervisor.lock` 与计划任务 `IgnoreNew` 双重防止重入；不得同时恢复聊天内 Aquinas。
 - 失败保护：连续失败采用 5/10/20 分钟退避，达到 3 次生成 `AG_SUPERVISOR_BLOCKED.md` 并停止模型调用，等待人工检查。
-- 安全边界：使用 `workspace-write` sandbox、`approval=never`、单轮最长 45 分钟、不推送 Git、不允许真实交易或凭证。
+- 安全边界：本机 Codex 0.144.6 的 Windows `workspace-write` 沙箱无法启动 PowerShell（`CreateProcessWithLogonW failed: 2`），因此监督器使用 `danger-full-access`、`approval=never`，并以独占锁、严格提示、结构化结果、Git/任务状态后验验证、单轮 45 分钟、不推送 Git和禁用真实交易/凭证进行补偿控制。
+- 成功判定：Codex 退出码 0 不等于任务成功；监督器还要求结构化结果为 `completed`、HEAD 产生新提交，并且开发结束为 `awaiting_review|blocked`、审核结束为 `dispatched|repair_requested|blocked`。
 - 成本边界：无动作时不调用模型；每次计划运行最多执行一个开发或审核转换。
 - 可见输出：`AG_SUPERVISOR_STATUS.md`、`AG_SUPERVISOR_LAST.md` 和 `AG_SUPERVISOR.log` 记录监督结果；聊天关闭时仍不会伪造窗口消息。

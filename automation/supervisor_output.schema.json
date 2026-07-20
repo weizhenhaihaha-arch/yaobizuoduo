@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["transition_status", "action", "task_id", "resulting_task_status", "commit", "summary", "verification"],
+  "properties": {
+    "transition_status": { "type": "string", "enum": ["completed", "blocked", "failed"] },
+    "action": { "type": "string", "enum": ["work", "review"] },
+    "task_id": { "type": "string", "minLength": 1 },
+    "resulting_task_status": { "type": "string", "minLength": 1 },
+    "commit": { "type": ["string", "null"] },
+    "summary": { "type": "string", "minLength": 1 },
+    "verification": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}
