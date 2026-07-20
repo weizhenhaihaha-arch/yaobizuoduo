@@ -4,9 +4,10 @@
 
 - Task ID: `M0-T01`
 - Milestone: M0 产品和策略边界冻结
-- Status: in_progress
+- Status: repair_requested
 - Executor: execution AG `Aquinas` (`019f7dc8-260c-7fc3-8e7d-e05f3dcf8cfd`)
 - Reviewer: main AG
+- Review result: repair requested; `git diff --check` found trailing whitespace at line 73 of `M0_BOUNDARY_PROPOSAL.md`
 
 ## Goal
 

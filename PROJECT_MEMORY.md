@@ -67,6 +67,7 @@
 - Complete M0 boundary freeze before starting M1 data contracts.
 - Receive and audit the `M0-T01` boundary-freeze report before dispatching another task.
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
+- M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 
 ## Development log
@@ -86,3 +87,4 @@
 - Started execution AG `Aquinas` for `M0-T01`; the task is now in progress and the main AG will review its report before proceeding.
 - Added the three-minute heartbeat requirement and documented the limitation that a closed conversation cannot be represented as an active monitor without a running monitoring process.
 - Completed execution AG draft for `M0-T01`: added the boundary decision proposal and recorded the durable M0 decisions and remaining replay-dependent choices.
+- Main AG audited the M0-T01 proposal, rejected the first report for a concrete whitespace failure, and issued a narrowly scoped repair request; no M1 work is authorized.
