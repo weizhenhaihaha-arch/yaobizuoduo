@@ -4,8 +4,8 @@
 
 - Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: awaiting_review
-- Executor: autonomous Codex CLI worker transition
+- Status: repair_requested
+- Executor: autonomous Codex CLI worker repair transition
 - Reviewer: autonomous Codex CLI review transition
 - Previous task result: `M7-T01` passed autonomous review
 
@@ -56,6 +56,36 @@ adding live monitoring infrastructure.
   `git diff --check`, scope scan, and secret scan pass
 - Report files, decisions, commands/results, risks, branch, commit, workspace
   status, and memory sync
+
+## Review blocking defects
+
+- `observability/health.py::_valid_data_health` performs approved-exchange set
+  membership before proving `exchange` is a string. A malformed
+  `DataHealthDTO(exchange=[])` raises `TypeError` instead of producing a
+  fail-closed `malformed` assessment.
+- `observability/health.py::_valid_prior` performs unhealthy-status set
+  membership before proving `status` is a string. A malformed
+  `PriorUnhealthyState(status=[])` raises `TypeError` and aborts assessment of
+  otherwise valid current sources instead of ignoring invalid prior evidence.
+- Delivery validation checks the literal `"delivered"` before the assessment
+  path normalizes status casing. Consequently `status="DELIVERED"` with no
+  `delivered_at` is accepted and reported `healthy` from `last_attempt_at`
+  instead of failing closed as malformed.
+
+## Repair acceptance checks
+
+- Validate malformed data-health and prior-state field types before set or map
+  operations so unhashable containers cannot escape as exceptions; malformed
+  current sources produce a sanitized `malformed` assessment and malformed
+  prior evidence is ignored without enabling recovery.
+- Apply one consistent delivery-status normalization/validation rule so every
+  delivered state requires a valid `delivered_at`; retain deterministic
+  `unknown` behavior for unsupported string statuses.
+- Add regression coverage for at least unhashable `exchange`, unhashable prior
+  `status`, and case-variant delivered status without `delivered_at`.
+- Keep the repair limited to operational-health validation/tests and required
+  contract, task, fixture, or memory reporting, then rerun every original
+  M7-T02 acceptance check and the adversarial probes above.
 
 ## Required report
 
