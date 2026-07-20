@@ -43,6 +43,8 @@
 - 2026-07-20 Asia/Shanghai: initialized this directory as a new local Git repository with branch `main`.
 - `origin` is now attached to `https://github.com/weizhenhaihaha-arch/yaobizuoduo.git`.
 - 2026-07-20 Asia/Shanghai: local remote configuration succeeded, but `git ls-remote` received an empty server response, so remote reachability still needs a later retry.
+- 2026-07-20 Asia/Shanghai: secret-pattern scan and staged whitespace check passed; first local documentation commit is `6952aa3`.
+- 2026-07-20 Asia/Shanghai: first `git push -u origin main` attempt failed because the GitHub connection was reset; remote publication remains unverified.
 
 ## Open items
 
