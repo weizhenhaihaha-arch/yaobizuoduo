@@ -36,7 +36,7 @@
 - Product and technical details are documented in `PRODUCT_SPEC.md`; strategy thresholds remain open until replay validation.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M0, followed by data contracts before application implementation.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
-- Startup check found no separate execution AG process or active task; `M0-T01` was dispatched as the wake-up task and is awaiting an execution AG report.
+- Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
 - The active loop now requires a three-minute heartbeat while a monitoring session or local monitor is running; each heartbeat checks task status, AG evidence, Git changes, tests, blockers, and wake-up conditions.
 - UI/UX decisions are documented in the repository-root `DESIGN.md`, currently a Draft source of truth.
 - A future Telegram notification can mirror signal creation and invalidation, but notification timing and deduplication remain to be designed.
@@ -80,4 +80,5 @@
 - Confirmed signal freshness, quality labels, repeat-trigger suppression, data-health messaging, and explanatory empty states as product requirements.
 - Defined the strict M0-M8 development workflow with milestone gates, non-goals, change control, verification, and the current M0 entry point.
 - Activated the AG loop after user confirmation, checked for an active execution AG, found none, and dispatched `M0-T01` as the first wake-up task.
+- Started execution AG `Aquinas` for `M0-T01`; the task is now in progress and the main AG will review its report before proceeding.
 - Added the three-minute heartbeat requirement and documented the limitation that a closed conversation cannot be represented as an active monitor without a running monitoring process.

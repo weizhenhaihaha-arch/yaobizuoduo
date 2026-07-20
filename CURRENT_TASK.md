@@ -4,8 +4,8 @@
 
 - Task ID: `M0-T01`
 - Milestone: M0 产品和策略边界冻结
-- Status: dispatched
-- Executor: execution AG (wake-up required; no active execution AG was detected during startup check)
+- Status: in_progress
+- Executor: execution AG `Aquinas` (`019f7dc8-260c-7fc3-8e7d-e05f3dcf8cfd`)
 - Reviewer: main AG
 
 ## Goal
