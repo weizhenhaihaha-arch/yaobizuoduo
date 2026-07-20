@@ -89,7 +89,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
-- M0 through M4 and M5-T01 are complete and approved; M5-T02 targeted repair is complete pending review, with internal read-model `KeyError` failures returning sanitized 500 errors rather than false 404 responses.
+- M0 through M4 and M5-T01 are complete and approved; M5-T02 needs a second targeted repair because detail/outcomes route-level broad `KeyError` catches still misclassify malformed existing signals as 404.
 - No database migration, frontend, live exchange transport, authentication, credentials, or deployment work is authorized before later approvals.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -135,3 +135,4 @@
 - Completed execution AG work for `M5-T02`: added FastAPI GET routes, SSE allowlist/framing, unified errors, dependency injection, minimum API dependencies, transport contract documentation, and offline tests; 29 tests passed without live exchange calls.
 - Main AG reviewed M5-T02: 29 tests and standard checks passed, but an adversarial malformed-record probe showed the global `KeyError` handler misclassified an internal dashboard failure as 404; a focused repair was requested and later milestones remain blocked.
 - Completed M5-T02 targeted repair: removed the global `KeyError` 404 mapping, scoped missing-signal conversion to detail/outcomes routes, and added regression coverage for missing outcomes plus malformed dashboard 500 sanitization.
+- Main AG re-review found the first M5-T02 repair incomplete: route-level broad `KeyError` catches still classify malformed existing signal records as missing; a dedicated missing-signal exception and detail/outcomes regression tests are required.

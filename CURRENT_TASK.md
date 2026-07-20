@@ -48,5 +48,5 @@ Use the report structure in `AG_WORK_LOOP.md`. Do not proceed to database migrat
 - Review time: 2026-07-20 14:12 Asia/Shanghai
 - Result: repair requested; all later M5/M6 work remains blocked
 - Confirmed checks: 29 unit tests passed, M1 fixture validation passed, `git diff --check` passed, and scope scan found no live exchange, trading, credential, frontend, or strategy implementation
-- Blocking defect: the global `KeyError` handler converts malformed internal read-model data on `/api/v1/dashboard` into a misleading 404 `not_found` response instead of a sanitized 500 `internal_error`
-- Required repair: scope missing-signal conversion to the signal detail/outcomes lookups only, allow unrelated internal `KeyError` failures to use the sanitized 500 envelope, and add focused regression coverage
+- Blocking defect: the first repair removed the global handler, but each detail/outcomes route still catches every `KeyError`; an existing malformed signal is therefore still misclassified as 404
+- Required repair: introduce or use a dedicated missing-signal exception from the service lookup, catch only that exception in detail/outcomes routes, let malformed-record `KeyError` failures return sanitized 500, and add focused regression coverage for both routes
