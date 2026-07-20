@@ -21,7 +21,7 @@ function Write-Heartbeat {
     $workingTree = if ($branchState -match '(?m)^## [^\r\n]+$') { 'clean' } else { 'changed' }
     $loopState = if (Test-Path -LiteralPath $loopStatePath) { Get-Content -Raw -LiteralPath $loopStatePath | ConvertFrom-Json } else { $null }
     $baselineCommit = if ($loopState) { [string]$loopState.baseline_commit } else { '' }
-    $reviewRequired = -not [string]::IsNullOrWhiteSpace($baselineCommit) -and $latestCommitHash -ne $baselineCommit -and $taskStatus -match '^(dispatched|in_progress)$'
+    $reviewRequired = -not [string]::IsNullOrWhiteSpace($baselineCommit) -and $latestCommitHash -ne $baselineCommit -and $taskStatus -match '^(dispatched|in_progress|repair_requested)$'
 
     $status = @(
         '# AG Heartbeat Status',

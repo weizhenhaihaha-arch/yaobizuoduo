@@ -11,7 +11,7 @@
 - 可见状态文件：`AG_STATUS.md`；历史心跳：`AG_HEARTBEAT.log`（本地运行时生成，不提交）
 - 对话实时模式：主 AG 保持监控会话时，每 3 分钟在窗口汇报一次检查结果；每次先检查 AG 证据，再执行审核或派发，不重复汇报无变化的空话。
 - 系统定时任务：`Codex-Yaobizuoduo-Heartbeat` 每 3 分钟执行 `scripts/ag_heartbeat.ps1 -Once`；它只记录可验证状态，不绕过主 AG 审核。
-- 完成检测：每次派发后运行 `scripts/set_ag_task_baseline.ps1` 记录 Git 基线；心跳发现新提交时生成 `AG_REVIEW_REQUIRED.md` 并标记待审核。
+- 完成检测：每次派发或返修后运行 `scripts/set_ag_task_baseline.ps1` 记录 Git 基线；心跳在 `dispatched`、`in_progress` 或 `repair_requested` 状态发现新提交时生成 `AG_REVIEW_REQUIRED.md` 并标记待审核。
 - 审核人：主 AG
 - 执行人：被派发任务的开发 AG
 
