@@ -2,44 +2,44 @@
 
 ## Task
 
-- Task ID: `M1-T01`
-- Milestone: M1 data contracts and test fixtures
-- Status: awaiting_review
+- Task ID: `M2-T01`
+- Milestone: M2 read-only market collection and data health
+- Status: dispatched
 - Executor: execution AG `Aquinas`
 - Reviewer: main AG
-- Previous task result: `M0-T01` passed after targeted repair; M1 is now authorized
-- Execution report: M1 artifacts were committed as `e8a8652`; main AG audit is pending
+- Previous task result: `M1-T01` passed main AG audit; M2 is now authorized
 
 ## Goal
 
-Define the first normalized market-data, signal-event, lifecycle, and outcome-record contracts, plus deterministic test fixtures. Do not connect to live exchanges or implement the strategy.
+Design and implement only the read-only Binance and OKX market-data adapter boundary and health behavior. Do not implement signal strategy or real trading.
 
 ## Allowed scope
 
-- Review `PRODUCT_SPEC.md`, `DESIGN.md`, `DEVELOPMENT_WORKFLOW.md`, `PROJECT_MEMORY.md`, and `M0_BOUNDARY_PROPOSAL.md`
-- Define versioned schemas for exchange, symbol, timestamp, candle, volume, OI, funding, data health, signal, signal-state event, and outcome window
-- Create small Binance/OKX fixed fixtures covering normal, delayed, missing, out-of-order, and invalid data
-- Define event-time versus availability-time fields and deterministic replay expectations
-- Update only M1 contract documentation and fixture files
+- Review the M1 contract and fixtures before coding
+- Define exchange adapter interfaces and symbol mapping rules
+- Implement safe read-only probes or adapter stubs that can be tested without credentials
+- Implement normalization, freshness, delay, missing-data, and reconnect state handling
+- Add offline tests using the existing fixtures; live probes are optional and must not be required for tests
+- Update `PROJECT_MEMORY.md` with durable facts only
 
 ## Forbidden scope
 
-- No frontend or backend application implementation
-- No live exchange API integration
-- No real-order execution or credential handling
-- No short strategy, additional exchange, or automatic trading
-- No final strategy thresholds or performance claims
+- No signal scoring or final strategy thresholds
+- No frontend implementation
+- No real-order execution or exchange credentials
+- No short strategy or additional exchange
+- No fake live data presented as verified production data
 
 ## Acceptance criteria
 
-- Provide versioned contract documentation with required fields, units, timestamp semantics, and invalid-data behavior
-- Include deterministic Binance and OKX fixtures and tests or validation scripts that parse them
-- Prove the same fixture produces the same normalized result
-- Keep confirmed requirements separate from assumptions and unresolved fields
-- Run document consistency checks and fixture validation
-- Update `PROJECT_MEMORY.md` with durable facts only
-- Report changed files, commands, results, risks, branch, commit, and workspace status
+- Binance and OKX adapter boundaries map into `m1.v1` fields
+- Tests cover normal, delayed, missing, out-of-order, invalid, and reconnect/error states
+- Data-health status fails closed and cannot create a signal
+- Offline tests pass without network access
+- Live endpoint behavior, if probed, is recorded separately from offline verification
+- `git diff --check`, targeted tests, and scope/secret checks pass
+- Report changed files, commands, results, risks, branch, commit, workspace status, and memory sync
 
 ## Required report
 
-Use the report structure in `AG_WORK_LOOP.md`. If blocked, report the exact decision needed instead of changing scope.
+Use the report structure in `AG_WORK_LOOP.md`. If blocked by endpoint access or missing product decisions, report the exact blocker instead of expanding scope.
