@@ -40,10 +40,12 @@
 - M1 fixed fixtures are stored under `fixtures/m1/` for both Binance and OKX and cover normal, delayed, missing, out-of-order, and invalid data. `scripts/validate_m1_fixtures.ps1` validates them offline and emits a deterministic replay digest.
 - Main AG review passed `M0-T01` after a targeted trailing-whitespace repair; M1 and M2 are now authorized in sequence.
 - Main AG audited `M1-T01`: offline fixture validation passed with 10 cases, 12 accepted, 2 rejected, and a deterministic replay digest; scope and whitespace checks passed. M1-T01 is approved.
-- `M2-T01` is now the only active task, limited to read-only Binance/OKX adapter boundaries and data-health behavior; signal strategy and real trading remain forbidden.
+- M2-T01 was the only active task for read-only Binance/OKX adapter boundaries; it passed review and M3 is now authorized.
 - Main AG audited `M2-T01`: 7 adapter tests, M1 fixture validation, whitespace, and scope checks passed. M2-T01 is approved.
 - `M3-T01` is now the only active task, limited to deterministic signal lifecycle and explainable strategy boundaries; final thresholds and performance claims remain forbidden.
 - M2-T01 implements pure offline-testable Binance/OKX payload mapping and fail-closed health handling in `adapters/read_only_market.py`; it has no network client, credentials, signal strategy, frontend, or trading operation.
+- M3-T01 implements the deterministic `SignalLifecycle` boundary in `strategy/lifecycle.py`: candidate-to-potential-to-armed-to-active progression, weakening/invalidation/expiry, append-only explainable events, health vetoes, duplicate suppression, cooldown, and new-structure re-entry guards.
+- M3 numeric values are versioned provisional configuration (`provisional-m3-v1`) only; no final thresholds, profitability claims, short logic, frontend, live exchange integration, or trading operation were added.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M2, followed by signal strategy only after M2 review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
@@ -78,8 +80,7 @@
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
 - M0 boundary freeze and M1 data contracts/fixtures are complete; M2 adapter boundaries and health handling now await main AG review.
-- Main AG must audit the `M2-T01` adapter, tests, validation output, and scope before dispatching M2-T02.
-- Main AG must audit the `M2-T01` adapter and data-health report before dispatching M2-T02.
+- M2 adapter boundaries and health handling are complete and approved; M3 lifecycle and strategy boundary now await main AG review.
 - Main AG must audit the `M3-T01` lifecycle and strategy-boundary report before dispatching M3-T02.
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
@@ -107,6 +108,7 @@
 - Execution AG repaired the whitespace issue, main AG re-ran the checks and passed `M0-T01`, then dispatched `M1-T01` for data contracts and deterministic fixtures.
 - Completed execution AG work for `M1-T01`: added the versioned data contract, Binance/OKX deterministic fixtures, offline validation script, and deterministic replay check; no live API or application code was added.
 - Completed execution AG work for `M2-T01`: added read-only Binance/OKX normalizers, symbol mapping, fail-closed health/reconnect state, offline tests, and adapter boundary documentation; no live endpoint was called.
+- Completed execution AG work for `M3-T01`: added provisional lifecycle configuration, deterministic state events, offline replay fixtures, lifecycle tests, and strategy-boundary documentation; no final performance claim or trading capability was added.
 - Main AG audited the M1 contract and fixtures, confirmed deterministic validation, passed `M1-T01`, and dispatched `M2-T01` for read-only collection boundaries and health handling.
 - Main AG audited M2 adapters and health behavior, passed `M2-T01`, and dispatched `M3-T01` for the deterministic signal lifecycle and provisional strategy boundary.
 - Added the visible local heartbeat runner and ignored runtime status files so three-minute repository checks can be inspected without polluting Git history.

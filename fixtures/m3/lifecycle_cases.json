@@ -1,0 +1,20 @@
+{
+  "schema_version": "m3.lifecycle.v1",
+  "cases": [
+    {"case_id":"normal-confirm-active","snapshots":[
+      {"snapshot_id":"s1","exchange":"binance","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:00:00Z","available_time":"2026-07-20T00:00:00.500Z","data_quality":"normal","usable_for_signal":true,"price":100.0,"price_change_pct":0.4,"volume_ratio":1.6,"oi_change_pct":0.2,"structure_id":"structure-a"},
+      {"snapshot_id":"s2","exchange":"binance","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:01:00Z","available_time":"2026-07-20T00:01:00.500Z","data_quality":"normal","usable_for_signal":true,"price":101.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"structure-a"},
+      {"snapshot_id":"s3","exchange":"binance","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:02:00Z","available_time":"2026-07-20T00:02:00.500Z","data_quality":"normal","usable_for_signal":true,"price":101.2,"price_change_pct":1.1,"volume_ratio":2.1,"oi_change_pct":0.6,"structure_id":"structure-a"}],"expected_states":["potential","armed","active"]},
+    {"case_id":"health-veto","snapshots":[
+      {"snapshot_id":"stale","exchange":"okx","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:00:00Z","available_time":"2026-07-20T00:00:04Z","data_quality":"delayed","usable_for_signal":false,"price":100.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"structure-b"}],"expected_states":["watch"]},
+    {"case_id":"weakening-invalidation","snapshots":[
+      {"snapshot_id":"w1","exchange":"binance","symbol":"ETHUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:00:00Z","available_time":"2026-07-20T00:00:00.500Z","data_quality":"normal","usable_for_signal":true,"price":100.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"structure-c"},
+      {"snapshot_id":"w2","exchange":"binance","symbol":"ETHUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:01:00Z","available_time":"2026-07-20T00:01:00.500Z","data_quality":"normal","usable_for_signal":true,"price":100.1,"price_change_pct":0.5,"volume_ratio":1.0,"oi_change_pct":-0.1,"structure_id":"structure-c"},
+      {"snapshot_id":"w3","exchange":"binance","symbol":"ETHUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:02:00Z","available_time":"2026-07-20T00:02:00.500Z","data_quality":"normal","usable_for_signal":true,"price":99.0,"price_change_pct":0.2,"volume_ratio":0.8,"oi_change_pct":-0.2,"structure_id":"structure-c"}],"expected_states":["armed","weakening","invalidated"]},
+    {"case_id":"duplicate-and-reentry","snapshots":[
+      {"snapshot_id":"r1","exchange":"okx","symbol":"SOLUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:00:00Z","available_time":"2026-07-20T00:00:00.500Z","data_quality":"normal","usable_for_signal":true,"price":100.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"structure-d"},
+      {"snapshot_id":"r2","exchange":"okx","symbol":"SOLUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:01:00Z","available_time":"2026-07-20T00:01:00.500Z","data_quality":"normal","usable_for_signal":true,"price":99.0,"price_change_pct":0.2,"volume_ratio":0.8,"oi_change_pct":-0.2,"structure_id":"structure-d"},
+      {"snapshot_id":"r3","exchange":"okx","symbol":"SOLUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:10:00Z","available_time":"2026-07-20T00:10:00.500Z","data_quality":"normal","usable_for_signal":true,"price":101.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"structure-d"},
+      {"snapshot_id":"r4","exchange":"okx","symbol":"SOLUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:31:00Z","available_time":"2026-07-20T00:31:00.500Z","data_quality":"normal","usable_for_signal":true,"price":102.0,"price_change_pct":1.0,"volume_ratio":2.2,"oi_change_pct":0.7,"structure_id":"structure-e"}],"expected_states":["armed","invalidated","invalidated","armed"]}
+  ]
+}
