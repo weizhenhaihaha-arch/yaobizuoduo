@@ -25,9 +25,9 @@ export const developmentSignalDetail: SignalDetailDto = {
   api_version: "api.v1",
   signal: developmentDashboard.confirmed[0],
   state_events: [
-    { event_type: "candidate", occurred_at: "2026-07-20T07:58:00Z", from_state: null, to_state: "watch", reason_codes: ["activity_rising"] },
-    { event_type: "potential", occurred_at: "2026-07-20T07:59:00Z", from_state: "watch", to_state: "potential", reason_codes: ["volume_expansion"] },
-    { event_type: "armed", occurred_at: "2026-07-20T08:01:00Z", from_state: "potential", to_state: "armed", reason_codes: ["trend_confirmed"] },
+    { event_id: "event-btc-watch", signal_id: "binance-btc-armed", from_state: null, to_state: "watch", event_time: "2026-07-20T07:58:00Z", available_time: "2026-07-20T07:58:01Z", reason_codes: ["activity_rising"], snapshot_id: "snapshot-btc-watch" },
+    { event_id: "event-btc-potential", signal_id: "binance-btc-armed", from_state: "watch", to_state: "potential", event_time: "2026-07-20T07:59:00Z", available_time: "2026-07-20T07:59:01Z", reason_codes: ["volume_expansion"], snapshot_id: "snapshot-btc-potential" },
+    { event_id: "event-btc-armed", signal_id: "binance-btc-armed", from_state: "potential", to_state: "armed", event_time: "2026-07-20T08:01:00Z", available_time: "2026-07-20T08:01:01Z", reason_codes: ["trend_confirmed"], snapshot_id: "snapshot-btc-armed" },
   ],
   outcome_summary: { outcomes: developmentOutcomes, strategy_result_status: "not_evaluated" },
 };

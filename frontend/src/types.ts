@@ -55,11 +55,14 @@ export type DashboardDto = {
 export type PageState = "ready" | "loading" | "empty" | "error";
 
 export type StateEvent = {
-  event_type: string;
-  occurred_at: string;
+  event_id: string;
+  signal_id: string;
   from_state: SignalState | null;
   to_state: SignalState;
+  event_time: string;
+  available_time: string;
   reason_codes: string[];
+  snapshot_id: string;
 };
 
 export type Outcome = {

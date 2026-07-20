@@ -80,6 +80,28 @@ describe("detail, history, and observation statistics", () => {
     expect(container.textContent).not.toContain("胜率");
   });
 
+  it("renders the approved api.v1 persisted event shape using event_time", () => {
+    const event = developmentSignalDetail.state_events[2];
+    expect(event).toEqual({
+      event_id: "event-btc-armed",
+      signal_id: "binance-btc-armed",
+      from_state: "potential",
+      to_state: "armed",
+      event_time: "2026-07-20T08:01:00Z",
+      available_time: "2026-07-20T08:01:01Z",
+      reason_codes: ["trend_confirmed"],
+      snapshot_id: "snapshot-btc-armed",
+    });
+    const container = render(<SignalDetailPage detail={{ ...developmentSignalDetail, state_events: [event] }} />);
+    expect(container.querySelector("time")?.getAttribute("datetime")).toBe(event.event_time);
+    text(container, "可以考虑开多");
+  });
+
+  it("fails closed when the approved detail payload has no events", () => {
+    const container = render(<SignalDetailPage detail={{ ...developmentSignalDetail, state_events: [] }} />);
+    text(container, "状态事件缺失，无法还原信号过程。");
+  });
+
   it("shows observation-only statistics and explicit empty history", () => {
     const container = render(<ResultsPage history={[]} statistics={developmentStatistics} />);
     text(container, "观察到的最高涨幅");
