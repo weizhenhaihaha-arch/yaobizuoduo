@@ -4,7 +4,7 @@
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries and the deterministic frontend now exist through M6-T02: normalized adapters, lifecycle, replay/outcome evaluation, read-only API service, beginner dashboard, signal detail, history, observation statistics, and help. No live exchange transport or trading execution is implemented.
+- Offline application boundaries and the approved deterministic frontend exist through M6-T01. The M6-T02 signal detail, history, observation-statistics, and help implementation is present but remains unapproved pending a frontend/backend timeline-event contract repair. No live exchange transport or trading execution is implemented.
 
 ## Confirmed requirements
 
@@ -94,7 +94,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - FastAPI, PostgreSQL contract/read-model, and React/TypeScript are confirmed for the current implementation path; live infrastructure integration remains later work.
-- M0 through M5 and M6-T01 are complete and approved; M6-T02 implementation is awaiting autonomous review.
+- M0 through M5 and M6-T01 are complete and approved; M6-T02 is in `repair_requested` because its timeline event fixture/type does not match the approved `api.v1` detail payload.
 - The autonomous supervisor is authorized to execute one repository-state transition per run using Codex CLI; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -148,6 +148,7 @@
 - Completed M6-T01 frontend implementation and verification: added Vite/React/TypeScript scaffolding, deterministic development fixture, beginner homepage cards, responsive tokenized CSS, accessibility states, and frontend tests. Clean install used `npm.cmd ci --registry=https://registry.npmmirror.com`; frontend tests passed 3/3 and build passed. Browser screenshot verification was not run because no browser automation dependency was part of the approved frontend scope.
 - Main AG audited M6-T01: frontend tests passed 3/3, Vite production build passed, backend tests passed 36/36, M1 fixtures and scope checks passed. M6-T01 was approved and M6-T02 was dispatched.
 - Completed autonomous worker implementation for M6-T02: added deterministic DTO-shaped detail/outcome/statistics fixtures, accessible in-app navigation, conclusion-first signal detail and timeline, complete/incomplete fixed-window observations, history rows, observation-only statistics, and help copy. Verification passed with 8 frontend tests, frontend build, 36 backend tests, deterministic M1 fixture validation (`c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`), `git diff --check`, and scope/secret scans.
+- Main AG review rejected M6-T02 for a contract defect: frontend timeline events require invented `event_type`/`occurred_at` fields, while the approved `api.v1` signal-detail service returns persisted event fields including `event_id`/`event_time`. An adversarial serialized-service probe confirmed both frontend-required fields are absent. The existing 8 frontend tests, frontend build, 36 backend tests, M1 fixture validation, whitespace, scope, and secret checks otherwise passed; repair is limited to aligning frontend types, fixtures, rendering, and regression coverage with the existing backend contract.
 - User explicitly authorized the full autonomous supervisor. Added repo-driven work/review prompts, exclusive locking, one-transition Codex CLI execution, failure backoff/blocking, runtime status/log files, and a reproducible Windows scheduled-task installer. Retired the chat Aquinas runtime before activation.
 - First real supervisor work invocation exposed two runtime defects: Windows `workspace-write` could not launch PowerShell and Codex returned exit code 0 despite reporting no transition. Codex CLI was updated from 0.144.5 to 0.144.6, but the sandbox defect persisted; a read-only `danger-full-access` probe succeeded. The supervisor now uses structured JSON output plus required Git/status postconditions so semantic failures cannot be marked successful.
 - Deep workflow audit confirmed the scheduled heartbeat was running but lacked stagnation detection, baseline/task mismatch protection, atomic state writes, error signaling, and battery-safe scheduling. These were added and fault-injection verified; the active M6 task baseline was reset after the main AG workflow repair commit.

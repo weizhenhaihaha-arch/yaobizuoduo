@@ -4,7 +4,7 @@
 
 - Task ID: `M6-T02`
 - Milestone: M6 beginner homepage and detail experience
-- Status: awaiting_review
+- Status: repair_requested
 - Executor: autonomous Codex CLI worker transition
 - Reviewer: autonomous Codex CLI review transition
 - Previous task result: `M6-T01` passed main AG audit
@@ -41,3 +41,14 @@ Add beginner-readable signal detail, history, and observation-statistics views o
 ## Required report
 
 Do not proceed to live API integration, M7 notifications/observability, deployment, or trading before autonomous review passes.
+
+## Review blocking defects
+
+- `frontend/src/types.ts` and `frontend/src/fixtures/results.ts` model timeline events with `event_type` and `occurred_at`, but the approved `api.v1` signal-detail payload returns persisted event fields including `event_id`, `event_time`, `available_time`, `from_state`, `to_state`, `reason_codes`, and `snapshot_id`. The fixture is therefore not DTO-shaped, and `SignalDetailPage` reads a timestamp field that is absent from a real approved payload.
+- Keep the repair within M6-T02: align the frontend event type, deterministic fixture, timeline rendering, and regression tests to the existing backend DTO. Do not change the approved backend contract or add transport integration.
+
+## Repair acceptance checks
+
+- A serialized `ReadOnlyApiService.signal_detail(...).to_dict()` event shape is representable by the frontend type and renders its timeline using `event_time` without invented aliases.
+- Empty or missing event lists still fail closed with the existing explicit message; complete/incomplete outcomes and `not_evaluated` strategy results remain unchanged.
+- Frontend tests/build, all backend tests, M1 fixture validation, `git diff --check`, scope scan, and secret scan pass, and `PROJECT_MEMORY.md` records the repair evidence.
