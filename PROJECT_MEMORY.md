@@ -35,7 +35,8 @@
 - The proposed architecture separates exchange collection, normalization, scanning, signal lifecycle, outcome evaluation, API delivery, and later notifications.
 - Product and technical details are documented in `PRODUCT_SPEC.md`; strategy thresholds remain open until replay validation.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M0, followed by data contracts before application implementation.
-- An AG development-review loop has been prepared in `AG_WORK_LOOP.md`; it is currently waiting for explicit user activation and must not be treated as running.
+- The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
+- Startup check found no separate execution AG process or active task; `M0-T01` was dispatched as the wake-up task and is awaiting an execution AG report.
 - UI/UX decisions are documented in the repository-root `DESIGN.md`, currently a Draft source of truth.
 - A future Telegram notification can mirror signal creation and invalidation, but notification timing and deduplication remain to be designed.
 
@@ -61,7 +62,7 @@
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
 - Complete M0 boundary freeze before starting M1 data contracts.
-- Confirm whether to activate the AG development-review loop.
+- Receive and audit the `M0-T01` boundary-freeze report before dispatching another task.
 
 ## Development log
 
@@ -76,4 +77,4 @@
 - Replaced the five-card homepage cap with three grouped sections and added mandatory Binance/OKX exchange badges on every symbol card.
 - Confirmed signal freshness, quality labels, repeat-trigger suppression, data-health messaging, and explanatory empty states as product requirements.
 - Defined the strict M0-M8 development workflow with milestone gates, non-goals, change control, verification, and the current M0 entry point.
-- Prepared the AG loop protocol: task dispatch, completion report, audit, pass/repair/block decisions, wake-up checks, and mandatory memory synchronization; activation remains pending user confirmation.
+- Activated the AG loop after user confirmation, checked for an active execution AG, found none, and dispatched `M0-T01` as the first wake-up task.
