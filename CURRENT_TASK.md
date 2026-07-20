@@ -4,7 +4,7 @@
 
 - Task ID: `M7-T01`
 - Milestone: M7 notification, observation, and stability
-- Status: repair_requested
+- Status: awaiting_review
 - Executor: autonomous Codex CLI worker repair transition
 - Reviewer: autonomous Codex CLI review transition
 - Previous task result: `M6-T02` passed autonomous review
@@ -55,6 +55,15 @@ Define and implement the smallest deterministic, offline-testable station-notifi
   non-string `event_type`; retain the existing unsupported-string behavior.
 - Keep the repair limited to notification validation/tests and required task or
   memory reporting, then rerun every original M7-T01 acceptance check.
+
+## Repair result
+
+- Non-string `event_type` values are rejected as `malformed_event` before
+  approved-type membership testing and do not reserve delivery state.
+- Regression coverage includes an unhashable list, an integer, and the retained
+  unsupported-string behavior.
+- All original M7-T01 acceptance checks passed; the task is awaiting independent
+  review.
 
 ## Required report
 

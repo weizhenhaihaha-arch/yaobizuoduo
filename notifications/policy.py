@@ -177,6 +177,8 @@ class NotificationPolicy:
     def _validate(event: Any) -> datetime | str:
         if not isinstance(event, SignalEventDTO):
             return "malformed_event"
+        if not isinstance(event.event_type, str):
+            return "malformed_event"
         if event.event_type not in APPROVED_EVENT_TYPES:
             return "unsupported_event_type"
         required_strings = (event.signal_id, event.exchange_label, event.symbol, event.occurred_at, event.message)

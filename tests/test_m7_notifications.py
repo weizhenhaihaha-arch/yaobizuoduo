@@ -89,6 +89,19 @@ class NotificationPolicyTests(unittest.TestCase):
         self.assertEqual([item.reason for item in (stale, future, malformed, missing, unknown, unsupported)], ["stale_event", "future_event", "malformed_event", "malformed_event", "malformed_event", "unsupported_event_type"])
         self.assertEqual(self.policy.select(()), ())
 
+    def test_non_string_event_types_fail_closed_without_reserving_state(self):
+        for malformed_type in ([], 7):
+            with self.subTest(event_type=malformed_type):
+                decision = self.policy.decide(replace(event(), event_type=malformed_type))
+                self.assertFalse(decision.should_deliver)
+                self.assertEqual(decision.reason, "malformed_event")
+                self.assertEqual(self.store.snapshot(), ((), ()))
+
+        unsupported = self.policy.decide(event("stale_data"))
+        self.assertFalse(unsupported.should_deliver)
+        self.assertEqual(unsupported.reason, "unsupported_event_type")
+        self.assertEqual(self.store.snapshot(), ((), ()))
+
     def test_configuration_and_clock_validation_fail_closed(self):
         with self.assertRaises(ValueError):
             NotificationPolicyConfig(max_attempts=0)
