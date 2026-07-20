@@ -2,51 +2,41 @@
 
 ## Task
 
-- Task ID: `M5-T02`
+- Task ID: `M5-T03`
 - Milestone: M5 backend API and real-time event boundary
-- Status: repair_requested
+- Status: dispatched
 - Executor: execution AG `Aquinas`
 - Reviewer: main AG
-- Previous task result: `M5-T01` passed main AG re-audit after targeted fail-closed repair
+- Previous task result: `M5-T02` passed main AG re-audit after dedicated missing-signal error repair
 
 ## Goal
 
-Implement the versioned FastAPI HTTP and SSE transport over the approved read-only M5 service without moving strategy, storage, or trading behavior into routes.
+Add the PostgreSQL schema migration and injected read-only persistence adapter required by the approved M1-M5 contracts, without connecting to a live database or changing product/strategy behavior.
 
 ## Allowed scope
 
-- Add a minimal dependency manifest for FastAPI transport and tests
-- Implement the approved dashboard, signal detail, history, outcomes, statistics, and health GET routes
-- Implement an SSE event route for new signal, weakening, invalidation, and stale-data DTO messages
-- Add consistent not-found, invalid-request, and internal error response envelopes
-- Keep read-model construction behind dependency injection and use deterministic offline fixtures/tests
-- Document route contracts and update `PROJECT_MEMORY.md` with durable facts only
+- Add versioned PostgreSQL migration SQL for normalized market records, signals, append-only state events, outcomes, and health snapshots
+- Preserve event-time/availability-time, strategy version, reason codes, data health, fixed outcome windows, and not-evaluated strategy result semantics
+- Implement a parameterized read-only `ReadModel` adapter behind an injected DB-API-compatible connection/factory
+- Add deterministic offline tests using fakes; test query mapping, ordering, missing data, transaction safety, and no writes from the read adapter
+- Document migration/rollback assumptions and update `PROJECT_MEMORY.md`
 
 ## Forbidden scope
 
-- No frontend implementation or database migration in this task
-- No live exchange client, background collector, real orders, credentials, leverage, or short strategy
-- No strategy calculations or threshold changes in transport code
-- No authentication accounts, profitability claims, fake production data, or deployment work
+- No live PostgreSQL connection, credentials, Docker/deployment, or production data
+- No frontend, live exchange collection, strategy changes, trading, leverage, or short logic
+- No ORM or Redis expansion unless separately approved
+- No destructive runtime migration execution
 
 ## Acceptance criteria
 
-- Routes map approved DTOs without frontend-side strategy calculation
-- SSE uses valid event framing and exposes only approved read-only event types
-- Empty, stale, invalidated, unsupported, and missing-signal cases are explicit and fail closed
-- Route handlers do not instantiate live exchange or trading clients
-- Offline interface tests cover every GET route, error envelope, and SSE framing
-- Full unit tests, M1 fixture validation, `git diff --check`, scope, and secret checks pass
-- Report changed files, commands, results, risks, branch, commit, workspace status, and memory sync
+- Migration is forward-only, versioned, rerunnable where appropriate, and preserves append-only signal events
+- Required constraints/indexes support dashboard ordering, detail/history, outcomes, and health reads
+- Adapter uses parameterized SQL and implements the approved `ReadModel` without write operations
+- Offline tests cover every adapter method and malformed/missing rows fail safely
+- Full tests, M1 fixture validation, `git diff --check`, SQL/scope/secret checks pass
+- Report files, decisions, commands/results, risks, branch, commit, workspace status, and memory sync
 
 ## Required report
 
-Use the report structure in `AG_WORK_LOOP.md`. Do not proceed to database migration, frontend, live exchange transport, or trading before main AG approval.
-
-## Main AG review
-
-- Review time: 2026-07-20 14:12 Asia/Shanghai
-- Result: repair requested; all later M5/M6 work remains blocked
-- Confirmed checks: 29 unit tests passed, M1 fixture validation passed, `git diff --check` passed, and scope scan found no live exchange, trading, credential, frontend, or strategy implementation
-- Blocking defect: the first repair removed the global handler, but each detail/outcomes route still catches every `KeyError`; an existing malformed signal is therefore still misclassified as 404
-- Required repair: introduce or use a dedicated missing-signal exception from the service lookup, catch only that exception in detail/outcomes routes, let malformed-record `KeyError` failures return sanitized 500, and add focused regression coverage for both routes
+Use `AG_WORK_LOOP.md`. Do not proceed to M6 frontend, live database setup, collection, deployment, or trading before main AG approval.

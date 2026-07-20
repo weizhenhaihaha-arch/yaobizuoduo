@@ -49,7 +49,7 @@
 - Main AG audited `M3-T01`: 14 tests, deterministic fixture validation, whitespace, and scope checks passed. M3-T01 is approved.
 - M4-T01 was the only active task for availability-safe replay and outcome statistics; it passed review and M5 is now authorized.
 - Main AG audited `M4-T01`: 18 tests, M1 fixture validation, availability-time safety, whitespace, and scope checks passed. M4-T01 is approved.
-- `M5-T01` passed main AG re-audit after its targeted fail-closed repair. `M5-T02` remains active in targeted error-classification repair; database migration, frontend, live exchange transport, and trading remain unauthorized.
+- `M5-T01` and `M5-T02` are approved after targeted fail-closed and error-classification repairs. `M5-T03` is the only active task, limited to PostgreSQL migration SQL and an injected read-only adapter; frontend, live database/exchange transport, and trading remain unauthorized.
 - M5-T01 repair makes API entry advice fail closed: `can_consider_entry` now requires supported Binance/OKX exchange, `usdt_perpetual`, usable upstream data, fresh/recent freshness, and normal/out-of-order data quality in addition to `armed` state.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
@@ -89,7 +89,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
-- M0 through M4 and M5-T01 are complete and approved; M5-T02 second targeted repair is complete pending review, with dedicated missing-signal classification and malformed-record failures returning sanitized 500 errors.
+- M0 through M4, M5-T01, and M5-T02 are complete and approved; M5-T03 is the remaining M5 database migration/read-model gate before M6.
 - No database migration, frontend, live exchange transport, authentication, credentials, or deployment work is authorized before later approvals.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -137,3 +137,4 @@
 - Completed M5-T02 targeted repair: removed the global `KeyError` 404 mapping, scoped missing-signal conversion to detail/outcomes routes, and added regression coverage for missing outcomes plus malformed dashboard 500 sanitization.
 - Main AG re-review found the first M5-T02 repair incomplete: route-level broad `KeyError` catches still classify malformed existing signal records as missing; a dedicated missing-signal exception and detail/outcomes regression tests are required.
 - Completed M5-T02 second targeted repair: added service-layer `SignalNotFoundError`, scoped transport 404 conversion to that exception, and covered missing plus existing malformed detail/outcomes responses with sanitized 500 assertions.
+- Main AG approved M5-T02 after 30 tests and four explicit probes confirmed missing detail/outcomes return 404 while malformed existing detail/outcomes return sanitized 500; M5-T03 database migration/read-model work was then dispatched.
