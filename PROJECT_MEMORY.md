@@ -38,10 +38,11 @@
 - M0 freezes interfaces and evaluation semantics, not final strategy thresholds, cooldown duration, fee/slippage values, or performance claims; those require replay validation in later milestones.
 - M1-T01 defines the versioned `m1.v1` normalized-data contract in `contracts/M1_DATA_CONTRACT.md`, including event-time versus availability-time semantics, explicit data-health behavior, append-only signal events, fixed outcome windows, and unresolved strategy fields.
 - M1 fixed fixtures are stored under `fixtures/m1/` for both Binance and OKX and cover normal, delayed, missing, out-of-order, and invalid data. `scripts/validate_m1_fixtures.ps1` validates them offline and emits a deterministic replay digest.
-- Main AG review passed `M0-T01` after a targeted trailing-whitespace repair; M1 is now authorized and `M1-T01` is the only active task.
+- Main AG review passed `M0-T01` after a targeted trailing-whitespace repair; M1 and M2 are now authorized in sequence.
 - Main AG audited `M1-T01`: offline fixture validation passed with 10 cases, 12 accepted, 2 rejected, and a deterministic replay digest; scope and whitespace checks passed. M1-T01 is approved.
 - `M2-T01` is now the only active task, limited to read-only Binance/OKX adapter boundaries and data-health behavior; signal strategy and real trading remain forbidden.
-- Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M0, followed by data contracts before application implementation.
+- M2-T01 implements pure offline-testable Binance/OKX payload mapping and fail-closed health handling in `adapters/read_only_market.py`; it has no network client, credentials, signal strategy, frontend, or trading operation.
+- Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M2, followed by signal strategy only after M2 review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
 - The active loop now requires a three-minute heartbeat while a monitoring session or local monitor is running; each heartbeat checks task status, AG evidence, Git changes, tests, blockers, and wake-up conditions.
@@ -72,9 +73,8 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
-- M0 boundary freeze is complete; M1 data contracts and fixtures now await main AG review.
-- Main AG must audit the `M1-T01` contract, fixtures, validation output, and scope before dispatching `M1-T02`.
-- Execution AG completed `M1-T01` in commit `e8a8652`; the task is now explicitly `awaiting_review`, and no M2 work is authorized until the audit passes.
+- M0 boundary freeze and M1 data contracts/fixtures are complete; M2 adapter boundaries and health handling now await main AG review.
+- Main AG must audit the `M2-T01` adapter, tests, validation output, and scope before dispatching M2-T02.
 - Main AG must audit the `M2-T01` adapter and data-health report before dispatching M2-T02.
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
@@ -101,6 +101,7 @@
 - Main AG audited the M0-T01 proposal, rejected the first report for a concrete whitespace failure, and issued a narrowly scoped repair request; no M1 work is authorized.
 - Execution AG repaired the whitespace issue, main AG re-ran the checks and passed `M0-T01`, then dispatched `M1-T01` for data contracts and deterministic fixtures.
 - Completed execution AG work for `M1-T01`: added the versioned data contract, Binance/OKX deterministic fixtures, offline validation script, and deterministic replay check; no live API or application code was added.
+- Completed execution AG work for `M2-T01`: added read-only Binance/OKX normalizers, symbol mapping, fail-closed health/reconnect state, offline tests, and adapter boundary documentation; no live endpoint was called.
 - Main AG audited the M1 contract and fixtures, confirmed deterministic validation, passed `M1-T01`, and dispatched `M2-T01` for read-only collection boundaries and health handling.
 - Added the visible local heartbeat runner and ignored runtime status files so three-minute repository checks can be inspected without polluting Git history.
 - Fixed the heartbeat PowerShell quoting issue, verified one foreground cycle, and started the hidden three-minute local monitor.
