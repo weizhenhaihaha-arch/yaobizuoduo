@@ -4,7 +4,7 @@
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- No application code has been implemented yet; product and strategy discovery is in progress.
+- Offline application boundaries now exist through M5: normalized adapters, deterministic lifecycle, replay/outcome evaluation, and a transport-agnostic read-only API service. No live exchange transport, frontend, or trading execution is implemented.
 
 ## Confirmed requirements
 
@@ -38,7 +38,7 @@
 - M0 freezes interfaces and evaluation semantics, not final strategy thresholds, cooldown duration, fee/slippage values, or performance claims; those require replay validation in later milestones.
 - M1-T01 defines the versioned `m1.v1` normalized-data contract in `contracts/M1_DATA_CONTRACT.md`, including event-time versus availability-time semantics, explicit data-health behavior, append-only signal events, fixed outcome windows, and unresolved strategy fields.
 - M1 fixed fixtures are stored under `fixtures/m1/` for both Binance and OKX and cover normal, delayed, missing, out-of-order, and invalid data. `scripts/validate_m1_fixtures.ps1` validates them offline and emits a deterministic replay digest.
-- Main AG review passed `M0-T01` after a targeted trailing-whitespace repair; M1 and M2 are now authorized in sequence.
+- Main AG review passed `M0-T01` after a targeted trailing-whitespace repair; M1 through M4 are approved.
 - Main AG audited `M1-T01`: offline fixture validation passed with 10 cases, 12 accepted, 2 rejected, and a deterministic replay digest; scope and whitespace checks passed. M1-T01 is approved.
 - M2-T01 was the only active task for read-only Binance/OKX adapter boundaries; it passed review and M3 is now authorized.
 - Main AG audited `M2-T01`: 7 adapter tests, M1 fixture validation, whitespace, and scope checks passed. M2-T01 is approved.
@@ -49,7 +49,7 @@
 - Main AG audited `M3-T01`: 14 tests, deterministic fixture validation, whitespace, and scope checks passed. M3-T01 is approved.
 - M4-T01 was the only active task for availability-safe replay and outcome statistics; it passed review and M5 is now authorized.
 - Main AG audited `M4-T01`: 18 tests, M1 fixture validation, availability-time safety, whitespace, and scope checks passed. M4-T01 is approved.
-- `M5-T01` is now the only active task, limited to read-only API service DTOs and product grouping; frontend, live transport, and trading remain forbidden.
+- `M5-T01` remains the only active task and is in targeted repair; M5-T02, frontend, live exchange transport, and trading remain unauthorized.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M5, followed by frontend work only after API review.
@@ -81,16 +81,14 @@
 ## Open items
 
 - Retry `git ls-remote origin`, then publish the first project commit only after reviewing the staged diff.
-- Decide whether the product targets USDT perpetual contracts only or also spot markets.
+- V1 targets Binance and OKX USDT perpetual contracts only; spot remains outside V1.
 - Define the exact entry trigger, signal validity window, invalidation condition, and repeat-signal cooldown.
 - Decide whether the first release includes Telegram alerts.
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
-- M0 boundary freeze, M1 contracts, M2 adapters, M3 lifecycle, and M4 replay are complete and approved; M5 API service and DTOs now await main AG review.
-- Main AG must audit the `M5-T01` API service and DTO report before dispatching M5-T02.
-- Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
-- M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
+- M0 through M4 are complete and approved; M5-T01 requires a targeted fail-closed repair before M5-T02 can be dispatched.
+- Repair M5-T01 so stale, unusable, or unsupported-exchange records can never produce `can_consider_entry=true`, then add regression tests and repeat the full main AG audit.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
 
@@ -128,3 +126,4 @@
 - Reworked the heartbeat script with `-Once` mode so it can run safely under a Windows scheduled task instead of relying only on a long-lived PowerShell process.
 - Replaced the temporary resident heartbeat process with the verified Windows scheduled task; visible status remains in `AG_STATUS.md` and history in `AG_HEARTBEAT.log`.
 - Added baseline-aware completion detection and documented the split between persistent OS evidence collection and active-session AG completion monitoring.
+- Main AG reviewed M5-T01: all 23 tests and standard checks passed, but an adversarial probe found stale armed data could still expose `can_consider_entry=true`; a targeted repair was requested and M5-T02 remains blocked.

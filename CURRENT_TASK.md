@@ -4,7 +4,7 @@
 
 - Task ID: `M5-T01`
 - Milestone: M5 backend API and real-time event boundary
-- Status: dispatched
+- Status: repair_requested
 - Executor: execution AG `Aquinas`
 - Reviewer: main AG
 - Previous task result: `M4-T01` passed main AG audit; M5 is now authorized
@@ -43,3 +43,11 @@ Implement the read-only API service boundary and DTOs that expose dashboard, sig
 ## Required report
 
 Use the report structure in `AG_WORK_LOOP.md`. Do not proceed to frontend or live transport before main AG approval.
+
+## Main AG review
+
+- Review time: 2026-07-20 14:00 Asia/Shanghai
+- Result: repair requested; M5-T02 remains blocked
+- Confirmed checks: 23 unit tests passed, M1 fixture validation passed, `git diff --check` passed, and forbidden-scope scan found no trading, credentials, frontend, or live transport implementation
+- Blocking defect: an `armed` record with `freshness_status=stale` and `usable_for_signal=true` is returned with `can_consider_entry=true`, violating the fail-closed acceptance criterion
+- Required repair: derive entry usability defensively so stale/unusable/unsupported-exchange records can never advise entry, add focused regression tests, and preserve the read-only transport-agnostic boundary
