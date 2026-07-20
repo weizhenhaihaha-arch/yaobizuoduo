@@ -1,0 +1,42 @@
+{
+  "schema_version": "m1.v1",
+  "exchange": "binance",
+  "cases": [
+    {
+      "case_id": "binance-normal",
+      "description": "Normal candle and metrics record",
+      "arrival_order": ["b-normal-candle", "b-normal-metrics"],
+      "records": [
+        {"record_type":"candle","record_id":"b-normal-candle","symbol":"BTCUSDT","market_type":"usdt_perpetual","interval":"5m","event_time":"2026-07-20T00:04:59Z","available_time":"2026-07-20T00:05:01Z","received_time":"2026-07-20T00:05:01Z","open":65000.0,"high":65120.0,"low":64980.0,"close":65100.0,"base_volume":120.5,"quote_volume":7830000.0,"trade_count":2400,"closed":true,"data_quality":"normal"},
+        {"record_type":"metrics","record_id":"b-normal-metrics","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:05:00Z","available_time":"2026-07-20T00:05:01Z","received_time":"2026-07-20T00:05:01Z","last_price":65100.0,"base_volume":120.5,"quote_volume":7830000.0,"open_interest":125000.0,"open_interest_unit":"contracts","funding_rate":0.0001,"data_quality":"normal"}
+      ]
+    },
+    {
+      "case_id": "binance-delayed",
+      "description": "Valid record available after event time",
+      "arrival_order": ["b-delayed-health"],
+      "records": [{"record_type":"data_health","record_id":"b-delayed-health","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:05:00Z","available_time":"2026-07-20T00:05:03Z","received_time":"2026-07-20T00:05:03Z","data_quality":"delayed","freshness_ms":3000,"missing_fields":[],"out_of_order":false,"usable_for_signal":false,"reason":"availability_delay_exceeds_fixture_limit"}]
+    },
+    {
+      "case_id": "binance-missing",
+      "description": "Optional OI and funding are explicitly missing",
+      "arrival_order": ["b-missing-metrics"],
+      "records": [{"record_type":"metrics","record_id":"b-missing-metrics","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:06:00Z","available_time":"2026-07-20T00:06:01Z","received_time":"2026-07-20T00:06:01Z","last_price":65110.0,"base_volume":90.0,"quote_volume":5860000.0,"open_interest":null,"open_interest_unit":null,"funding_rate":null,"data_quality":"missing","missing_fields":["open_interest","funding_rate"]}] 
+    },
+    {
+      "case_id": "binance-out-of-order",
+      "description": "Arrival order differs from event order",
+      "arrival_order": ["b-ooo-later", "b-ooo-earlier"],
+      "records": [
+        {"record_type":"metrics","record_id":"b-ooo-earlier","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:07:00Z","available_time":"2026-07-20T00:07:02Z","received_time":"2026-07-20T00:07:02Z","last_price":65120.0,"base_volume":70.0,"quote_volume":4560000.0,"open_interest":125500.0,"open_interest_unit":"contracts","funding_rate":0.0001,"data_quality":"out_of_order"},
+        {"record_type":"metrics","record_id":"b-ooo-later","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:07:05Z","available_time":"2026-07-20T00:07:06Z","received_time":"2026-07-20T00:07:06Z","last_price":65130.0,"base_volume":75.0,"quote_volume":4880000.0,"open_interest":125600.0,"open_interest_unit":"contracts","funding_rate":0.0001,"data_quality":"out_of_order"}
+      ]
+    },
+    {
+      "case_id": "binance-invalid",
+      "description": "Impossible candle range must be rejected",
+      "arrival_order": ["b-invalid-candle"],
+      "records": [{"record_type":"candle","record_id":"b-invalid-candle","symbol":"BTCUSDT","market_type":"usdt_perpetual","interval":"5m","event_time":"2026-07-20T00:08:00Z","available_time":"2026-07-20T00:08:01Z","received_time":"2026-07-20T00:08:01Z","open":65000.0,"high":64900.0,"low":64980.0,"close":65050.0,"base_volume":10.0,"quote_volume":650000.0,"trade_count":100,"closed":true,"data_quality":"invalid"}]
+    }
+  ]
+}

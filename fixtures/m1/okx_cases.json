@@ -1,0 +1,42 @@
+{
+  "schema_version": "m1.v1",
+  "exchange": "okx",
+  "cases": [
+    {
+      "case_id": "okx-normal",
+      "description": "Normal candle and metrics record",
+      "arrival_order": ["o-normal-candle", "o-normal-metrics"],
+      "records": [
+        {"record_type":"candle","record_id":"o-normal-candle","symbol":"BTCUSDT","market_type":"usdt_perpetual","interval":"5m","event_time":"2026-07-20T00:04:59Z","available_time":"2026-07-20T00:05:01Z","received_time":"2026-07-20T00:05:01Z","open":65010.0,"high":65130.0,"low":64990.0,"close":65110.0,"base_volume":118.0,"quote_volume":7670000.0,"trade_count":2300,"closed":true,"data_quality":"normal"},
+        {"record_type":"metrics","record_id":"o-normal-metrics","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:05:00Z","available_time":"2026-07-20T00:05:01Z","received_time":"2026-07-20T00:05:01Z","last_price":65110.0,"base_volume":118.0,"quote_volume":7670000.0,"open_interest":124500.0,"open_interest_unit":"contracts","funding_rate":0.0001,"data_quality":"normal"}
+      ]
+    },
+    {
+      "case_id": "okx-delayed",
+      "description": "Valid record available after event time",
+      "arrival_order": ["o-delayed-health"],
+      "records": [{"record_type":"data_health","record_id":"o-delayed-health","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:05:00Z","available_time":"2026-07-20T00:05:04Z","received_time":"2026-07-20T00:05:04Z","data_quality":"delayed","freshness_ms":4000,"missing_fields":[],"out_of_order":false,"usable_for_signal":false,"reason":"availability_delay_exceeds_fixture_limit"}]
+    },
+    {
+      "case_id": "okx-missing",
+      "description": "Optional OI and funding are explicitly missing",
+      "arrival_order": ["o-missing-metrics"],
+      "records": [{"record_type":"metrics","record_id":"o-missing-metrics","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:06:00Z","available_time":"2026-07-20T00:06:01Z","received_time":"2026-07-20T00:06:01Z","last_price":65120.0,"base_volume":88.0,"quote_volume":5730000.0,"open_interest":null,"open_interest_unit":null,"funding_rate":null,"data_quality":"missing","missing_fields":["open_interest","funding_rate"]}]
+    },
+    {
+      "case_id": "okx-out-of-order",
+      "description": "Arrival order differs from event order",
+      "arrival_order": ["o-ooo-later", "o-ooo-earlier"],
+      "records": [
+        {"record_type":"metrics","record_id":"o-ooo-earlier","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:07:00Z","available_time":"2026-07-20T00:07:02Z","received_time":"2026-07-20T00:07:02Z","last_price":65130.0,"base_volume":68.0,"quote_volume":4430000.0,"open_interest":124900.0,"open_interest_unit":"contracts","funding_rate":0.0001,"data_quality":"out_of_order"},
+        {"record_type":"metrics","record_id":"o-ooo-later","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:07:05Z","available_time":"2026-07-20T00:07:06Z","received_time":"2026-07-20T00:07:06Z","last_price":65140.0,"base_volume":73.0,"quote_volume":4750000.0,"open_interest":125000.0,"open_interest_unit":"contracts","funding_rate":0.0001,"data_quality":"out_of_order"}
+      ]
+    },
+    {
+      "case_id": "okx-invalid",
+      "description": "Negative volume must be rejected",
+      "arrival_order": ["o-invalid-metrics"],
+      "records": [{"record_type":"metrics","record_id":"o-invalid-metrics","symbol":"BTCUSDT","market_type":"usdt_perpetual","event_time":"2026-07-20T00:08:00Z","available_time":"2026-07-20T00:08:01Z","received_time":"2026-07-20T00:08:01Z","last_price":65150.0,"base_volume":-1.0,"quote_volume":65000.0,"open_interest":125100.0,"open_interest_unit":"contracts","funding_rate":0.0001,"data_quality":"invalid"}]
+    }
+  ]
+}
