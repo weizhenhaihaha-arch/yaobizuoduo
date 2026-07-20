@@ -2,44 +2,43 @@
 
 ## Task
 
-- Task ID: `M3-T01`
-- Milestone: M3 pump-long strategy and signal lifecycle
+- Task ID: `M4-T01`
+- Milestone: M4 historical replay and outcome statistics
 - Status: dispatched
 - Executor: execution AG `Aquinas`
 - Reviewer: main AG
-- Previous task result: `M2-T01` passed main AG audit; M3 is now authorized
+- Previous task result: `M3-T01` passed main AG audit; M4 is now authorized
 
 ## Goal
 
-Implement the deterministic, explainable signal lifecycle and strategy boundary without claiming final thresholds or profitability.
+Implement deterministic historical replay and signal-outcome records for the fixed 5m, 15m, 1h, 4h, and 1d windows without claiming profitability.
 
 ## Allowed scope
 
-- Review M1 contracts, M2 adapters, product specs, and M0 boundary proposal
-- Define pure strategy input/output types and candidate-to-potential-to-confirmed state transitions
-- Implement append-only state events, reason codes, freshness/data-health vetoes, deduplication, cooldown, and re-entry guards
-- Keep numeric thresholds configurable and explicitly marked as provisional
-- Add unit tests and fixture-driven replay tests for normal, delayed, missing, invalid, weakening, invalidation, duplicate, and re-entry cases
+- Replay normalized snapshots through the approved M3 lifecycle using event and availability time
+- Record confirmation-time entry reference, window-end change, maximum rise, maximum drawdown, peak time, completeness, missing-data status, and invalidation events
+- Keep price-observation outcomes separate from simulated strategy results
+- Mark strategy result as not evaluated until fee, slippage, and exit rules are approved
+- Add deterministic fixtures and tests for complete, incomplete, delayed, missing, adverse-first, and no-lookahead cases
 - Update `PROJECT_MEMORY.md` with durable facts only
 
 ## Forbidden scope
 
-- No final production thresholds or performance claims
-- No frontend implementation
-- No live exchange integration beyond existing offline boundaries
-- No real-order execution, API keys, leverage, or short strategy
-- No treating signal disappearance as a short signal
+- No final thresholds, profitability claims, or public accuracy claims
+- No frontend, live exchange integration, real orders, credentials, leverage, or short strategy
+- No use of future or unavailable data
+- No classifying a signal as successful only because price later reached a favorable high
 
 ## Acceptance criteria
 
-- State transitions are deterministic, append-only, and explainable
-- Data health fails closed and cannot confirm a signal
-- Duplicate triggers are suppressed and re-entry requires a new valid structure
-- Every confirmed signal has reason codes, input snapshot references, confirmation time, reference entry, and invalidation rule
-- Tests cover normal, potential, confirmed, active, weakening, invalidated, expired, stale, duplicate, and re-entry paths
-- `python -m unittest`, fixture validation, `git diff --check`, scope, and secret checks pass
+- Replay is deterministic and availability-time safe
+- Fixed windows are computed from the confirmation reference time
+- Maximum rise and drawdown are both recorded, including adverse-first ordering
+- Incomplete and missing windows are excluded from complete-sample aggregates with reason codes
+- Strategy PnL remains separate and not evaluated unless explicit cost/exit inputs exist
+- Unit tests, fixture validation, `git diff --check`, scope, and secret checks pass
 - Report changed files, commands, results, risks, branch, commit, workspace status, and memory sync
 
 ## Required report
 
-Use the report structure in `AG_WORK_LOOP.md`. If final threshold choices are needed, mark them unresolved instead of inventing production values.
+Use the report structure in `AG_WORK_LOOP.md`. Do not proceed to API or frontend work before main AG approval.

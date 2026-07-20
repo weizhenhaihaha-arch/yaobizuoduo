@@ -46,6 +46,8 @@
 - M2-T01 implements pure offline-testable Binance/OKX payload mapping and fail-closed health handling in `adapters/read_only_market.py`; it has no network client, credentials, signal strategy, frontend, or trading operation.
 - M3-T01 implements the deterministic `SignalLifecycle` boundary in `strategy/lifecycle.py`: candidate-to-potential-to-armed-to-active progression, weakening/invalidation/expiry, append-only explainable events, health vetoes, duplicate suppression, cooldown, and new-structure re-entry guards.
 - M3 numeric values are versioned provisional configuration (`provisional-m3-v1`) only; no final thresholds, profitability claims, short logic, frontend, live exchange integration, or trading operation were added.
+- Main AG audited `M3-T01`: 14 tests, deterministic fixture validation, whitespace, and scope checks passed. M3-T01 is approved.
+- `M4-T01` is now the only active task, limited to availability-safe historical replay and outcome statistics; profitability claims and strategy PnL remain forbidden.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M2, followed by signal strategy only after M2 review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
@@ -55,6 +57,8 @@
 - 2026-07-20 Asia/Shanghai: the local heartbeat runner was syntax-verified and started successfully as PID `17832`; `AG_STATUS.md` was created and showed the current `M1-T01` state.
 - The heartbeat is now designed to support a Windows scheduled task `Codex-Yaobizuoduo-Heartbeat`, which runs the script in one-shot mode every three minutes; the task records evidence but never replaces main AG review.
 - 2026-07-20 Asia/Shanghai: registered and started Windows task `Codex-Yaobizuoduo-Heartbeat`; state was `Ready`, last result `0`, and the next run was scheduled approximately three minutes later.
+- Root-cause finding: the Windows heartbeat recorded repository state but could not invoke main AG review; completed AG commits therefore remained labeled `dispatched` until the conversation resumed.
+- The loop now uses a dispatch Git baseline plus `AG_REVIEW_REQUIRED.md` for visible completion detection, and requires an active `wait_agent` session to return completed work to main AG review.
 - UI/UX decisions are documented in the repository-root `DESIGN.md`, currently a Draft source of truth.
 - A future Telegram notification can mirror signal creation and invalidation, but notification timing and deduplication remain to be designed.
 
@@ -82,6 +86,7 @@
 - M0 boundary freeze and M1 data contracts/fixtures are complete; M2 adapter boundaries and health handling now await main AG review.
 - M2 adapter boundaries and health handling are complete and approved; M3 lifecycle and strategy boundary now await main AG review.
 - Main AG must audit the `M3-T01` lifecycle and strategy-boundary report before dispatching M3-T02.
+- Main AG must audit the `M4-T01` replay and outcome-statistics report before dispatching M4-T02.
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
@@ -109,6 +114,7 @@
 - Completed execution AG work for `M1-T01`: added the versioned data contract, Binance/OKX deterministic fixtures, offline validation script, and deterministic replay check; no live API or application code was added.
 - Completed execution AG work for `M2-T01`: added read-only Binance/OKX normalizers, symbol mapping, fail-closed health/reconnect state, offline tests, and adapter boundary documentation; no live endpoint was called.
 - Completed execution AG work for `M3-T01`: added provisional lifecycle configuration, deterministic state events, offline replay fixtures, lifecycle tests, and strategy-boundary documentation; no final performance claim or trading capability was added.
+- Main AG audited M3 lifecycle behavior, passed `M3-T01`, and dispatched `M4-T01` for availability-safe historical replay and outcome statistics.
 - Main AG audited the M1 contract and fixtures, confirmed deterministic validation, passed `M1-T01`, and dispatched `M2-T01` for read-only collection boundaries and health handling.
 - Main AG audited M2 adapters and health behavior, passed `M2-T01`, and dispatched `M3-T01` for the deterministic signal lifecycle and provisional strategy boundary.
 - Added the visible local heartbeat runner and ignored runtime status files so three-minute repository checks can be inspected without polluting Git history.
@@ -116,3 +122,4 @@
 - Refined the loop to distinguish the local persistent heartbeat from an active chat monitoring session; the latter is required for visible three-minute window reports and is not claimed after the session ends.
 - Reworked the heartbeat script with `-Once` mode so it can run safely under a Windows scheduled task instead of relying only on a long-lived PowerShell process.
 - Replaced the temporary resident heartbeat process with the verified Windows scheduled task; visible status remains in `AG_STATUS.md` and history in `AG_HEARTBEAT.log`.
+- Added baseline-aware completion detection and documented the split between persistent OS evidence collection and active-session AG completion monitoring.
