@@ -133,6 +133,31 @@ class OperationalHealthTests(unittest.TestCase):
         self.assertEqual(malformed.reason_codes, ("malformed_data_health_snapshot",))
         self.assertNotIn("{", malformed.message)
 
+    def test_unhashable_data_exchange_fails_closed_as_malformed(self):
+        malformed = replace(data_health(), exchange=[])
+        assessment = self.assess(data=(malformed,))[0]
+        self.assertEqual(assessment.status, "malformed")
+        self.assertEqual(assessment.reason_codes, ("malformed_data_health_snapshot",))
+
+    def test_unhashable_prior_status_is_ignored_without_enabling_recovery(self):
+        current = data_health()
+        healthy = self.assess(data=(current,))[0]
+        malformed_prior = PriorUnhealthyState(
+            source_key=healthy.source_key,
+            assessment_id="operational-health.v1:prior",
+            status=[],
+            observed_at="2026-07-20T23:58:00Z",
+            reason_codes=("data_delayed",),
+        )
+        assessment = self.assess(data=(current,), prior=(malformed_prior,))[0]
+        self.assertEqual(assessment.status, "healthy")
+        self.assertIsNone(assessment.prior_assessment_id)
+
+    def test_case_variant_delivered_without_delivery_time_is_malformed(self):
+        assessment = self.assess(deliveries=(delivery("DELIVERED"),))[0]
+        self.assertEqual(assessment.status, "malformed")
+        self.assertEqual(assessment.reason_codes, ("malformed_notification_snapshot",))
+
     def test_stale_is_derived_from_injected_time_and_threshold(self):
         item = data_health(last_event_time="2026-07-20T23:57:59Z")
         assessment = self.assess(data=(item,))[0]

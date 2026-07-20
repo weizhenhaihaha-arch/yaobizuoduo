@@ -20,6 +20,11 @@ is derived only when a healthy current source has a matching, valid
 `PriorUnhealthyState` in the same injected snapshot; a caller cannot obtain a
 recovery assessment from a healthy value alone.
 
+Known notification delivery statuses are matched case-insensitively. Every
+case variant of `delivered` requires a valid `delivered_at`; otherwise the
+snapshot is malformed. Unsupported strings remain `unknown`, while malformed
+current fields fail closed and malformed prior evidence is ignored.
+
 The provisional operational defaults are a two-minute data-staleness limit, a
 30-second pending-delivery limit, and three notification attempts. They are
 explicit configuration and are not market-strategy thresholds. This boundary

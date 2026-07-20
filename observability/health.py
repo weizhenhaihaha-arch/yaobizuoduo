@@ -169,6 +169,7 @@ class OperationalHealthAssessor:
     def _valid_data_health(item: Any) -> bool:
         return (
             isinstance(item, DataHealthDTO)
+            and isinstance(item.exchange, str)
             and item.exchange in APPROVED_EXCHANGES
             and item.exchange_label == APPROVED_EXCHANGE_LABELS[item.exchange]
             and (item.symbol is None or isinstance(item.symbol, str) and bool(item.symbol.strip()))
@@ -194,13 +195,15 @@ class OperationalHealthAssessor:
             return False
         if item.delivered_at is not None and (not isinstance(item.delivered_at, datetime) or item.delivered_at.tzinfo is None):
             return False
-        return item.status != "delivered" or item.delivered_at is not None
+        return item.status.lower() != "delivered" or item.delivered_at is not None
 
     @classmethod
     def _valid_prior(cls, items: tuple[PriorUnhealthyState, ...]) -> dict[str, PriorUnhealthyState]:
         valid: dict[str, PriorUnhealthyState] = {}
         for item in items:
             if not isinstance(item, PriorUnhealthyState):
+                continue
+            if not isinstance(item.status, str):
                 continue
             if item.status not in UNHEALTHY_STATUSES:
                 continue
