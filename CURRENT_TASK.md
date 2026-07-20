@@ -2,69 +2,62 @@
 
 ## Task
 
-- Task ID: `M7-T01`
+- Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: awaiting_review
-- Executor: autonomous Codex CLI worker repair transition
+- Status: dispatched
+- Executor: autonomous Codex CLI worker transition
 - Reviewer: autonomous Codex CLI review transition
-- Previous task result: `M6-T02` passed autonomous review
+- Previous task result: `M7-T01` passed autonomous review
 
 ## Goal
 
-Define and implement the smallest deterministic, offline-testable station-notification policy boundary over approved `api.v1` event messages, so confirmed signals, important weakening, and invalidations can be selected without duplicate notification spam.
+Define and implement the smallest deterministic, offline-testable operational
+health assessment boundary so existing data-health and notification-delivery
+state can produce traceable delay, failure, retry, and recovery alerts without
+adding live monitoring infrastructure.
 
 ## Allowed scope
 
-- Add a pure notification-policy module that accepts approved read-only event DTOs and returns deterministic station-notification decisions
-- Allow only `new_signal`, `weakening`, and `invalidation`; fail closed for stale, unknown, malformed, or unsupported events
-- Add explicit deduplication keys, configurable provisional cooldown, retry state, and restart-safe injected state-store interfaces
-- Keep user copy consistent with approved webpage lifecycle meanings, including that invalidation is not a short signal
-- Add deterministic fixtures/unit tests and a bounded notification contract or runbook section
+- Add a pure operational-health module over approved existing health DTO/state
+  values, using injected time and read-only snapshots
+- Produce deterministic structured health assessments for data delay,
+  notification pending/retry/exhaustion, malformed input, and recovery
+- Keep alert identifiers, severity, source, observed time, and reason codes
+  traceable to the approved source state
+- Define provisional operational thresholds as explicit configuration, separate
+  from strategy thresholds
+- Add deterministic fixtures/unit tests and a bounded observability contract or
+  runbook section
 - Update `PROJECT_MEMORY.md` with durable decisions and verification evidence
 
 ## Forbidden scope
 
-- No Telegram, email, SMS, push provider, webhook, browser notification, or live SSE/network integration
-- No production queue, Redis, scheduler, deployment, authentication, credentials, or exchange connectivity
-- No real orders, leverage, short logic, strategy calculations, threshold changes, or profit/accuracy claims
-- No frontend redesign, M8 release work, or unrelated observability infrastructure
+- No live monitoring service, telemetry backend, production logger, pager,
+  scheduler, daemon, queue, Redis, database migration, deployment, or automation
+  file changes
+- No Telegram, email, SMS, push provider, webhook, browser notification, or live
+  SSE/network integration
+- No exchange connectivity, credentials, real orders, leverage, short logic,
+  strategy calculations, threshold changes, or profit/accuracy claims
+- No frontend redesign, continuous paper observation, M8 release work, or
+  unrelated infrastructure
 
 ## Acceptance criteria
 
-- Only the three approved user-facing lifecycle event types can produce a station-notification decision
-- Duplicate delivery, cooldown, retry, restart reconstruction, stale input, malformed input, empty input, and unknown event behavior are deterministic and fail closed
-- Notification text and identifiers remain traceable to the approved source event and do not imply trading execution or a short signal
-- State storage and time are injected; tests require no network, credentials, database, or wall-clock timing
-- Narrow tests, all backend tests, frontend tests/build, M1 fixture validation, `git diff --check`, scope scan, and secret scan pass
-- Report files, decisions, commands/results, risks, branch, commit, workspace status, and memory sync
-
-## Review blocking defect
-
-- `notifications/policy.py::_validate` performs approved-type membership before
-  validating that `event_type` is a string. A malformed `SignalEventDTO` with
-  an unhashable value such as `event_type=[]` raises `TypeError` instead of
-  returning a fail-closed `NotificationDecision`.
-
-## Repair acceptance checks
-
-- Validate malformed `event_type` values before set membership so every
-  non-string value, including unhashable containers, returns
-  `should_deliver=False` with `reason="malformed_event"` and never reserves
-  delivery state.
-- Add regression coverage for at least an unhashable container and a scalar
-  non-string `event_type`; retain the existing unsupported-string behavior.
-- Keep the repair limited to notification validation/tests and required task or
-  memory reporting, then rerun every original M7-T01 acceptance check.
-
-## Repair result
-
-- Non-string `event_type` values are rejected as `malformed_event` before
-  approved-type membership testing and do not reserve delivery state.
-- Regression coverage includes an unhashable list, an integer, and the retained
-  unsupported-string behavior.
-- All original M7-T01 acceptance checks passed; the task is awaiting independent
-  review.
+- Approved healthy, delayed, failed, retrying, exhausted, recovered, stale,
+  empty, malformed, and unknown states are deterministic and fail closed
+- Duplicate identical assessments have stable identifiers and recovery cannot be
+  emitted without a prior unhealthy state represented in the injected snapshot
+- Assessments expose structured severity/source/time/reason evidence without
+  leaking exception details or implying a trade action
+- State and time are injected; tests require no network, credentials, database,
+  filesystem watcher, or wall-clock timing
+- Narrow tests, all backend tests, frontend tests/build, M1 fixture validation,
+  `git diff --check`, scope scan, and secret scan pass
+- Report files, decisions, commands/results, risks, branch, commit, workspace
+  status, and memory sync
 
 ## Required report
 
-Do not proceed to Telegram evaluation, live delivery, monitoring infrastructure, continuous paper observation, deployment, or M8 during this task.
+Do not proceed to live monitoring infrastructure, provider delivery, continuous
+paper observation, deployment, automation changes, or M8 during this task.
