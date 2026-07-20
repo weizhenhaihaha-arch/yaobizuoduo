@@ -4,7 +4,7 @@
 
 - Task ID: `M5-T02`
 - Milestone: M5 backend API and real-time event boundary
-- Status: dispatched
+- Status: repair_requested
 - Executor: execution AG `Aquinas`
 - Reviewer: main AG
 - Previous task result: `M5-T01` passed main AG re-audit after targeted fail-closed repair
@@ -42,3 +42,11 @@ Implement the versioned FastAPI HTTP and SSE transport over the approved read-on
 ## Required report
 
 Use the report structure in `AG_WORK_LOOP.md`. Do not proceed to database migration, frontend, live exchange transport, or trading before main AG approval.
+
+## Main AG review
+
+- Review time: 2026-07-20 14:12 Asia/Shanghai
+- Result: repair requested; all later M5/M6 work remains blocked
+- Confirmed checks: 29 unit tests passed, M1 fixture validation passed, `git diff --check` passed, and scope scan found no live exchange, trading, credential, frontend, or strategy implementation
+- Blocking defect: the global `KeyError` handler converts malformed internal read-model data on `/api/v1/dashboard` into a misleading 404 `not_found` response instead of a sanitized 500 `internal_error`
+- Required repair: scope missing-signal conversion to the signal detail/outcomes lookups only, allow unrelated internal `KeyError` failures to use the sanitized 500 envelope, and add focused regression coverage
