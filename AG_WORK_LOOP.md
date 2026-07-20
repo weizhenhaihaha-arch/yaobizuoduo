@@ -12,6 +12,10 @@
 - 对话实时模式：主 AG 保持监控会话时，每 3 分钟在窗口汇报一次检查结果；每次先检查 AG 证据，再执行审核或派发，不重复汇报无变化的空话。
 - 系统定时任务：`Codex-Yaobizuoduo-Heartbeat` 每 3 分钟执行 `scripts/ag_heartbeat.ps1 -Once`；它只记录可验证状态，不绕过主 AG 审核。
 - 完成检测：每次派发或返修后运行 `scripts/set_ag_task_baseline.ps1` 记录 Git 基线；心跳在 `dispatched`、`in_progress` 或 `repair_requested` 状态发现新提交时生成 `AG_REVIEW_REQUIRED.md` 并标记待审核。
+- 停滞检测：心跳对 Git 提交、未提交文件列表、文件大小和修改时间生成进展签名；连续 3 次（约 9 分钟）无变化时生成 `AG_WAKE_REQUIRED.md`，由活动中的主 AG 会话向执行 AG 请求状态或发送唤醒指令。
+- 自检保护：任务编号与基线任务不一致时，状态显示 `reset_task_baseline`；Git 或脚本失败时生成 `AG_LOOP_ERROR.md`，不得继续声称循环健康。
+- 系统任务只负责持久检测和动作标记；代码审核、AG 唤醒和聊天窗口消息必须由活动中的主 AG 会话执行，不能由状态脚本伪造。
+- 活动任务期间若主 AG 必须提交工作流、审核或记忆修复，提交后必须立即对同一任务重录基线；否则任意新提交都会被误判为执行 AG 完成提交。
 - 审核人：主 AG
 - 执行人：被派发任务的开发 AG
 

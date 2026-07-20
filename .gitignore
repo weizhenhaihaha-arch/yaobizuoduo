@@ -1,6 +1,8 @@
 AG_STATUS.md
 AG_HEARTBEAT.log
 AG_REVIEW_REQUIRED.md
+AG_WAKE_REQUIRED.md
+AG_LOOP_ERROR.md
 .ag_loop_state.json
 *.db
 *.sqlite
