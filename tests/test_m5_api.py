@@ -53,6 +53,13 @@ class ApiServiceTests(unittest.TestCase):
         self.assertIn("已消失", events[0].message)
         self.assertNotIn("做空", events[0].message)
 
+    def test_entry_advice_fails_closed_for_stale_usable_and_unsupported_records(self):
+        stale_usable = signal("stale-armed", "binance", "BTCUSDT", "armed", "2026-07-20T00:01:00Z", "stale", True)
+        unsupported = signal("other-armed", "other", "BTCUSDT", "armed", "2026-07-20T00:01:00Z", "fresh", True)
+        dashboard = ReadOnlyApiService(InMemoryReadModel([stale_usable, unsupported], {}, [], [])).dashboard(generated_at="2026-07-20T00:05:00Z")
+        self.assertFalse(dashboard.confirmed[0].can_consider_entry)
+        self.assertFalse(dashboard.confirmed[1].can_consider_entry)
+
 
 if __name__ == "__main__":
     unittest.main()

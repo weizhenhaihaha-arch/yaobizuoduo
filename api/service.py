@@ -107,7 +107,10 @@ class ReadOnlyApiService:
         exchange = str(record["exchange"])
         quality = "强" if state == "armed" else "中" if state in {"active", "potential"} else "弱"
         group = "confirmed" if state in CONFIRMED_STATES else "potential" if state == "potential" else "no_signal"
-        usable = bool(record.get("usable_for_signal", False))
+        freshness_status = str(record.get("freshness_status", "unknown")).lower()
+        data_quality = str(record.get("data_quality", "unknown")).lower()
+        market_type = str(record.get("market_type", "")).lower()
+        usable = bool(record.get("usable_for_signal", False)) and exchange in EXCHANGE_LABELS and market_type == "usdt_perpetual" and freshness_status in {"fresh", "recent"} and data_quality in {"normal", "out_of_order"}
         return SignalDTO(str(record["signal_id"]), exchange, EXCHANGE_LABELS.get(exchange, exchange), str(record["symbol"]), str(record.get("market_type", "usdt_perpetual")), state, STATE_LABELS.get(state, state), group, state == "armed" and usable, quality, str(record["event_time"]), str(record.get("last_confirmed_time", record["event_time"])), str(record.get("freshness_status", "unknown")), str(record.get("data_quality", "unknown")), usable, tuple(record.get("reason_codes", ())), record.get("reference_entry_price"), record.get("reference_entry_time"), str(record.get("invalidation_rule_id", "unknown")), str(record.get("strategy_version", "unknown")))
 
     def _health_dto(self, record: Mapping[str, Any]) -> DataHealthDTO:

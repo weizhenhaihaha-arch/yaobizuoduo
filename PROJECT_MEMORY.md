@@ -50,6 +50,7 @@
 - M4-T01 was the only active task for availability-safe replay and outcome statistics; it passed review and M5 is now authorized.
 - Main AG audited `M4-T01`: 18 tests, M1 fixture validation, availability-time safety, whitespace, and scope checks passed. M4-T01 is approved.
 - `M5-T01` remains the only active task and is in targeted repair; M5-T02, frontend, live exchange transport, and trading remain unauthorized.
+- M5-T01 repair makes API entry advice fail closed: `can_consider_entry` now requires supported Binance/OKX exchange, `usdt_perpetual`, usable upstream data, fresh/recent freshness, and normal/out-of-order data quality in addition to `armed` state.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M5, followed by frontend work only after API review.
@@ -127,3 +128,4 @@
 - Replaced the temporary resident heartbeat process with the verified Windows scheduled task; visible status remains in `AG_STATUS.md` and history in `AG_HEARTBEAT.log`.
 - Added baseline-aware completion detection and documented the split between persistent OS evidence collection and active-session AG completion monitoring.
 - Main AG reviewed M5-T01: all 23 tests and standard checks passed, but an adversarial probe found stale armed data could still expose `can_consider_entry=true`; a targeted repair was requested and M5-T02 remains blocked.
+- Execution AG completed the targeted M5-T01 repair: added defensive entry-usability gating and stale/unsupported regression coverage; full 24-test suite, M1 fixture validation, diff, and scope/secret checks passed. Awaiting main AG re-review.
