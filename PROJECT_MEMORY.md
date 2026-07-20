@@ -34,6 +34,8 @@
 - Empty states must explain why there is no actionable signal; history must report both price movement and fixed-rule simulated results without equating a later pump with a successful entry.
 - The proposed architecture separates exchange collection, normalization, scanning, signal lifecycle, outcome evaluation, API delivery, and later notifications.
 - Product and technical details are documented in `PRODUCT_SPEC.md`; strategy thresholds remain open until replay validation.
+- M0-T01 boundary proposal is recorded in `M0_BOUNDARY_PROPOSAL.md`: V1 is read-only Binance/OKX USDT perpetual observation, with three dashboard groups, explicit beginner-facing lifecycle states, reproducible confirmation-time entry snapshots, invalidation reasons, deduplicated retriggers, and fixed 5m/15m/1h/4h/1d outcome windows.
+- M0 freezes interfaces and evaluation semantics, not final strategy thresholds, cooldown duration, fee/slippage values, or performance claims; those require replay validation in later milestones.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M0, followed by data contracts before application implementation.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
@@ -64,6 +66,7 @@
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
 - Complete M0 boundary freeze before starting M1 data contracts.
 - Receive and audit the `M0-T01` boundary-freeze report before dispatching another task.
+- Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 
 ## Development log
@@ -82,3 +85,4 @@
 - Activated the AG loop after user confirmation, checked for an active execution AG, found none, and dispatched `M0-T01` as the first wake-up task.
 - Started execution AG `Aquinas` for `M0-T01`; the task is now in progress and the main AG will review its report before proceeding.
 - Added the three-minute heartbeat requirement and documented the limitation that a closed conversation cannot be represented as an active monitor without a running monitoring process.
+- Completed execution AG draft for `M0-T01`: added the boundary decision proposal and recorded the durable M0 decisions and remaining replay-dependent choices.
