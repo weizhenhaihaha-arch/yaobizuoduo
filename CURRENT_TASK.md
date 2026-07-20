@@ -4,8 +4,8 @@
 
 - Task ID: `M7-T01`
 - Milestone: M7 notification, observation, and stability
-- Status: awaiting_review
-- Executor: autonomous Codex CLI worker transition
+- Status: repair_requested
+- Executor: autonomous Codex CLI worker repair transition
 - Reviewer: autonomous Codex CLI review transition
 - Previous task result: `M6-T02` passed autonomous review
 
@@ -37,6 +37,24 @@ Define and implement the smallest deterministic, offline-testable station-notifi
 - State storage and time are injected; tests require no network, credentials, database, or wall-clock timing
 - Narrow tests, all backend tests, frontend tests/build, M1 fixture validation, `git diff --check`, scope scan, and secret scan pass
 - Report files, decisions, commands/results, risks, branch, commit, workspace status, and memory sync
+
+## Review blocking defect
+
+- `notifications/policy.py::_validate` performs approved-type membership before
+  validating that `event_type` is a string. A malformed `SignalEventDTO` with
+  an unhashable value such as `event_type=[]` raises `TypeError` instead of
+  returning a fail-closed `NotificationDecision`.
+
+## Repair acceptance checks
+
+- Validate malformed `event_type` values before set membership so every
+  non-string value, including unhashable containers, returns
+  `should_deliver=False` with `reason="malformed_event"` and never reserves
+  delivery state.
+- Add regression coverage for at least an unhashable container and a scalar
+  non-string `event_type`; retain the existing unsupported-string behavior.
+- Keep the repair limited to notification validation/tests and required task or
+  memory reporting, then rerun every original M7-T01 acceptance check.
 
 ## Required report
 
