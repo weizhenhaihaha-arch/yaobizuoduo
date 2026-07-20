@@ -2,39 +2,40 @@
 
 ## Task
 
-- Task ID: `M0-T01`
-- Milestone: M0 产品和策略边界冻结
-- Status: repair_requested
-- Executor: execution AG `Aquinas` (`019f7dc8-260c-7fc3-8e7d-e05f3dcf8cfd`)
+- Task ID: `M1-T01`
+- Milestone: M1 data contracts and test fixtures
+- Status: dispatched
+- Executor: execution AG `Aquinas`
 - Reviewer: main AG
-- Review result: repair requested; `git diff --check` found trailing whitespace at line 73 of `M0_BOUNDARY_PROPOSAL.md`
+- Previous task result: `M0-T01` passed after targeted repair; M1 is now authorized
 
 ## Goal
 
-Produce a concrete M0 boundary decision proposal for the beginner-friendly Binance/OKX pump-long signal product. Do not implement application code.
+Define the first normalized market-data, signal-event, lifecycle, and outcome-record contracts, plus deterministic test fixtures. Do not connect to live exchanges or implement the strategy.
 
 ## Allowed scope
 
-- Review `PRODUCT_SPEC.md`, `DESIGN.md`, `DEVELOPMENT_WORKFLOW.md`, and `PROJECT_MEMORY.md`
-- Propose the initial market scope, observation-pool rule, signal lifecycle wording, entry reference, invalidation rule, repeat-trigger cooldown, and outcome windows
-- Identify ambiguities, risks, and decisions that require product-owner confirmation
-- Update only task documentation if needed; do not change strategy code because no strategy code exists yet
+- Review `PRODUCT_SPEC.md`, `DESIGN.md`, `DEVELOPMENT_WORKFLOW.md`, `PROJECT_MEMORY.md`, and `M0_BOUNDARY_PROPOSAL.md`
+- Define versioned schemas for exchange, symbol, timestamp, candle, volume, OI, funding, data health, signal, signal-state event, and outcome window
+- Create small Binance/OKX fixed fixtures covering normal, delayed, missing, out-of-order, and invalid data
+- Define event-time versus availability-time fields and deterministic replay expectations
+- Update only M1 contract documentation and fixture files
 
 ## Forbidden scope
 
-- No frontend or backend implementation
-- No exchange API integration
+- No frontend or backend application implementation
+- No live exchange API integration
 - No real-order execution or credential handling
 - No short strategy, additional exchange, or automatic trading
-- No final performance claims or hard-coded production thresholds
+- No final strategy thresholds or performance claims
 
 ## Acceptance criteria
 
-- Provide a decision table with current proposal, rationale, open choice, and downstream impact
-- Keep confirmed requirements separate from assumptions
-- Include a proposed signal state transition and user-facing wording
-- Include a proposed fixed evaluation window and explain what remains to validate by replay
-- Run document consistency checks and report results
+- Provide versioned contract documentation with required fields, units, timestamp semantics, and invalid-data behavior
+- Include deterministic Binance and OKX fixtures and tests or validation scripts that parse them
+- Prove the same fixture produces the same normalized result
+- Keep confirmed requirements separate from assumptions and unresolved fields
+- Run document consistency checks and fixture validation
 - Update `PROJECT_MEMORY.md` with durable facts only
 - Report changed files, commands, results, risks, branch, commit, and workspace status
 

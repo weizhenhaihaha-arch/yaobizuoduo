@@ -36,6 +36,7 @@
 - Product and technical details are documented in `PRODUCT_SPEC.md`; strategy thresholds remain open until replay validation.
 - M0-T01 boundary proposal is recorded in `M0_BOUNDARY_PROPOSAL.md`: V1 is read-only Binance/OKX USDT perpetual observation, with three dashboard groups, explicit beginner-facing lifecycle states, reproducible confirmation-time entry snapshots, invalidation reasons, deduplicated retriggers, and fixed 5m/15m/1h/4h/1d outcome windows.
 - M0 freezes interfaces and evaluation semantics, not final strategy thresholds, cooldown duration, fee/slippage values, or performance claims; those require replay validation in later milestones.
+- Main AG review passed `M0-T01` after a targeted trailing-whitespace repair; M1 is now authorized and `M1-T01` is the only active task.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M0, followed by data contracts before application implementation.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
@@ -65,7 +66,7 @@
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
 - Complete M0 boundary freeze before starting M1 data contracts.
-- Receive and audit the `M0-T01` boundary-freeze report before dispatching another task.
+- Receive and audit the `M1-T01` data-contract and fixture report before dispatching `M1-T02`.
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
@@ -88,3 +89,4 @@
 - Added the three-minute heartbeat requirement and documented the limitation that a closed conversation cannot be represented as an active monitor without a running monitoring process.
 - Completed execution AG draft for `M0-T01`: added the boundary decision proposal and recorded the durable M0 decisions and remaining replay-dependent choices.
 - Main AG audited the M0-T01 proposal, rejected the first report for a concrete whitespace failure, and issued a narrowly scoped repair request; no M1 work is authorized.
+- Execution AG repaired the whitespace issue, main AG re-ran the checks and passed `M0-T01`, then dispatched `M1-T01` for data contracts and deterministic fixtures.
