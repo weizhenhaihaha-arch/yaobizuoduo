@@ -4,7 +4,7 @@
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries and the deterministic beginner-facing frontend are approved through M6. M7-T01 is dispatched for a pure, offline station-notification policy boundary only; no live notification provider, exchange transport, or trading execution is implemented.
+- Offline application boundaries and the deterministic beginner-facing frontend are approved through M6. M7-T01 implementation is awaiting review: it adds only a pure, offline station-notification policy boundary; no live notification provider, exchange transport, or trading execution is implemented.
 
 ## Confirmed requirements
 
@@ -50,6 +50,8 @@
 - M4-T01 was the only active task for availability-safe replay and outcome statistics; it passed review and M5 is now authorized.
 - Main AG audited `M4-T01`: 18 tests, M1 fixture validation, availability-time safety, whitespace, and scope checks passed. M4-T01 is approved.
 - M5 backend/API/storage and all M6 beginner frontend work are approved. `M7-T01` is the only active task, limited to deterministic station-notification selection, deduplication/cooldown/retry state, and offline contracts/tests; live providers, infrastructure, deployment, and trading remain unauthorized.
+- M7-T01 adds `notifications/policy.py` over approved `api.v1` `SignalEventDTO` values. Only `new_signal`, `weakening`, and `invalidation` are selectable; exact-event deduplication, signal/event-type cooldown, bounded retry reservation, and restart reconstruction use injected clock and state-store interfaces.
+- M7 station copy is traceable to the source signal/event/time/reasons, states that delivery does not execute a trade, and explicitly states that invalidation is not a short signal. Provisional five-minute event age, ten-minute cooldown, 30-second retry delay, and three-attempt values are notification-operation configuration, not strategy thresholds.
 - M5-T01 repair makes API entry advice fail closed: `can_consider_entry` now requires supported Binance/OKX exchange, `usdt_perpetual`, usable upstream data, fresh/recent freshness, and normal/out-of-order data quality in addition to `armed` state.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
@@ -84,6 +86,7 @@
 - 2026-07-20 Asia/Shanghai: second push attempt failed to connect to `github.com:443`; local commits remain ready to publish when network access is available.
 - 2026-07-20 Asia/Shanghai: `DEVELOPMENT_WORKFLOW.md` was added and local commit `dca79e8` was created; push again returned an empty server response.
 - 2026-07-20 Asia/Shanghai: `AG_WORK_LOOP.md` was added and local commit `df17cdc` was created; the push attempt again failed to connect to `github.com:443`.
+- 2026-07-21 Asia/Shanghai: M7-T01 work verification passed 7 focused notification tests, all 43 backend tests, 10 frontend tests, the TypeScript/Vite build, M1 fixture validation (`c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`), whitespace, forbidden-implementation, and secret scans.
 
 ## Open items
 
@@ -94,12 +97,16 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - FastAPI, PostgreSQL contract/read-model, and React/TypeScript are confirmed for the current implementation path; live infrastructure integration remains later work.
-- M0 through M6 are complete and approved; M7-T01 is `dispatched` as the smallest workflow-supported station-notification policy task, before any Telegram evaluation or live delivery work.
+- M0 through M6 are complete and approved; M7-T01 is `awaiting_review` as the smallest workflow-supported station-notification policy task. Telegram evaluation and live delivery remain unapproved future decisions.
 - The autonomous supervisor is authorized to execute one repository-state transition per run using Codex CLI; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
 
 ## Development log
+
+### 2026-07-21
+
+- Completed the M7-T01 worker transition: added the pure station-notification policy, injected restart-safe state/time seams, deterministic fixture and unit coverage, and the bounded M7 contract. The policy fails closed for stale, future, unsupported, malformed, unknown, and empty inputs; it has no live provider, network integration, queue, credentials, exchange connectivity, strategy change, or trading operation.
 
 ### 2026-07-20
 

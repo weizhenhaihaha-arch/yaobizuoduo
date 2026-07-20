@@ -1,0 +1,10 @@
+{
+  "api_version": "api.v1",
+  "cases": [
+    {"event_type": "new_signal", "expected": "selected"},
+    {"event_type": "weakening", "expected": "selected"},
+    {"event_type": "invalidation", "expected": "selected"},
+    {"event_type": "stale_data", "expected": "unsupported_event_type"},
+    {"event_type": "unknown", "expected": "unsupported_event_type"}
+  ]
+}
