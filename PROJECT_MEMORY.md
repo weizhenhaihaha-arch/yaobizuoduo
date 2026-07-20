@@ -53,7 +53,7 @@
 - M5-T01 repair makes API entry advice fail closed: `can_consider_entry` now requires supported Binance/OKX exchange, `usdt_perpetual`, usable upstream data, fresh/recent freshness, and normal/out-of-order data quality in addition to `armed` state.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
-- M5-T02 adds `api/transport.py`, injected FastAPI GET routes, approved-event SSE framing, sanitized error envelopes, `requirements-api.txt`, and offline interface tests. The transport has no default live client and only accepts injected read-model/service dependencies.
+- M5-T02 adds `api/transport.py`, injected FastAPI GET routes, approved-event SSE framing, sanitized error envelopes, `requirements-api.txt`, and offline interface tests. The transport has no default live client and only accepts injected read-model/service dependencies. Missing-signal `KeyError` conversion is scoped to detail/outcomes handlers; dashboard and other internal `KeyError` failures use sanitized 500 responses.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M5, followed by frontend work only after API review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
@@ -89,7 +89,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
-- M0 through M4 and M5-T01 are complete and approved; M5-T02 requires a targeted repair so internal read-model `KeyError` failures return sanitized 500 errors rather than false 404 responses.
+- M0 through M4 and M5-T01 are complete and approved; M5-T02 targeted repair is complete pending review, with internal read-model `KeyError` failures returning sanitized 500 errors rather than false 404 responses.
 - No database migration, frontend, live exchange transport, authentication, credentials, or deployment work is authorized before later approvals.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -134,3 +134,4 @@
 - Fixed the heartbeat completion detector so new commits in `repair_requested` state also generate `AG_REVIEW_REQUIRED.md`; a one-shot verification correctly marked the M5 repair commit for review.
 - Completed execution AG work for `M5-T02`: added FastAPI GET routes, SSE allowlist/framing, unified errors, dependency injection, minimum API dependencies, transport contract documentation, and offline tests; 29 tests passed without live exchange calls.
 - Main AG reviewed M5-T02: 29 tests and standard checks passed, but an adversarial malformed-record probe showed the global `KeyError` handler misclassified an internal dashboard failure as 404; a focused repair was requested and later milestones remain blocked.
+- Completed M5-T02 targeted repair: removed the global `KeyError` 404 mapping, scoped missing-signal conversion to detail/outcomes routes, and added regression coverage for missing outcomes plus malformed dashboard 500 sanitization.

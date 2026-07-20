@@ -30,6 +30,9 @@ class TransportTests(unittest.TestCase):
         not_found = self.client.get("/api/v1/signals/missing")
         self.assertEqual(not_found.status_code, 404)
         self.assertEqual(not_found.json()["error"]["code"], "not_found")
+        outcomes_not_found = self.client.get("/api/v1/signals/missing/outcomes")
+        self.assertEqual(outcomes_not_found.status_code, 404)
+        self.assertEqual(outcomes_not_found.json()["error"]["code"], "not_found")
         invalid = self.client.get("/api/v1/signals/%20")
         self.assertIn(invalid.status_code, (404, 422))
         self.assertIn("error", invalid.json())
@@ -52,13 +55,13 @@ class TransportTests(unittest.TestCase):
     def test_internal_error_uses_sanitized_envelope(self):
         class BrokenService(ReadOnlyApiService):
             def dashboard(self, generated_at=None):
-                raise RuntimeError("should not be exposed")
+                raise KeyError("malformed dashboard record should not be exposed")
 
         broken_client = TestClient(create_app(BrokenService(InMemoryReadModel([], {}, [], []))), raise_server_exceptions=False)
         response = broken_client.get("/api/v1/dashboard")
         self.assertEqual(response.status_code, 500)
         self.assertEqual(response.json()["error"]["code"], "internal_error")
-        self.assertNotIn("should not be exposed", response.text)
+        self.assertNotIn("malformed dashboard record", response.text)
 
 
 if __name__ == "__main__":

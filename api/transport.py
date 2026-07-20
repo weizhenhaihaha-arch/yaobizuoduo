@@ -59,10 +59,6 @@ def create_app(service: ReadOnlyApiService, event_source: Callable[[], Iterable[
         message = "未找到请求的资源。" if code == "not_found" else "请求无效。" if code == "invalid_request" else "服务内部错误。"
         return JSONResponse(status_code=exc.status_code, content=error_envelope(code, message, _request_id(request)))
 
-    @app.exception_handler(KeyError)
-    async def key_error_handler(request: Request, exc: KeyError) -> JSONResponse:
-        return JSONResponse(status_code=404, content=error_envelope("not_found", "未找到请求的信号。", _request_id(request)))
-
     @app.exception_handler(Exception)
     async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
         return JSONResponse(status_code=500, content=error_envelope("internal_error", "服务内部错误。", _request_id(request)))
@@ -77,12 +73,18 @@ def create_app(service: ReadOnlyApiService, event_source: Callable[[], Iterable[
 
     @app.get("/api/v1/signals/{signal_id}")
     def signal_detail(signal_id: str, api_service: ReadOnlyApiService = Depends(get_service)) -> dict[str, Any]:
-        return api_service.signal_detail(signal_id).to_dict()
+        try:
+            return api_service.signal_detail(signal_id).to_dict()
+        except KeyError as exc:
+            raise StarletteHTTPException(status_code=404) from exc
 
     @app.get("/api/v1/signals/{signal_id}/outcomes")
     def signal_outcomes(signal_id: str, api_service: ReadOnlyApiService = Depends(get_service)) -> dict[str, Any]:
-        api_service.signal_detail(signal_id)
-        return {"api_version": APP_VERSION, "signal_id": signal_id, "outcomes": [item.to_dict() for item in api_service.outcomes(signal_id)]}
+        try:
+            api_service.signal_detail(signal_id)
+            return {"api_version": APP_VERSION, "signal_id": signal_id, "outcomes": [item.to_dict() for item in api_service.outcomes(signal_id)]}
+        except KeyError as exc:
+            raise StarletteHTTPException(status_code=404) from exc
 
     @app.get("/api/v1/statistics/summary")
     def statistics(api_service: ReadOnlyApiService = Depends(get_service)) -> dict[str, Any]:
