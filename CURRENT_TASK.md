@@ -2,53 +2,42 @@
 
 ## Task
 
-- Task ID: `M6-T02`
-- Milestone: M6 beginner homepage and detail experience
-- Status: awaiting_review
+- Task ID: `M7-T01`
+- Milestone: M7 notification, observation, and stability
+- Status: dispatched
 - Executor: autonomous Codex CLI worker transition
 - Reviewer: autonomous Codex CLI review transition
-- Previous task result: `M6-T01` passed main AG audit
+- Previous task result: `M6-T02` passed autonomous review
 
 ## Goal
 
-Add beginner-readable signal detail, history, and observation-statistics views over approved deterministic `api.v1` DTO-shaped development fixtures, while preserving the reviewed homepage.
+Define and implement the smallest deterministic, offline-testable station-notification policy boundary over approved `api.v1` event messages, so confirmed signals, important weakening, and invalidations can be selected without duplicate notification spam.
 
 ## Allowed scope
 
-- Add accessible navigation between Signals, Results, Help, and signal detail views
-- Implement signal detail with action state, timeline, entry reference, invalidation, data health, and fixed-window outcome observations
-- Implement historical signal rows and observation-only statistics that clearly separate maximum price rise from unevaluated strategy PnL
-- Reuse approved components/tokens and deterministic development fixtures; keep all development data visibly labeled
-- Add responsive component tests and build verification
-- Update `DESIGN.md` and `PROJECT_MEMORY.md` with durable decisions
+- Add a pure notification-policy module that accepts approved read-only event DTOs and returns deterministic station-notification decisions
+- Allow only `new_signal`, `weakening`, and `invalidation`; fail closed for stale, unknown, malformed, or unsupported events
+- Add explicit deduplication keys, configurable provisional cooldown, retry state, and restart-safe injected state-store interfaces
+- Keep user copy consistent with approved webpage lifecycle meanings, including that invalidation is not a short signal
+- Add deterministic fixtures/unit tests and a bounded notification contract or runbook section
+- Update `PROJECT_MEMORY.md` with durable decisions and verification evidence
 
 ## Forbidden scope
 
-- No live API/SSE/exchange calls, routing server, authentication, database, deployment, or production data
-- No strategy calculations, threshold changes, simulated profitability, accuracy claims, real orders, leverage, or short logic
-- No notification implementation or M7 observability work
-- No redesign of the approved homepage outside changes required for navigation/reuse
+- No Telegram, email, SMS, push provider, webhook, browser notification, or live SSE/network integration
+- No production queue, Redis, scheduler, deployment, authentication, credentials, or exchange connectivity
+- No real orders, leverage, short logic, strategy calculations, threshold changes, or profit/accuracy claims
+- No frontend redesign, M8 release work, or unrelated observability infrastructure
 
 ## Acceptance criteria
 
-- A beginner can move from a homepage signal to detail and understand current action, why it appeared, whether it remains valid, and what invalidation means
-- History and statistics distinguish observed price movement, incomplete windows, and `not_evaluated` strategy results
-- Missing, incomplete, stale, empty, and invalidated states remain explicit and fail closed
-- Keyboard/focus, text labels, mobile/desktop layout, and reduced-motion behavior follow `DESIGN.md`
-- Frontend tests/build, backend tests, M1 fixture validation, `git diff --check`, scope, and secret checks pass
+- Only the three approved user-facing lifecycle event types can produce a station-notification decision
+- Duplicate delivery, cooldown, retry, restart reconstruction, stale input, malformed input, empty input, and unknown event behavior are deterministic and fail closed
+- Notification text and identifiers remain traceable to the approved source event and do not imply trading execution or a short signal
+- State storage and time are injected; tests require no network, credentials, database, or wall-clock timing
+- Narrow tests, all backend tests, frontend tests/build, M1 fixture validation, `git diff --check`, scope scan, and secret scan pass
 - Report files, decisions, commands/results, risks, branch, commit, workspace status, and memory sync
 
 ## Required report
 
-Do not proceed to live API integration, M7 notifications/observability, deployment, or trading before autonomous review passes.
-
-## Review blocking defects
-
-- `frontend/src/types.ts` and `frontend/src/fixtures/results.ts` model timeline events with `event_type` and `occurred_at`, but the approved `api.v1` signal-detail payload returns persisted event fields including `event_id`, `event_time`, `available_time`, `from_state`, `to_state`, `reason_codes`, and `snapshot_id`. The fixture is therefore not DTO-shaped, and `SignalDetailPage` reads a timestamp field that is absent from a real approved payload.
-- Keep the repair within M6-T02: align the frontend event type, deterministic fixture, timeline rendering, and regression tests to the existing backend DTO. Do not change the approved backend contract or add transport integration.
-
-## Repair acceptance checks
-
-- A serialized `ReadOnlyApiService.signal_detail(...).to_dict()` event shape is representable by the frontend type and renders its timeline using `event_time` without invented aliases.
-- Empty or missing event lists still fail closed with the existing explicit message; complete/incomplete outcomes and `not_evaluated` strategy results remain unchanged.
-- Frontend tests/build, all backend tests, M1 fixture validation, `git diff --check`, scope scan, and secret scan pass, and `PROJECT_MEMORY.md` records the repair evidence.
+Do not proceed to Telegram evaluation, live delivery, monitoring infrastructure, continuous paper observation, deployment, or M8 during this task.
