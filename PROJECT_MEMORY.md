@@ -48,6 +48,8 @@
 - M3 numeric values are versioned provisional configuration (`provisional-m3-v1`) only; no final thresholds, profitability claims, short logic, frontend, live exchange integration, or trading operation were added.
 - Main AG audited `M3-T01`: 14 tests, deterministic fixture validation, whitespace, and scope checks passed. M3-T01 is approved.
 - `M4-T01` is now the only active task, limited to availability-safe historical replay and outcome statistics; profitability claims and strategy PnL remain forbidden.
+- Main AG audited `M4-T01`: 18 tests, M1 fixture validation, availability-time safety, whitespace, and scope checks passed. M4-T01 is approved.
+- `M5-T01` is now the only active task, limited to read-only API service DTOs and product grouping; frontend, live transport, and trading remain forbidden.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M4, followed by API work only after replay review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
@@ -86,6 +88,7 @@
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
 - M0 boundary freeze, M1 contracts, M2 adapters, and M3 lifecycle are complete and approved; M4 replay and outcome statistics now await main AG review.
 - Main AG must audit the `M4-T01` replay and outcome-statistics report before dispatching M4-T02.
+- Main AG must audit the `M5-T01` API service and DTO report before dispatching M5-T02.
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
@@ -115,6 +118,7 @@
 - Completed execution AG work for `M3-T01`: added provisional lifecycle configuration, deterministic state events, offline replay fixtures, lifecycle tests, and strategy-boundary documentation; no final performance claim or trading capability was added.
 - Completed execution AG work for `M4-T01`: added availability-safe replay, fixed outcome windows, price observation records, incomplete/missing reason codes, deterministic fixtures/tests, and explicit `not_evaluated` strategy results; no future-data lookahead or profitability claim was added.
 - Main AG audited M3 lifecycle behavior, passed `M3-T01`, and dispatched `M4-T01` for availability-safe historical replay and outcome statistics.
+- Main AG audited M4 replay and outcomes, passed `M4-T01`, and dispatched `M5-T01` for the read-only API service and DTO boundary.
 - Main AG audited the M1 contract and fixtures, confirmed deterministic validation, passed `M1-T01`, and dispatched `M2-T01` for read-only collection boundaries and health handling.
 - Main AG audited M2 adapters and health behavior, passed `M2-T01`, and dispatched `M3-T01` for the deterministic signal lifecycle and provisional strategy boundary.
 - Added the visible local heartbeat runner and ignored runtime status files so three-minute repository checks can be inspected without polluting Git history.

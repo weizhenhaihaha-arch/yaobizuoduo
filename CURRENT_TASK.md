@@ -2,43 +2,44 @@
 
 ## Task
 
-- Task ID: `M4-T01`
-- Milestone: M4 historical replay and outcome statistics
+- Task ID: `M5-T01`
+- Milestone: M5 backend API and real-time event boundary
 - Status: dispatched
 - Executor: execution AG `Aquinas`
 - Reviewer: main AG
-- Previous task result: `M3-T01` passed main AG audit; M4 is now authorized
+- Previous task result: `M4-T01` passed main AG audit; M5 is now authorized
 
 ## Goal
 
-Implement deterministic historical replay and signal-outcome records for the fixed 5m, 15m, 1h, 4h, and 1d windows without claiming profitability.
+Implement the read-only API service boundary and DTOs that expose dashboard, signal detail, history, outcomes, statistics, and health without moving strategy logic into the API layer.
 
 ## Allowed scope
 
-- Replay normalized snapshots through the approved M3 lifecycle using event and availability time
-- Record confirmation-time entry reference, window-end change, maximum rise, maximum drawdown, peak time, completeness, missing-data status, and invalidation events
-- Keep price-observation outcomes separate from simulated strategy results
-- Mark strategy result as not evaluated until fee, slippage, and exit rules are approved
-- Add deterministic fixtures and tests for complete, incomplete, delayed, missing, adverse-first, and no-lookahead cases
+- Compose approved M1-M4 records into stable versioned response models
+- Implement confirmed/potential/no-signal grouping and priority sorting
+- Include Binance/OKX text badges, freshness, data-health, reason codes, entry reference, invalidation, and outcome completeness
+- Define read-only event messages for new signal, weakening, invalidation, and stale data
+- Keep storage and web-framework transport behind interfaces; use offline tests
 - Update `PROJECT_MEMORY.md` with durable facts only
 
 ## Forbidden scope
 
-- No final thresholds, profitability claims, or public accuracy claims
-- No frontend, live exchange integration, real orders, credentials, leverage, or short strategy
-- No use of future or unavailable data
-- No classifying a signal as successful only because price later reached a favorable high
+- No frontend implementation
+- No strategy calculations or threshold changes in the API layer
+- No live exchange client, real orders, credentials, leverage, or short strategy
+- No profitability or accuracy claims
+- No fake production data
 
 ## Acceptance criteria
 
-- Replay is deterministic and availability-time safe
-- Fixed windows are computed from the confirmation reference time
-- Maximum rise and drawdown are both recorded, including adverse-first ordering
-- Incomplete and missing windows are excluded from complete-sample aggregates with reason codes
-- Strategy PnL remains separate and not evaluated unless explicit cost/exit inputs exist
+- Dashboard groups and sorting match the approved beginner-first product rules
+- API DTOs expose all user decisions without requiring frontend strategy calculations
+- Data-health and stale states fail closed
+- Outcome responses distinguish price observations, incomplete windows, and not-evaluated strategy PnL
+- Offline tests cover grouping, ordering, exchange badges, stale data, invalidation, empty state, and outcome semantics
 - Unit tests, fixture validation, `git diff --check`, scope, and secret checks pass
 - Report changed files, commands, results, risks, branch, commit, workspace status, and memory sync
 
 ## Required report
 
-Use the report structure in `AG_WORK_LOOP.md`. Do not proceed to API or frontend work before main AG approval.
+Use the report structure in `AG_WORK_LOOP.md`. Do not proceed to frontend or live transport before main AG approval.
