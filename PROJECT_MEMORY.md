@@ -54,6 +54,7 @@
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
 - M5-T02 adds `api/transport.py`, injected FastAPI GET routes, approved-event SSE framing, sanitized error envelopes, `requirements-api.txt`, and offline interface tests. The transport has no default live client and only accepts injected read-model/service dependencies. `SignalNotFoundError` is raised only for absent IDs; transport maps only that exception to 404, while malformed-record `KeyError` failures use sanitized 500 responses.
+- M5-T03 adds the forward-only PostgreSQL schema in `db/migrations/001_m5_read_model.sql` and the injected DB-API `PostgresReadModel` in `persistence/postgres_read_model.py`. The adapter uses parameterized SELECTs only, closes cursors safely, performs no commit/rollback, preserves M1 event/availability timestamps and reason codes, and rejects malformed rows or evaluated strategy results.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M5, followed by frontend work only after API review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
@@ -89,7 +90,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
-- M0 through M4, M5-T01, and M5-T02 are complete and approved; M5-T03 is the remaining M5 database migration/read-model gate before M6.
+- M0 through M4, M5-T01, and M5-T02 are complete and approved; M5-T03 implementation is complete pending review and remains the database migration/read-model gate before M6.
 - No database migration, frontend, live exchange transport, authentication, credentials, or deployment work is authorized before later approvals.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -138,3 +139,4 @@
 - Main AG re-review found the first M5-T02 repair incomplete: route-level broad `KeyError` catches still classify malformed existing signal records as missing; a dedicated missing-signal exception and detail/outcomes regression tests are required.
 - Completed M5-T02 second targeted repair: added service-layer `SignalNotFoundError`, scoped transport 404 conversion to that exception, and covered missing plus existing malformed detail/outcomes responses with sanitized 500 assertions.
 - Main AG approved M5-T02 after 30 tests and four explicit probes confirmed missing detail/outcomes return 404 while malformed existing detail/outcomes return sanitized 500; M5-T03 database migration/read-model work was then dispatched.
+- Completed M5-T03: added versioned PostgreSQL tables and indexes for normalized records, signals, append-only events, fixed outcome windows, and health snapshots; added injected read-only DB-API mapping with no writes; added fake connection/cursor tests for all ReadModel methods, malformed/empty data, ordering/query parameters, close behavior, and `not_evaluated` semantics. Full suite passed with 36 tests and no live database call.
