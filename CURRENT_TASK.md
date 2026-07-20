@@ -4,10 +4,11 @@
 
 - Task ID: `M1-T01`
 - Milestone: M1 data contracts and test fixtures
-- Status: dispatched
+- Status: awaiting_review
 - Executor: execution AG `Aquinas`
 - Reviewer: main AG
 - Previous task result: `M0-T01` passed after targeted repair; M1 is now authorized
+- Execution report: M1 artifacts were committed as `e8a8652`; main AG audit is pending
 
 ## Goal
 

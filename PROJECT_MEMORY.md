@@ -71,6 +71,7 @@
 - Confirm whether the proposed FastAPI/PostgreSQL/React architecture fits the implementation environment.
 - M0 boundary freeze is complete; M1 data contracts and fixtures now await main AG review.
 - Main AG must audit the `M1-T01` contract, fixtures, validation output, and scope before dispatching `M1-T02`.
+- Execution AG completed `M1-T01` in commit `e8a8652`; the task is now explicitly `awaiting_review`, and no M2 work is authorized until the audit passes.
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
