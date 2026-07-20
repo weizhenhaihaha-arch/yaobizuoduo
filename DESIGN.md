@@ -77,11 +77,18 @@
 - Use quality labels `强 / 中 / 弱` only as supporting context; the primary state remains `可以考虑开多 / 等待确认 / 信号减弱 / 信号消失`
 
 ## Implementation constraints
-- Framework/styling system: undecided; preserve a mobile-first component structure
-- Design-token constraints: centralize colors, spacing, typography, and state tokens
+- Framework/styling system: React/TypeScript with Vite in an isolated `frontend/` workspace; CSS custom properties provide the first token layer
+- Design-token constraints: centralize colors, spacing, typography, and state tokens; action state always has text and is never color-only
 - Performance constraints: dashboard should prioritize fast first paint and avoid unnecessary live animation
 - Compatibility constraints: modern mobile and desktop browsers
-- Test/screenshot expectations: verify responsive dashboard, priority sorting, simultaneous signals, new signal, signal disappearance, stale data, empty states, and outcome display
+- Test/screenshot expectations: verify responsive dashboard, priority sorting, simultaneous signals, new signal, signal disappearance, stale data, loading/error/empty states, and keyboard focus; M6 uses deterministic `api.v1` DTO-shaped development fixtures only
+
+## M6 implementation decisions
+- The first frontend surface is a single beginner homepage; detail, history, statistics, live HTTP, and SSE are intentionally deferred.
+- A visible `开发 / 测试数据` badge and footer disclaimer distinguish fixtures from production data; the page makes no strategy calculation or profitability claim.
+- The page order is summary, confirmed, potential, collapsed no-signal, and recent invalidations. Each card exposes exchange text, action, reason, freshness, quality, entry reference, and invalidation context.
+- Stale or unusable DTOs show a warning and disabled action copy. Loading, empty, and transport-error states use text-first status panels with `role="status"` or `role="alert"`.
+- Cards are keyboard focusable, the page has a skip link and semantic headings, and motion is disabled under `prefers-reduced-motion`.
 
 ## Open questions
 - [ ] USDT perpetual only or spot plus perpetual / product owner
