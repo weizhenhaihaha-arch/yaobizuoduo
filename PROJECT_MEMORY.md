@@ -49,7 +49,7 @@
 - Main AG audited `M3-T01`: 14 tests, deterministic fixture validation, whitespace, and scope checks passed. M3-T01 is approved.
 - M4-T01 was the only active task for availability-safe replay and outcome statistics; it passed review and M5 is now authorized.
 - Main AG audited `M4-T01`: 18 tests, M1 fixture validation, availability-time safety, whitespace, and scope checks passed. M4-T01 is approved.
-- M5 backend/API/storage work is approved. `M6-T01` is the only active task, limited to the React/TypeScript frontend foundation and beginner homepage using deterministic DTO-shaped development fixtures; detail/history pages, live API/exchange transport, deployment, and trading remain unauthorized.
+- M5 backend/API/storage and M6-T01 beginner homepage are approved. `M6-T02` is the only active task, limited to deterministic signal detail, history, and observation-statistics views; live API/exchange transport, deployment, and trading remain unauthorized.
 - M5-T01 repair makes API entry advice fail closed: `can_consider_entry` now requires supported Binance/OKX exchange, `usdt_perpetual`, usable upstream data, fresh/recent freshness, and normal/out-of-order data quality in addition to `armed` state.
 - M4-T01 implements availability-time-safe replay in `evaluation/replay.py`; price observations are separate from strategy results, incomplete windows retain reason codes, and strategy PnL remains `not_evaluated` with no profitability claim.
 - M5-T01 implements the transport-agnostic read-only API service and `api.v1` DTOs in `api/`, including confirmed/potential/no-signal grouping, deterministic priority sorting, Binance/OKX badges, freshness/health, invalidation visibility, and not-evaluated outcome semantics.
@@ -58,7 +58,7 @@
 - M6-T01 adds an isolated React/TypeScript Vite frontend under `frontend/` with deterministic `api.v1` DTO-shaped fixtures only. The homepage is mobile-first, shows summary/confirmed/potential/collapsed no-signal/recent-invalidations groups, exchange text labels, action/reason/freshness/quality/entry/invalidation fields, stale disabled copy, and accessible loading/empty/error states without live transport or strategy calculation.
 - Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M6 after M5 passed review.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
-- Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
+- The chat execution AG `Aquinas` completed M6-T01 and was closed before enabling the autonomous CLI supervisor, preventing concurrent runtimes from modifying the repository.
 - The active loop now requires a three-minute heartbeat while a monitoring session or local monitor is running; each heartbeat checks task status, AG evidence, Git changes, tests, blockers, and wake-up conditions.
 - A local heartbeat runner is defined at `scripts/ag_heartbeat.ps1`; it writes visible `AG_STATUS.md` and local `AG_HEARTBEAT.log` every three minutes. It reports repository evidence and cannot send chat messages after the conversation closes.
 - When the user explicitly requests live monitoring, the main AG must keep an active monitoring session and emit a window-visible status every three minutes; each report must include evidence and the next workflow action.
@@ -93,9 +93,8 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - FastAPI, PostgreSQL contract/read-model, and React/TypeScript are confirmed for the current implementation path; live infrastructure integration remains later work.
-- M0 through M5 are complete and approved; M6-T01 beginner homepage implementation is now active.
-- M6-T01 implementation and local frontend verification are complete pending review. The default npm registry timed out, but a clean install from the approved alternate registry completed successfully; no production/live endpoint was used.
-- M6-T01 authorizes only the frontend foundation/homepage; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
+- M0 through M5 and M6-T01 are complete and approved; M6-T02 detail/history/statistics implementation is active.
+- The autonomous supervisor is authorized to execute one repository-state transition per run using Codex CLI; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
 
@@ -146,4 +145,6 @@
 - Completed M5-T03: added versioned PostgreSQL tables and indexes for normalized records, signals, append-only events, fixed outcome windows, and health snapshots; added injected read-only DB-API mapping with no writes; added fake connection/cursor tests for all ReadModel methods, malformed/empty data, ordering/query parameters, close behavior, and `not_evaluated` semantics. Full suite passed with 36 tests and no live database call.
 - Main AG audited M5-T03: 36 tests, deterministic fixture validation, read-only query checks, append-only migration checks, whitespace, and scope/secret checks passed. M5 was approved and M6-T01 frontend foundation/homepage was dispatched.
 - Completed M6-T01 frontend implementation and verification: added Vite/React/TypeScript scaffolding, deterministic development fixture, beginner homepage cards, responsive tokenized CSS, accessibility states, and frontend tests. Clean install used `npm.cmd ci --registry=https://registry.npmmirror.com`; frontend tests passed 3/3 and build passed. Browser screenshot verification was not run because no browser automation dependency was part of the approved frontend scope.
+- Main AG audited M6-T01: frontend tests passed 3/3, Vite production build passed, backend tests passed 36/36, M1 fixtures and scope checks passed. M6-T01 was approved and M6-T02 was dispatched.
+- User explicitly authorized the full autonomous supervisor. Added repo-driven work/review prompts, exclusive locking, one-transition Codex CLI execution, failure backoff/blocking, runtime status/log files, and a reproducible Windows scheduled-task installer. Retired the chat Aquinas runtime before activation.
 - Deep workflow audit confirmed the scheduled heartbeat was running but lacked stagnation detection, baseline/task mismatch protection, atomic state writes, error signaling, and battery-safe scheduling. These were added and fault-injection verified; the active M6 task baseline was reset after the main AG workflow repair commit.

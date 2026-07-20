@@ -3,6 +3,13 @@ AG_HEARTBEAT.log
 AG_REVIEW_REQUIRED.md
 AG_WAKE_REQUIRED.md
 AG_LOOP_ERROR.md
+AG_SUPERVISOR_STATUS.md
+AG_SUPERVISOR_LAST.md
+AG_SUPERVISOR_ERROR.md
+AG_SUPERVISOR_BLOCKED.md
+AG_SUPERVISOR.log
+.ag_supervisor_state.json
+.ag_supervisor.lock
 .ag_loop_state.json
 *.db
 *.sqlite

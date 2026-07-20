@@ -155,7 +155,7 @@
 
 心跳发现“待汇报”时进入审核；发现“返修”时只提醒返修；发现“无活动任务”时派发当前里程碑的下一个最小任务；发现 AG 空闲时发送唤醒指令。
 
-主 AG 派发任务后必须同时启动会话内 `wait_agent` 监控。Windows 定时任务负责持续证据记录；`wait_agent` 完成通知负责把控制权交回主 AG 审核。二者缺一时，不得声称“自动审核循环已闭合”。
+聊天内 AG 模式下，主 AG 派发任务后仍使用 `wait_agent`。全自动模式下，不再运行聊天内执行 AG；`Codex-Yaobizuoduo-Supervisor` 使用独占锁和 `codex exec` 分别执行单步开发或单步审核，避免两套运行时并发修改仓库。
 
 本协议的 3 分钟心跳由系统定时任务或监控会话提供。系统任务可以持续刷新仓库状态，但不能在聊天窗口主动发消息，也不能替主 AG 审核代码；恢复会话时必须先执行一次完整状态检查。
 
@@ -200,3 +200,15 @@
 6. 完成审核后同步记忆并记录循环结果
 
 启动后每一轮只允许一个主任务处于 `开发中`，避免多个 AG 同时修改同一边界。
+
+## 11. 全自动监督器
+
+- 心跳任务：`Codex-Yaobizuoduo-Heartbeat` 每 3 分钟运行，只采集 Git、任务、进展、停滞和动作标记。
+- 监督任务：`Codex-Yaobizuoduo-Supervisor` 每 3 分钟运行 `scripts/ag_supervisor.ps1 -Once`，仅在仓库状态要求动作时调用一次非交互 `codex exec`。
+- 开发转换：任务为 `dispatched` 或 `repair_requested` 时，独立 Codex worker 只实现当前任务；成功后设置 `awaiting_review`、提交并停止，不派发下一任务。
+- 审核转换：发现基线后新提交或 `awaiting_review` 时，独立 Codex reviewer 运行验收；不通过只派发返修，通过只记录批准并派发下一个最小任务，然后停止。
+- 并发保护：`.ag_supervisor.lock` 与计划任务 `IgnoreNew` 双重防止重入；不得同时恢复聊天内 Aquinas。
+- 失败保护：连续失败采用 5/10/20 分钟退避，达到 3 次生成 `AG_SUPERVISOR_BLOCKED.md` 并停止模型调用，等待人工检查。
+- 安全边界：使用 `workspace-write` sandbox、`approval=never`、单轮最长 45 分钟、不推送 Git、不允许真实交易或凭证。
+- 成本边界：无动作时不调用模型；每次计划运行最多执行一个开发或审核转换。
+- 可见输出：`AG_SUPERVISOR_STATUS.md`、`AG_SUPERVISOR_LAST.md` 和 `AG_SUPERVISOR.log` 记录监督结果；聊天关闭时仍不会伪造窗口消息。

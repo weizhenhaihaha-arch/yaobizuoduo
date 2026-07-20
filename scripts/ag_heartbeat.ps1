@@ -12,7 +12,7 @@ $reviewPath = Join-Path $projectRoot 'AG_REVIEW_REQUIRED.md'
 $wakePath = Join-Path $projectRoot 'AG_WAKE_REQUIRED.md'
 $errorPath = Join-Path $projectRoot 'AG_LOOP_ERROR.md'
 $loopStatePath = Join-Path $projectRoot '.ag_loop_state.json'
-$activeStatuses = @('dispatched', 'in_progress', 'repair_requested')
+$activeStatuses = @('dispatched', 'in_progress', 'repair_requested', 'awaiting_review')
 
 function Write-Utf8Atomic {
     param([string]$Path, [string]$Content)
