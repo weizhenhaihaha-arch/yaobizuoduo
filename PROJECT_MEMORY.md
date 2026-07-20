@@ -43,6 +43,8 @@
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - Execution AG `Aquinas` was started for `M0-T01`; it is restricted to the M0 boundary proposal and must report before any next task is dispatched.
 - The active loop now requires a three-minute heartbeat while a monitoring session or local monitor is running; each heartbeat checks task status, AG evidence, Git changes, tests, blockers, and wake-up conditions.
+- A local heartbeat runner is defined at `scripts/ag_heartbeat.ps1`; it writes visible `AG_STATUS.md` and local `AG_HEARTBEAT.log` every three minutes. It reports repository evidence and cannot send chat messages after the conversation closes.
+- 2026-07-20 Asia/Shanghai: the local heartbeat runner was syntax-verified and started successfully as PID `17832`; `AG_STATUS.md` was created and showed the current `M1-T01` state.
 - UI/UX decisions are documented in the repository-root `DESIGN.md`, currently a Draft source of truth.
 - A future Telegram notification can mirror signal creation and invalidation, but notification timing and deduplication remain to be designed.
 
@@ -72,6 +74,7 @@
 - Main AG must review `M0_BOUNDARY_PROPOSAL.md` and either approve M0 or return specific repairs before M1 begins.
 - M0-T01 first review returned `repair_requested` because `git diff --check` found trailing whitespace at `M0_BOUNDARY_PROPOSAL.md:73`; M1 remains blocked until the repair report passes review.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
+- Start and verify the local heartbeat runner when visible unattended repository checks are required.
 
 ## Development log
 
@@ -93,3 +96,5 @@
 - Main AG audited the M0-T01 proposal, rejected the first report for a concrete whitespace failure, and issued a narrowly scoped repair request; no M1 work is authorized.
 - Execution AG repaired the whitespace issue, main AG re-ran the checks and passed `M0-T01`, then dispatched `M1-T01` for data contracts and deterministic fixtures.
 - Completed execution AG work for `M1-T01`: added the versioned data contract, Binance/OKX deterministic fixtures, offline validation script, and deterministic replay check; no live API or application code was added.
+- Added the visible local heartbeat runner and ignored runtime status files so three-minute repository checks can be inspected without polluting Git history.
+- Fixed the heartbeat PowerShell quoting issue, verified one foreground cycle, and started the hidden three-minute local monitor.

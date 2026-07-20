@@ -1,0 +1,11 @@
+AG_STATUS.md
+AG_HEARTBEAT.log
+*.db
+*.sqlite
+*.sqlite3
+.env
+.env.*
+__pycache__/
+node_modules/
+dist/
+build/
