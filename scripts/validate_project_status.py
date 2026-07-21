@@ -292,13 +292,13 @@ def _semantic_errors(status: dict[str, Any]) -> list[str]:
             errors.append("$: returned repair must atomically clear all CI identities")
 
     exception = status["bootstrap_exception"]
-    exception_consumed = exception is not None and exception["status"] == "consumed" and exception["uses"] == 1
+    exception_consumed = exception is not None and exception["status"] == "consumed" and _typed_equal(exception["uses"], 1)
     if exception is not None:
         if task_id != BOOTSTRAP_TASK or evidence["authorization_baseline_sha"] != BOOTSTRAP_BASELINE:
             errors.append("$.bootstrap_exception: exception is restricted to the authorized G0-T01 baseline")
         expected_status = "consumed" if state in accepted_states else "available"
         expected_uses = 1 if state in accepted_states else 0
-        if exception["status"] != expected_status or exception["uses"] != expected_uses:
+        if not _typed_equal(exception["status"], expected_status) or not _typed_equal(exception["uses"], expected_uses):
             errors.append("$.bootstrap_exception: availability/consumption does not match task state")
         if status["capability"]["maturity"] != "OFFLINE_EVIDENCE_ACCEPTED":
             errors.append("$.bootstrap_exception: bootstrap exception is offline-evidence only")
@@ -667,7 +667,9 @@ def _schema_authorization_reused(root: Path, parent_sha: str, authorization_sha:
     ok, commits_text = _git(root, "rev-list", "--first-parent", parent_sha)
     if not ok:
         return True
-    for sha in commits_text.splitlines()[1:]:
+    for sha in commits_text.splitlines():
+        if _typed_equal(sha, authorization_sha):
+            continue
         node = _status_at(root, sha)
         authority = node.get("schema_authority") if type(node) is dict else None
         migration = authority.get("migration") if type(authority) is dict else None
@@ -713,7 +715,7 @@ def _schema_authority_document_errors(status: dict[str, Any], schema_path: Path)
     ):
         errors.append("$.schema_authority.migration: migration fields require exact canonical types")
         return errors
-    if to_revision != from_revision + 1 or to_revision != revision:
+    if not _typed_equal(to_revision, from_revision + 1) or not _typed_equal(to_revision, revision):
         errors.append("$.schema_authority.migration: schema revision must advance exactly one step")
     if to_digest != digest or compatibility != SCHEMA_COMPATIBILITY_RULE:
         errors.append("$.schema_authority.migration: target digest and compatibility rule must bind the current schema")
@@ -740,9 +742,9 @@ def _schema_authority_continuity_errors(
         migration = current.get("migration") if type(current) is dict else None
         expected_bootstrap = (
             type(current) is dict
-            and current.get("revision") == 1
+            and _typed_equal(current.get("revision"), 1)
             and type(migration) is dict
-            and migration.get("from_revision") == 0
+            and _typed_equal(migration.get("from_revision"), 0)
             and migration.get("from_sha256") == SCHEMA_BOOTSTRAP_OLD_DIGEST
             and migration.get("authorization_sha") == SCHEMA_BOOTSTRAP_SUBJECT
             and migration.get("preauthority_history_sha256") == SCHEMA_PREAUTHORITY_HISTORY_DIGEST
@@ -960,20 +962,20 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
     handoff = parent_state == "closed" and current_task["state"] == "authorized" and current_task["transition"] == {"from": "closed", "to": "authorized"}
     if handoff:
         next_auth = parent.get("next_authorization")
-        if type(next_auth) is not dict or (current_task["task_id"], status["current_gate"]) != (next_auth.get("task_id"), next_auth.get("gate")):
+        if type(next_auth) is not dict or not _typed_equal((current_task["task_id"], status["current_gate"]), (next_auth.get("task_id"), next_auth.get("gate"))):
             errors.append("$: inter-task handoff must match the exact prior next authorization")
         if not _typed_equal(current_task["candidate_generation"], 1):
             errors.append("$.active_tasks[0].candidate_generation: inter-task handoff must reset generation to one")
-        if parent_sha is None or status["evidence"]["authorization_baseline_sha"] != parent_sha:
+        if parent_sha is None or not _typed_equal(status["evidence"]["authorization_baseline_sha"], parent_sha):
             errors.append("$.evidence.authorization_baseline_sha: inter-task handoff baseline must equal the prior close commit")
         if not _cleared_handoff(status):
             errors.append("$: inter-task handoff must clear prior evidence, review, CI, blockers, and bootstrap exception")
-        if status["capability"]["maturity"] != parent["capability"]["maturity"]:
+        if not _typed_equal(status["capability"]["maturity"], parent["capability"]["maturity"]):
             errors.append("$.capability.maturity: inter-task handoff must preserve maturity")
         if not _typed_equal(status.get("transition_ledger"), parent.get("transition_ledger")):
             errors.append("$.transition_ledger: inter-task handoff must preserve the canonical ledger")
         parent_exception = parent.get("bootstrap_exception")
-        if type(parent_exception) is dict and (parent_exception.get("status"), parent_exception.get("uses")) != ("consumed", 1):
+        if type(parent_exception) is dict and not _typed_equal((parent_exception.get("status"), parent_exception.get("uses")), ("consumed", 1)):
             errors.append("$.bootstrap_exception: inter-task handoff may retire only a consumed exception")
         return errors
     if parent.get("transition_ledger") is not None and not _typed_equal(status.get("transition_ledger"), parent.get("transition_ledger")):
@@ -1225,6 +1227,12 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
         if not parent_schema_errors and parent_status is not None:
             errors.extend(_parent_status_errors(status, parent_status, parent_parts[1]))
             errors.extend(_schema_authority_continuity_errors(status, parent_status, parent_parts[1], root))
+    if type(status.get("transition_ledger")) is dict:
+        control_path = root / SCHEMA_CONTROL_PATH
+        ok, tree_entry = _git(root, "ls-tree", "HEAD", "--", SCHEMA_CONTROL_PATH)
+        fields = tree_entry.split(None, 3) if ok else []
+        if control_path.is_symlink() or len(fields) != 4 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
+            errors.append("$.schema_migration_control: canonical control must be a committed regular Git blob")
     errors.extend(_history_errors(root, head, baseline, schema))
 
     main_ref = status["authoritative_main_ref"]

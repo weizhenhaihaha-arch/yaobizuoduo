@@ -1221,6 +1221,15 @@ def test_unchanged_content_addressed_schema_remains_valid(tmp_path: Path) -> Non
     assert result.returncode == 0, result.stdout
 
 
+def test_fresh_clone_of_exact_head_remains_valid(tmp_path: Path) -> None:
+    repo = tmp_path / "exact-head"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "update-ref", "refs/heads/main", "refs/remotes/origin/main")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo, repo / "schemas" / "project_status.schema.json")
+    assert result.returncode == 0, result.stdout
+
+
 def make_prior_bound_schema_migration(tmp_path: Path, corrupt_digest: bool = False) -> tuple[Path, dict, dict, str, str]:
     repo = tmp_path / "prior-bound"
     repo.mkdir(parents=True)
