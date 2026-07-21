@@ -5,11 +5,11 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `authorized`
+- Status: `in_progress`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
-- Baseline: `e2e0b489e1fbf555c4405f58ec1ab8d20f77199f`
+- Baseline: `7aadae13efd45023d19bf8a280f7680667c930fa`
 
 ## Goal
 
