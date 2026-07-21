@@ -4,8 +4,8 @@
 
 - Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: awaiting_review
-- Executor: bounded developer AG third repair delivered
+- Status: accepted_under_legacy_local_review
+- Executor: bounded developer AG third repair delivered at `c3a56bafb936d7e304ff87ae29174a14c998d919`
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Previous task result: `M7-T01` passed autonomous review
 
@@ -164,6 +164,24 @@ paper observation, deployment, automation changes, or M8 during this task.
 - Preserve every prior ordinary malformed, recovery, delivered-state, and
   deterministic identifier behavior. Keep the repair limited to this M7-T02
   validation/test/contract/status slice and rerun all required verification.
+
+## L0 final acceptance
+
+- Main review and independent code/security review passed the exact candidate
+  `c3a56bafb936d7e304ff87ae29174a14c998d919` with no findings; independent
+  architecture status is `CLEAR`.
+- Verification passed 18 focused tests, all 62 backend tests, 10 frontend tests,
+  the TypeScript/Vite build, M1 validation with replay digest
+  `c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`,
+  Python compilation, diff/scope/automation/forbidden/secret scans, and hostile
+  string probes over all 7 current data strings, 3 delivery strings, and 5
+  prior strings.
+- M7-T02 is accepted only as `OFFLINE_EVIDENCE_ACCEPTED` under the legacy local
+  review path. This does not establish remote exact-HEAD CI, live monitoring,
+  provider delivery, exchange integration, continuous Paper validation, or
+  release readiness.
+- L0 is closed. No G0 implementation is authorized by this acceptance record;
+  the loop stops at the G0 authorization gate.
 
 ## Third repair delivery
 
