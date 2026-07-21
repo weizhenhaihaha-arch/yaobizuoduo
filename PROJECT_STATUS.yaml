@@ -12,17 +12,17 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "returned",
-      "transition": {"from": "awaiting_review", "to": "returned"},
-      "candidate_generation": 5
+      "state": "in_progress",
+      "transition": {"from": "returned", "to": "in_progress"},
+      "candidate_generation": 6
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
-    "implementation_sha": "00aac6a0ea5faec530b8182b2542c3a33f767882",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "702888c6c8e03857879d561eff71ed471f6f449c",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
@@ -39,9 +39,9 @@
     }
   },
   "review": {
-    "code_security": "request_changes",
-    "architecture": "block",
-    "reviewed_candidate_sha": "702888c6c8e03857879d561eff71ed471f6f449c"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
   "bootstrap_exception": {
     "exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721",
@@ -55,10 +55,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [
-    "The current canonical schema has no immutable identity or governed migration rule, so weakening it can make non-exact values such as generation 5.0 validate.",
-    "Schema-invalid direct-parent or post-anchor nodes are still passed into semantic continuity helpers and can escape as unsanitized runtime exceptions."
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
