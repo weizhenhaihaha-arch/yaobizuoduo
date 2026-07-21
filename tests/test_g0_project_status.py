@@ -1284,7 +1284,6 @@ def make_prior_bound_schema_migration(tmp_path: Path, corrupt_digest: bool = Fal
     write_status(repo / "PROJECT_STATUS.yaml", current)
     write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, migration_control("no_migration", current["schema_authority"]))
     migration_sha = commit(repo, "consume prior schema migration authorization")
-    git(repo, "update-ref", "refs/remotes/origin/main", migration_sha)
     return repo, authorized, current, authorization_sha, migration_sha
 
 
@@ -1296,8 +1295,9 @@ def test_future_schema_cannot_self_authorize_from_generic_closed_parent(tmp_path
     assert VALIDATOR._schema_authority_continuity_errors(current, closed, authorization_sha, repo, migration_sha) != []
 
 
-def test_valid_prior_bound_schema_migration_is_accepted(tmp_path: Path) -> None:
+def test_valid_prior_bound_schema_migration_is_accepted_on_pre_review_task_branch(tmp_path: Path) -> None:
     repo, authorized, current, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    assert git(repo, "rev-parse", "refs/remotes/origin/main") != migration_sha
     assert VALIDATOR._schema_authority_continuity_errors(current, authorized, authorization_sha, repo, migration_sha) == []
 
 
@@ -1318,6 +1318,30 @@ def test_schema_authorization_reuse_on_sibling_ref_is_rejected(tmp_path: Path) -
     sibling_sha = commit(repo, "consume same authorization on sibling ref")
     errors = VALIDATOR._schema_authority_continuity_errors(current, authorized, authorization_sha, repo, sibling_sha)
     assert "$.schema_authority: migration authorization must have exactly one repository-visible consumer" in errors
+
+
+def test_schema_authorization_reuse_reachable_only_from_tag_is_rejected(tmp_path: Path) -> None:
+    repo, authorized, current, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    schema_text = git(repo, "show", f"{migration_sha}:schemas/project_status.schema.json") + "\n"
+    git(repo, "switch", "-c", "temporary-sibling", authorization_sha)
+    (repo / "schemas" / "project_status.schema.json").write_text(schema_text, encoding="utf-8")
+    write_status(repo / "PROJECT_STATUS.yaml", current)
+    write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, migration_control("no_migration", current["schema_authority"]))
+    sibling_sha = commit(repo, "consume authorization retained only by tag")
+    git(repo, "tag", "tag-only-consumer", sibling_sha)
+    git(repo, "switch", "main")
+    git(repo, "branch", "-D", "temporary-sibling")
+    errors = VALIDATOR._schema_authority_continuity_errors(current, authorized, authorization_sha, repo, migration_sha)
+    assert "$.schema_authority: migration authorization must have exactly one repository-visible consumer" in errors
+
+
+def test_final_schema_migration_state_rejects_consumer_off_origin_main(tmp_path: Path) -> None:
+    repo, _, current, _, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    final_status = copy.deepcopy(current)
+    final_status["active_tasks"][0].update(state="merged_verified", transition={"from": "accepted_pending_merge", "to": "merged_verified"})
+    assert git(repo, "rev-parse", "refs/remotes/origin/main") != migration_sha
+    errors = VALIDATOR._schema_migration_final_route_errors(final_status, repo)
+    assert "$.schema_authority: final migration consumption must be on canonical origin/main first-parent history" in errors
 
 
 def test_higher_schema_revision_cannot_reuse_earlier_digest(tmp_path: Path) -> None:

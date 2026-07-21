@@ -664,9 +664,9 @@ def _schema_control_document_errors(status: dict[str, Any], schema_path: Path) -
 
 
 def _repository_visible_commits(root: Path) -> list[str] | None:
-    # Git cannot enumerate absent or unreachable objects. The enforceable boundary is every
-    # commit reachable from a repository-visible local branch or fetched remote-tracking ref.
-    ok, refs_text = _git(root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    # Git cannot enumerate absent or unreachable objects. The complete enforceable visible-ref
+    # policy is every commit reachable from local branches, fetched remote-tracking refs, or tags.
+    ok, refs_text = _git(root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes", "refs/tags")
     refs = refs_text.splitlines() if ok else []
     if not refs:
         return None
@@ -689,7 +689,14 @@ def _schema_migration_consumers(root: Path, authorization_sha: str) -> set[str] 
         parts = parents_text.split() if ok else []
         parent = _status_at(root, parts[1]) if len(parts) >= 2 else None
         parent_authority = parent.get("schema_authority") if type(parent) is dict else None
-        if not _typed_equal(authority, parent_authority):
+        task = node["active_tasks"][0] if type(node) is dict and type(node.get("active_tasks")) is list and node["active_tasks"] else None
+        if (
+            not _typed_equal(authority, parent_authority)
+            and type(task) is dict
+            and task.get("state") == "in_progress"
+            and task.get("transition") == {"from": "authorized", "to": "in_progress"}
+            and _typed_equal(parts[1], authorization_sha)
+        ):
             consumers.add(sha)
     return consumers
 
@@ -727,9 +734,26 @@ def _schema_authorization_reuse_errors(root: Path, authorization_sha: str, candi
         return ["$.schema_authority: repository-visible migration consumption set is unavailable"]
     if consumers != {candidate_sha}:
         return ["$.schema_authority: migration authorization must have exactly one repository-visible consumer"]
+    return []
+
+
+def _schema_migration_final_route_errors(status: dict[str, Any], root: Path) -> list[str]:
+    task_state = status["active_tasks"][0]["state"]
+    authority = status.get("schema_authority")
+    migration = authority.get("migration") if type(authority) is dict else None
+    if task_state not in {"merged_verified", "closed"} or type(authority) is not dict or authority.get("revision") == 1 or type(migration) is not dict:
+        return []
+    authorization_sha = migration.get("authorization_sha")
+    if type(authorization_sha) is not str:
+        return ["$.schema_authority: final migration authorization identity is unavailable"]
+    consumers = _schema_migration_consumers(root, authorization_sha)
+    if consumers is None or len(consumers) != 1:
+        return ["$.schema_authority: final state requires one repository-visible migration consumer"]
+    consumer = next(iter(consumers))
+    merged = status["evidence"]["merged_main"]["commit_sha"]
     ok, remote_main = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
-    if not ok or not _is_first_parent_ancestor(root, candidate_sha, remote_main):
-        return ["$.schema_authority: migration consumption must be on canonical origin/main first-parent history"]
+    if type(merged) is not str or not ok or not _is_first_parent_ancestor(root, merged, remote_main) or not _is_ancestor(root, consumer, merged):
+        return ["$.schema_authority: final migration consumption must be on canonical origin/main first-parent history"]
     return []
 
 
@@ -1375,6 +1399,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
             errors.append("$.evidence.finalization.commit_sha: merged-main is not an ancestor of finalization")
         if not phase_status_matches(finalization, "merged_verified"):
             errors.append("$.evidence.finalization.commit_sha: commit is not the matching finalization phase")
+    errors.extend(_schema_migration_final_route_errors(status, root))
     errors.extend(_release_identity_errors(status, root, main_ref))
     return errors
 
