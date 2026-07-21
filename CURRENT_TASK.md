@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `accepted_pending_merge`
+- Status: `merged_verified`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -474,3 +474,23 @@ and memory update. Stop after delivery and wait for independent review.
   readiness.
 - State is `accepted_pending_merge`. PR merge and G0-T02 remain separately
   unauthorized and must not occur without explicit user authorization.
+
+## G0-T01 merged-main verification record
+
+- User explicitly authorized merging PR #1 and completing G0-T01 closure while
+  keeping G0-T02 unauthorized.
+- PR #1 accepted head `48904701f31ad12b08d0d224c25bd65003356230`
+  was merged with the required merge-commit strategy as
+  `0297ca8f1b68a202114aa7a4eac3435367ffb952`.
+- Real merged-main validation exposed a standard GitHub merge-topology gap: old
+  main is the first parent and the immutable governed closure is the second.
+- The bounded validator repair recognizes only that one canonical bridge,
+  binds its exact parents, tree, status and reviewed candidate, survives source
+  branch pruning, and rejects substituted or malformed histories without a
+  traceback.
+- Independent code correctness is `APPROVE`; architecture is `CLEAR`. This
+  repair and the legal `accepted_pending_merge -> merged_verified` evidence
+  transition are one atomic record. It must pass exact-HEAD validation before
+  push and final close.
+- G0-T02 remains `not_authorized`; no product/runtime/network/Paper/deployment,
+  release or trading work is included.

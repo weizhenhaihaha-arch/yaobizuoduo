@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "accepted_pending_merge",
-      "transition": {"from": "awaiting_review", "to": "accepted_pending_merge"},
+      "state": "merged_verified",
+      "transition": {"from": "accepted_pending_merge", "to": "merged_verified"},
       "candidate_generation": 11
     }
   ],
@@ -39,11 +39,11 @@
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
-      "commit_sha": null,
+      "commit_sha": "48904701f31ad12b08d0d224c25bd65003356230",
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "merged_main": {
-      "commit_sha": null,
+      "commit_sha": "0297ca8f1b68a202114aa7a4eac3435367ffb952",
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "finalization": {

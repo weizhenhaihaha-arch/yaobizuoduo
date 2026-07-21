@@ -30,6 +30,7 @@ SCHEMA_CONTROL_PATH = "schemas/project_status.schema-migration-control.json"
 SCHEMA_CONTROL_VERSION = "schema-migration-control.v1"
 SCHEMA_CONTROL_PURPOSE = "project-status-schema-migration"
 SCHEMA_CONTROL_BOOTSTRAP_PARENT = "3128dd4a5c767d1a8b292a68c3418299e9d89ac3"
+G0_GOVERNED_PARENT_SHA = "48904701f31ad12b08d0d224c25bd65003356230"
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -1128,6 +1129,30 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
     return errors
 
 
+def _governed_first_parent_chain(root: Path, head: str, current_schema: dict[str, Any]) -> list[str]:
+    chain: list[str] = []
+    seen: set[str] = set()
+    sha = head
+    while sha not in seen:
+        seen.add(sha)
+        chain.append(sha)
+        ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", sha)
+        parts = parents_text.split() if ok else []
+        if len(parts) < 2:
+            break
+        next_sha = parts[1]
+        if len(parts) == 3:
+            node = _status_at(root, sha)
+            if type(node) is dict:
+                governed_parent, bridge_errors = _canonical_g0_merge_bridge(
+                    node, root, sha, current_schema, require_canonical_main=False
+                )
+                if governed_parent is not None and not bridge_errors:
+                    next_sha = governed_parent
+        sha = next_sha
+    return chain
+
+
 def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     current = _status_at(root, head)
@@ -1155,11 +1180,12 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
                 continue
             inherited_merge_bridge = False
             if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
-                newer = statuses[index - 1][1]
-                inherited_merge_bridge = (
-                    newer["active_tasks"][0]["state"] == "merged_verified"
-                    and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
-                )
+                _, newer, newer_valid = statuses[index - 1]
+                if newer_valid:
+                    inherited_merge_bridge = (
+                        newer["active_tasks"][0]["state"] == "merged_verified"
+                        and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
+                    )
             if not inherited_merge_bridge:
                 errors.extend(_parent_status_errors(child, parent, parent_sha))
         return errors
@@ -1174,7 +1200,8 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
     if ledger != expected_ledger:
         errors.append("$.transition_ledger: ledger identity must equal the one-time authorized G0-T01 migration")
     anchor = ledger.get("sealed_through_sha")
-    if type(anchor) is not str or not _is_first_parent_ancestor(root, anchor, head):
+    governed_chain = _governed_first_parent_chain(root, head, current_schema)
+    if type(anchor) is not str or anchor not in governed_chain:
         return errors + ["$.transition_ledger.sealed_through_sha: must be on the repository HEAD first-parent chain"]
     ok, sealed_text = _git(root, "rev-list", "--first-parent", f"{BOOTSTRAP_BASELINE}..{anchor}")
     if not ok:
@@ -1200,16 +1227,13 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
         schema_payload = (("\n".join(schema_rows) + "\n") if schema_rows else "").encode("ascii")
         if (
             not ok
-            or not _is_first_parent_ancestor(root, SCHEMA_BOOTSTRAP_SUBJECT, head)
+            or SCHEMA_BOOTSTRAP_SUBJECT not in governed_chain
             or hashlib.sha256(schema_payload).hexdigest() != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
             or type(migration) is not dict
             or migration.get("preauthority_history_sha256") != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
         ):
             errors.append("$.schema_authority.migration: sealed pre-authority schema history mismatch")
-    ok, commits_text = _git(root, "rev-list", "--first-parent", f"{anchor}..{head}")
-    if not ok:
-        return errors + ["$: post-ledger first-parent history is unavailable"]
-    commits = commits_text.splitlines() + [anchor]
+    commits = governed_chain[: governed_chain.index(anchor)] + [anchor]
     statuses: list[tuple[str, dict[str, Any], bool]] = []
     for sha in commits:
         status, status_errors = _committed_status_errors(root, sha, current_schema, use_current_schema=True)
@@ -1255,11 +1279,12 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             continue
         inherited_merge_bridge = False
         if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
-            newer = statuses[index - 1][1]
-            inherited_merge_bridge = (
-                newer["active_tasks"][0]["state"] == "merged_verified"
-                and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
-            )
+            _, newer, newer_valid = statuses[index - 1]
+            if newer_valid:
+                inherited_merge_bridge = (
+                    newer["active_tasks"][0]["state"] == "merged_verified"
+                    and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
+                )
         if not inherited_merge_bridge:
             errors.extend(_parent_status_errors(child, parent, parent_sha))
             errors.extend(_schema_authority_continuity_errors(child, parent, parent_sha, root, child_sha))
@@ -1289,6 +1314,67 @@ def _subject_status_matches(status: dict[str, Any], subject: dict[str, Any] | No
         return False
 
 
+def _canonical_g0_merge_bridge(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    schema: dict[str, Any],
+    *,
+    require_canonical_main: bool = True,
+) -> tuple[str | None, list[str]]:
+    status_errors = _schema_errors(status, schema, schema)
+    if status_errors:
+        return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
+    task = status["active_tasks"][0]
+    if task["state"] != "accepted_pending_merge" or task["task_id"] != BOOTSTRAP_TASK:
+        return None, []
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    parts = parents_text.split() if ok else []
+    if len(parts) != 3:
+        return None, []
+    first_parent, governed_parent = parts[1], parts[2]
+    ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+    ok_remote, remote_main_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+    ok_origin, origin_url = _git(root, "remote", "get-url", "origin")
+    errors: list[str] = []
+    if require_canonical_main and (
+        not ok_main
+        or not ok_remote
+        or not _typed_equal(main_sha, head)
+        or not _typed_equal(remote_main_sha, head)
+        or not ok_origin
+        or _github_repository_identity(origin_url) != LEDGER_REPOSITORY
+    ):
+        errors.append("$: canonical G0 merge bridge requires exact local/fetched main in the canonical repository")
+    elif not require_canonical_main and (not ok_origin or _github_repository_identity(origin_url) != LEDGER_REPOSITORY):
+        errors.append("$: canonical G0 merge bridge requires the canonical repository")
+    if not _typed_equal(first_parent, status["evidence"]["authorization_baseline_sha"]):
+        errors.append("$: canonical G0 merge bridge first parent is not the authoritative prior main")
+    if not _typed_equal(governed_parent, G0_GOVERNED_PARENT_SHA):
+        errors.append("$: canonical G0 merge bridge second parent is not the immutable governed task head")
+    governed_status, governed_errors = _committed_status_errors(root, governed_parent, schema, use_current_schema=True)
+    errors.extend(governed_errors)
+    if governed_status is None or not _typed_equal(status, governed_status):
+        errors.append("$: canonical G0 merge bridge status must exactly equal its governed second parent")
+    ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+    ok_parent_tree, parent_tree = _git(root, "rev-parse", f"{governed_parent}^{{tree}}")
+    if not ok_head_tree or not ok_parent_tree or not _typed_equal(head_tree, parent_tree):
+        errors.append("$: canonical G0 merge bridge tree must exactly equal its governed second parent")
+    candidate = status["evidence"]["candidate"]["commit_sha"]
+    ok_governed_parents, governed_parents_text = _git(root, "rev-list", "--parents", "-n", "1", governed_parent)
+    governed_parts = governed_parents_text.split() if ok_governed_parents else []
+    if type(candidate) is not str or len(governed_parts) != 2 or not _typed_equal(governed_parts[1], candidate):
+        errors.append("$: canonical G0 merge bridge second parent must directly close the exact reviewed candidate")
+    else:
+        candidate_status, candidate_errors = _committed_status_errors(root, candidate, schema, use_current_schema=True)
+        errors.extend(candidate_errors)
+        if candidate_errors or not _subject_status_matches(status, candidate_status, "awaiting_review"):
+            errors.append("$: canonical G0 merge bridge candidate identity is invalid")
+    if errors:
+        return None, errors
+    return governed_parent, []
+
+
 def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Path, schema: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     root = repo_root.resolve()
@@ -1312,9 +1398,13 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     ok, head = _git(root, "rev-parse", "HEAD")
     if not ok:
         return ["$: repository HEAD is unavailable"]
+    governed_history_head, bridge_errors = _canonical_g0_merge_bridge(status, root, head, schema)
+    errors.extend(bridge_errors)
     ok, parents = _git(root, "rev-list", "--parents", "-n", "1", head)
     parent_parts = parents.split() if ok else []
-    if len(parent_parts) < 2:
+    if governed_history_head is not None:
+        pass
+    elif len(parent_parts) < 2:
         errors.append("$: repository HEAD has no direct first parent canonical history")
     else:
         parent_status, parent_schema_errors = _committed_status_errors(root, parent_parts[1], schema, use_current_schema=True)
@@ -1328,7 +1418,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
         fields = tree_entry.split(None, 3) if ok else []
         if control_path.is_symlink() or len(fields) != 4 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
             errors.append("$.schema_migration_control: canonical control must be a committed regular Git blob")
-    errors.extend(_history_errors(root, head, baseline, schema))
+    errors.extend(_history_errors(root, governed_history_head or head, baseline, schema))
 
     main_ref = status["authoritative_main_ref"]
     ok, main_sha = _git(root, "rev-parse", "--verify", main_ref)

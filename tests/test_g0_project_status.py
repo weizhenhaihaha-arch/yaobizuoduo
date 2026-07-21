@@ -447,6 +447,78 @@ def test_repository_exact_head_and_returned_candidate_identity(tmp_path: Path) -
     assert "unrelated to current HEAD" in result.stdout
 
 
+def clone_canonical_g0_merge(tmp_path: Path) -> Path:
+    repo = tmp_path / "canonical-merge"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    return repo
+
+
+def test_canonical_github_two_parent_merge_bridge_is_accepted(tmp_path: Path) -> None:
+    repo = clone_canonical_g0_merge(tmp_path)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo, repo / "schemas" / "project_status.schema.json")
+    assert result.returncode == 0, result.stdout
+
+
+def test_canonical_merge_bridge_does_not_depend_on_remote_task_ref(tmp_path: Path) -> None:
+    repo = clone_canonical_g0_merge(tmp_path)
+    git(repo, "update-ref", "-d", "refs/remotes/origin/codex/g0-t01-canonical-status")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo, repo / "schemas" / "project_status.schema.json")
+    assert result.returncode == 0, result.stdout
+
+
+def test_malformed_two_parent_status_is_rejected_without_traceback(tmp_path: Path) -> None:
+    repo, valid = clone_with_ledger_migration(tmp_path)
+    git(repo, "switch", "-c", "malformed-side")
+    (repo / "side.txt").write_text("side\n", encoding="utf-8")
+    commit(repo, "side parent")
+    git(repo, "switch", "main")
+    git(repo, "merge", "--no-ff", "--no-commit", "malformed-side")
+    write_status(repo / "PROJECT_STATUS.yaml", {})
+    commit(repo, "malformed two-parent status")
+    write_governed(repo, valid)
+    commit(repo, "restore valid status")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "fails schema validation" in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
+
+
+@pytest.mark.parametrize("mutation", ["forged", "swapped", "unrelated", "tree"])
+def test_canonical_merge_bridge_rejects_parent_or_tree_substitution(tmp_path: Path, mutation: str) -> None:
+    repo = clone_canonical_g0_merge(tmp_path)
+    current = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    original = current["evidence"]["merged_main"]["commit_sha"]
+    assert type(original) is str
+    status = json.loads(git(repo, "show", f"{original}:PROJECT_STATUS.yaml"))
+    schema = json.loads(git(repo, "show", f"{original}:schemas/project_status.schema.json"))
+    first = git(repo, "rev-parse", f"{original}^1")
+    governed = git(repo, "rev-parse", f"{original}^2")
+    candidate = status["evidence"]["candidate"]["commit_sha"]
+    governed_tree = git(repo, "rev-parse", f"{governed}^{{tree}}")
+    if mutation == "forged":
+        substituted = git(repo, "commit-tree", governed_tree, "-p", candidate, "-m", "forged closure with matching tree")
+        parents = (first, substituted)
+        tree = governed_tree
+    elif mutation == "swapped":
+        parents = (governed, first)
+        tree = governed_tree
+    elif mutation == "unrelated":
+        parents = (first, candidate)
+        tree = governed_tree
+    else:
+        parents = (first, governed)
+        tree = git(repo, "rev-parse", f"{first}^{{tree}}")
+    forged_merge = git(repo, "commit-tree", tree, "-p", parents[0], "-p", parents[1], "-m", f"{mutation} merge bridge")
+    git(repo, "update-ref", "refs/heads/main", forged_merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", forged_merge)
+    governed_head, errors = VALIDATOR._canonical_g0_merge_bridge(status, repo, forged_merge, schema)
+    assert governed_head is None
+    assert errors
+
+
 def test_repository_phase_objects_ancestry_identity_and_close_chain(tmp_path: Path) -> None:
     repo, status, _, _, candidate = make_delivery_repo(tmp_path)
     status["active_tasks"][0].update(state="accepted_pending_merge", transition={"from": "awaiting_review", "to": "accepted_pending_merge"})
