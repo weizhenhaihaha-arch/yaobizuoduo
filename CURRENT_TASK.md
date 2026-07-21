@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `accepted_pending_merge`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -457,3 +457,20 @@ and memory update. Stop after delivery and wait for independent review.
    schema/control, ledger, maturity, CI, G9, bootstrap and route behavior.
    Create the separate generation-11 delivery commit before the full exact-head
    suite. Deliver only G0-T01; no G0-T02 or other scope.
+
+## Generation 11 independent review result: accepted pending merge
+
+- Reviewed exact delivered head:
+  `3affc891143c35d64746e27d7ae017a23cb3cfc0`.
+- Code/security verdict: `APPROVE`.
+- Architecture/route status: `CLEAR`.
+- Main exact-head verification passed 89 focused, 151 backend, 10 frontend
+  tests and the production build. Canonical validation, compilation, diff and
+  clean-worktree checks passed; the parentless tag-visible root regression was
+  independently reproduced as deterministic fail-closed without traceback.
+- The one-time no-CI bootstrap exception is consumed only for this offline G0
+  acceptance. CI remains accurately `not_established`; this does not establish
+  live collection, integration, continuous Paper validation or release
+  readiness.
+- State is `accepted_pending_merge`. PR merge and G0-T02 remain separately
+  unauthorized and must not occur without explicit user authorization.
