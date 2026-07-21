@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -110,3 +110,50 @@ paths are allowed only when the developer explains why the exact path differs.
 Report task ID, files changed, decisions, exact commands/results, candidate SHA,
 branch/upstream status, PR status if one exists, risks/blockers, worktree status,
 and memory update. Stop after delivery and wait for independent review.
+
+## Independent review result: returned
+
+- Reviewed exact PR head:
+  `6be3e708ad019b46685e3a7986a828df7103239d`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `BLOCK`.
+- The product route, beginner-first design, allowed scope, legacy maturity cap,
+  focused tests, backend tests, frontend tests/build, and local static checks are
+  not the reason for return.
+
+### Repair requirements
+
+1. Make candidate identity executable: the delivered PR exact head is the review
+   subject. A prior implementation/content commit may be recorded separately,
+   but cannot masquerade as the exact delivered candidate. Do not require any
+   commit to contain its own SHA.
+2. Replace the single CI object with phase-specific evidence for candidate,
+   closure, merged-main, finalization/close D0 as required by the formal loop.
+   Define which later commit records each already-existing SHA, and validate Git
+   object existence, ancestry, phase, and subject identity when repository
+   checks are enabled. Fabricated unrelated SHAs must fail.
+3. Resolve the bootstrap deadlock explicitly. G0-T01 is forbidden from creating
+   CI, while normal acceptance requires CI. Define one narrow, machine-checked,
+   non-reusable G0-T01 bootstrap exception bound to this task, authorization
+   baseline, independent dual review, local evidence, and offline maturity. It
+   must not relax G0-T02 or any later task.
+4. A `returned` state must retain a negative review bound to the exact returned
+   candidate and reject pending reviewers or unrelated/success CI. Starting a
+   repair must atomically clear old candidate/review/CI identities and increment
+   generation.
+5. Enforce maturity ceilings across G0-G9. G0-G5 cannot exceed offline evidence;
+   G6-G7 cannot exceed integration; G8 cannot exceed Paper validated; G9
+   `RELEASE_READY` requires explicit product-owner go and complete release
+   evidence.
+6. Make document conflict validation structural for every permitted current
+   mirror; otherwise forbid current-state claims. Include `PROJECT_MEMORY.md` in
+   its historical-only rule. A canonical G0 state must reject conflicting G9,
+   task, status, or maturity claims.
+7. Add architecture `watch` as a faithful, non-mergeable review result. Validate
+   `next_authorization.gate` against its task prefix and permitted route.
+8. Catch unreadable/non-UTF-8 governed documents and return a stable sanitized
+   validation failure without traceback.
+9. Add adversarial tests for every defect above, preserve all existing passing
+   behavior, rerun the complete original acceptance set, update status/memory,
+   push a new immutable delivery head to the same PR, and stop at
+   `awaiting_review`. Do not start G0-T02.

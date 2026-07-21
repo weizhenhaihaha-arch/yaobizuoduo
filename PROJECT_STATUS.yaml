@@ -6,25 +6,25 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "awaiting_review",
+      "state": "returned",
       "transition": {
-        "from": "in_progress",
-        "to": "awaiting_review"
+        "from": "awaiting_review",
+        "to": "returned"
       },
       "candidate_generation": 1
     }
   ],
   "evidence": {
     "baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
-    "candidate_sha": "cb24b43cdab26bcd9ea9d501b9214a868c3ebdcb",
+    "candidate_sha": "6be3e708ad019b46685e3a7986a828df7103239d",
     "closure_sha": null,
     "implementation_merge_sha": null,
     "finalization_sha": null
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "request_changes",
+    "architecture": "block",
+    "reviewed_candidate_sha": "6be3e708ad019b46685e3a7986a828df7103239d"
   },
   "ci": {
     "status": "not_established",
@@ -36,7 +36,12 @@
     "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
-  "blockers": [],
+  "blockers": [
+    "Candidate and PR exact-head identity are ambiguous and self-referential.",
+    "The schema cannot represent or bind phase-specific closure, merged-main, and finalization CI evidence.",
+    "The current no-CI bootstrap card has no legal path to accepted_pending_merge.",
+    "Returned evidence, maturity ceilings, document conflicts, WATCH, next-authorization consistency, and invalid UTF-8 are not fully fail-closed."
+  ],
   "next_authorization": {
     "gate": "G0",
     "task_id": "G0-T02",
