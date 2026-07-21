@@ -1,215 +1,109 @@
 # AG 开发审核工作循环
 
-## 1. 当前状态
+## 1. 权威状态与角色
 
-- 循环状态：运行中
-- 目标项目：妖币暴涨做多
-- 唯一开发流程：`DEVELOPMENT_WORKFLOW.md`
-- 当前里程碑：M0 产品和策略边界冻结
-- 当前任务：`M5-T01`，已派发；`M4-T01` 已通过主 AG 审核
-- 状态检查间隔：每 3 分钟一次（监控会话保持运行时）
-- 可见状态文件：`AG_STATUS.md`；历史心跳：`AG_HEARTBEAT.log`（本地运行时生成，不提交）
-- 对话实时模式：主 AG 保持监控会话时，每 3 分钟在窗口汇报一次检查结果；每次先检查 AG 证据，再执行审核或派发，不重复汇报无变化的空话。
-- 系统定时任务：`Codex-Yaobizuoduo-Heartbeat` 每 3 分钟执行 `scripts/ag_heartbeat.ps1 -Once`；它只记录可验证状态，不绕过主 AG 审核。
-- 完成检测：每次派发或返修后运行 `scripts/set_ag_task_baseline.ps1` 记录 Git 基线；心跳在 `dispatched`、`in_progress` 或 `repair_requested` 状态发现新提交时生成 `AG_REVIEW_REQUIRED.md` 并标记待审核。
-- 停滞检测：心跳对 Git 提交、未提交文件列表、文件大小和修改时间生成进展签名；连续 3 次（约 9 分钟）无变化时生成 `AG_WAKE_REQUIRED.md`，由活动中的主 AG 会话向执行 AG 请求状态或发送唤醒指令。
-- 自检保护：任务编号与基线任务不一致时，状态显示 `reset_task_baseline`；Git 或脚本失败时生成 `AG_LOOP_ERROR.md`，不得继续声称循环健康。
-- 系统任务只负责持久检测和动作标记；代码审核、AG 唤醒和聊天窗口消息必须由活动中的主 AG 会话执行，不能由状态脚本伪造。
-- 活动任务期间若主 AG 必须提交工作流、审核或记忆修复，提交后必须立即对同一任务重录基线；否则任意新提交都会被误判为执行 AG 完成提交。
-- 审核人：主 AG
-- 执行人：被派发任务的开发 AG
+`PROJECT_STATUS.yaml` 是唯一当前机器状态源，必须通过
+`scripts/validate_project_status.py --repo-root .`。`CURRENT_TASK.md` 是任务卡，
+`PROJECT_MEMORY.md` 是追加式历史事实，其他文档只定义稳定规则。
 
-用户确认启动后，才进入本循环。未启动前只准备文档，不主动派发开发任务。
+- 产品/验收负责人：主 Codex。
+- 开发执行：一个被派发的开发 AG。
+- 独立门禁：代码/安全审核与架构/路线审核。
+- 任意时刻恰好一个活动任务；审核或返修期间不得派发并行任务。
 
-## 2. 循环状态机
+## 2. 状态机
 
 ```text
-待启动
-  -> 已派发
-  -> 开发中
-  -> 待汇报
-  -> 审核中
-  -> 通过 -> 派发下一任务
-  -> 不通过 -> 返修
-  -> 返修完成 -> 再次审核
-  -> 阻塞 -> 记录原因并请求决策
+planned -> authorized -> in_progress -> awaiting_review
+                                     -> returned -> in_progress
+                                     -> blocked
+                                     -> accepted_pending_merge
+accepted_pending_merge -> merged_verified -> closed
 ```
 
-任何状态都不能跳过审核直接进入下一里程碑。
+`closed` 只能跟随 `merged_verified`。`WATCH` 是真实的架构审核结论，但不可
+合并；只有代码/安全 `APPROVE` 与架构 `CLEAR` 的组合可接受。返修启动时必须
+在同一次状态转换中清空旧 implementation/candidate、全部 phase CI、reviewer
+和 blocker 身份，并递增 generation。未知状态、非法跳转、多活动任务或必需
+证据缺失均由 validator 拒绝。
 
-## 3. 每次任务派发格式
+## 3. 派发与交付
 
-主 AG 必须给执行 AG 一份明确任务单：
+任务卡必须固定：任务号、G 门禁、D 风险、基线、允许/禁止范围、验收命令和
+报告格式。开发 AG 从授权基线创建任务分支，只修改 allowlist。实现内容可先
+冻结为 `implementation_sha`；交付提交把 canonical status 与任务卡设为
+`awaiting_review` 并成为 PR exact delivered HEAD。因为提交不能包含自己的
+SHA，交付提交内的 `candidate.commit_sha` 必须为空；后续独立审核提交才记录
+这个已经存在的 delivery SHA。开发 AG 推送后停止，不得合并 PR、启动下一卡
+或自我验收。
 
-- 任务编号：例如 `M0-T01`
-- 所属里程碑
-- 任务目标
-- 允许修改的文件和目录
-- 明确禁止修改的范围
-- 输入和前置条件
-- 完成标准
-- 必须运行的测试或检查
-- 交付格式和汇报内容
+交付报告必须包含：任务号、文件、决定、精确命令/结果、candidate SHA、
+分支/upstream、PR、风险/阻塞、工作区与记忆更新。
 
-任务必须小到可以在一个审核周期内完成，不派发“先把整个系统做出来”这类不可验收任务。
+## 4. 独立审核与 Git 证据链
 
-## 4. 执行 AG 完成后的汇报格式
+主 Codex 必须检查 candidate 基线和范围，并启动彼此独立的代码/安全与
+架构/路线审核。只有代码结论 `APPROVE` 且架构结论 `CLEAR` 才可继续；否则
+状态为 `returned` 或 `blocked`，同一开发 AG 只修当前卡。
 
-执行 AG 不得只说“完成了”，必须报告：
+每个阶段有独立 evidence/CI 槽，记录规则如下：
 
-1. 任务编号和所属里程碑
-2. 修改了哪些文件
-3. 完成了哪些功能
-4. 做了哪些设计或实现决策
-5. 运行了哪些命令，结果是什么
-6. 是否有未完成项、风险或阻塞
-7. 当前 Git 分支、提交号和工作区状态
-8. 是否更新了 `PROJECT_MEMORY.md`
+1. `awaiting_review` 的交付 HEAD 是隐式 candidate；审核提交记录 candidate SHA。
+2. `accepted_pending_merge` 的审核/收口 HEAD 是隐式 closure；后续 merge/finalization
+   记录已经存在的 closure SHA 及其 CI。
+3. 固定 merge commit 是 merged-main subject；finalization 记录其 SHA 与 CI。
+4. `merged_verified` 的 finalization HEAD 由后续 close record 记录；close record
+   同时记录 finalization D0 CI。任何提交都不记录自己的 SHA。
 
-没有测试结果、差异范围或记忆同步记录的汇报，默认退回补充，不进入审核结论。
+开启 repository checks 后，validator 必须证明 Git 对象存在、阶段 status 匹配、
+`baseline -> implementation -> candidate -> closure -> merge -> finalization`
+祖先关系成立、merged-main 确为 merge commit，且每个 CI subject 等于对应 phase
+commit。伪造、无关或跨阶段 SHA 失败。
 
-## 5. 主 AG 审核清单
+此外，validator 必须读取当前 HEAD 的直接第一父提交。status 有变化时，项目、
+任务、G 门禁、风险、授权基线与 bootstrap identity 不可改写；声明的
+`transition.from` 必须等于父状态。普通转换保持 generation，只有
+`returned -> in_progress` 精确加一并原子清空证据、审核、CI 和 blockers。
+bootstrap 只能 `available/0 -> consumed/1`，消费后不可回滚、消失或重新出现。
 
-### 范围审核
+`merged_main` 必须可从 canonical `refs/heads/main` 到达，仅在任务分支制造一个
+merge commit 不算主线合并。每个 active CI URL 的 GitHub owner/repository 必须
+等于 canonical `origin`，URL 中的 run number 必须等于 `run_id`，subject 必须
+等于对应 phase commit。
 
-- 是否只完成本任务单内容
-- 是否仍在当前里程碑范围内
-- 是否混入做空项目、真实交易或其他交易所
-- 是否修改了未经批准的策略口径
+六个治理文档 identity 是强制且唯一的：`AGENTS.md`、
+`DEVELOPMENT_WORKFLOW.md`、`AG_WORK_LOOP.md`、`DESIGN.md`、
+`CURRENT_TASK.md`、`PROJECT_MEMORY.md`。不得删除、重复或使用 `./`、`..`、
+symlink alias 绕开冲突检查。
 
-### 代码和数据审核
+### G0-T01 一次性 no-CI bootstrap exception
 
-- 是否遵循数据契约和事件时间
-- 是否存在未来数据、硬编码秘密或危险默认值
-- 是否保留必要的错误、延迟和数据质量状态
-- 是否有重复逻辑、临时假数据或无法解释的评分
+由于 G0-T01 的任务范围禁止创建 CI，它有且仅有一次例外：固定 ID
+`G0-T01-NO-CI-BOOTSTRAP-20260721`，只绑定任务 `G0-T01`、授权基线
+`7aadae13efd45023d19bf8a280f7680667c930fa`、成功本地验收、代码/安全
+`APPROVE`、架构 `CLEAR` 和 `OFFLINE_EVIDENCE_ACCEPTED`。消费次数必须从 0
+变为 1，所有 phase CI 必须保持 `not_established`。它不能复制给 G0-T02、返修
+generation、其他 G 卡或更高成熟度；G0-T02 及以后恢复正常 phase CI 门禁。
 
-### 测试审核
+G9 的产品负责人 go 与完整发布证据不能用布尔值自报。二者必须分别绑定已进入
+authoritative main 的不可变 JSON artifact：commit SHA、repository-relative
+path 与内容 SHA-256。审批 artifact 必须明确 `decision=go` 并绑定 release
+manifest digest；manifest 必须声明完整并绑定 release SHA。
 
-- 是否有与改动匹配的测试或固定样本
-- 是否覆盖正常、空数据、延迟、错误和边界场景
-- 测试是否真实运行且结果可复现
-- 是否通过格式、类型、构建和相关集成检查
+## 5. 三分钟循环
 
-### 产品审核
+活动会话每三分钟检查：canonical task/state、开发 AG 是否 running、是否有
+工作报告或共享工作树变化、HEAD/工作区、测试/阻塞/越界证据和下一动作。
+只有 `running`、新报告或真实 Git/文件变化才能证明 AG 在工作。
 
-- 新手是否能理解当前状态
-- 已出现、潜在、无信号分组是否正确
-- 币安/欧易标识是否清楚
-- 信号出现、减弱、消失是否都有明确反馈
-- 统计是否区分价格结果和模拟策略结果
+连续三次检查无进展时唤醒同一 AG 并要求报告已完成、正在做或阻塞原因。
+心跳脚本或旧系统任务只可视为历史辅助证据，不能替代活动会话、独立审核，
+也不能证明当前 macOS 环境存在后台监督器。本卡不建设或修改监督器。
 
-### 仓库审核
+## 6. 结论与记忆
 
-- 差异是否小而聚焦
-- 是否包含密钥、令牌、数据库、日志或浏览器缓存
-- `PROJECT_MEMORY.md` 是否记录确认事实、验证结果和未解决项
-- 是否提交在正确的独立仓库
-
-## 6. 审核结论
-
-主 AG 只能给出以下三种结论：
-
-### 通过
-
-- 满足任务单和当前里程碑验收标准
-- 没有关键风险或越界修改
-- 更新记忆后，派发下一个任务
-
-### 返修
-
-- 明确列出每个问题、文件、验收标准和返修范围
-- 不扩大任务范围
-- 执行 AG 返修后必须重新汇报，不能直接视为通过
-
-### 阻塞
-
-- 仅用于缺少外部权限、关键数据、用户决策或持续环境故障
-- 记录已尝试的替代方案
-- 请求用户决策，不擅自改变路线
-
-## 7. 里程碑切换规则
-
-一个里程碑必须同时满足以下条件才可以切换：
-
-- 该里程碑所有任务均已通过
-- 里程碑产出物已提交
-- 验收命令成功
-- 记忆已同步
-- 没有未关闭的高风险返修项
-- 主 AG 明确写出“允许进入下一个里程碑”
-
-不允许因为“代码看起来差不多”或“先做后面再补测试”提前切换。
-
-## 8. 唤醒和进度检查
-
-### 3 分钟心跳
-
-每次心跳必须检查以下内容，并记录检查时间：
-
-- 当前任务文件和任务状态
-- 执行 AG 是否有新汇报、提交或工作区变化
-- 当前 Git 分支、最新提交和未提交差异
-- 是否出现测试失败、阻塞或越界修改
-- 是否超过任务约定时间没有进展
-
-心跳发现“待汇报”时进入审核；发现“返修”时只提醒返修；发现“无活动任务”时派发当前里程碑的下一个最小任务；发现 AG 空闲时发送唤醒指令。
-
-聊天内 AG 模式下，主 AG 派发任务后仍使用 `wait_agent`。全自动模式下，不再运行聊天内执行 AG；`Codex-Yaobizuoduo-Supervisor` 使用独占锁和 `codex exec` 分别执行单步开发或单步审核，避免两套运行时并发修改仓库。
-
-本协议的 3 分钟心跳由系统定时任务或监控会话提供。系统任务可以持续刷新仓库状态，但不能在聊天窗口主动发消息，也不能替主 AG 审核代码；恢复会话时必须先执行一次完整状态检查。
-
-对话实时模式的每次窗口汇报必须包含：检查时间、当前任务、AG 状态、最新提交、工作区状态、审核结论和下一步动作。
-
-每次工作循环启动或恢复时，主 AG 检查：
-
-- 是否存在当前任务单
-- 执行 AG 是否有新提交或汇报
-- 是否仍在开发中
-- 是否长时间没有进展
-- 是否有阻塞信息未处理
-
-如果没有正在进行的任务，主 AG 应立即根据当前里程碑派发下一个最小任务。
-
-如果执行 AG 没有开发、没有汇报或停留在同一任务，主 AG 发送唤醒指令，要求其在规定时间内报告：已完成、正在做、阻塞原因三者之一。
-
-主 AG 不能在没有真实状态证据时声称“AG 正在开发”。本系统本身也不会在用户未发起检查或产品未提供后台监控能力时伪造持续监控结果。
-
-## 9. 记忆同步规则
-
-每个任务结束时必须更新 `PROJECT_MEMORY.md`：
-
-- 当前状态
-- 已确认需求或约束
-- 架构/实现决策及原因
-- 重要文件
-- 验证命令和结果
-- 未解决风险和下一任务
-
-只记录 durable facts，不记录聊天猜测、秘密和完整环境值。主 AG 审核时检查记忆是否与代码和任务汇报一致；不一致则先修正记忆，再决定是否通过。
-
-## 10. 循环启动口令
-
-用户确认后，主 AG 使用以下启动步骤：
-
-1. 读取本文件、`DEVELOPMENT_WORKFLOW.md`、`PROJECT_MEMORY.md` 和相关规格
-2. 检查当前 Git、任务和其他 AG 状态
-3. 若没有活动任务，派发当前里程碑的下一个最小任务
-4. 若有待审核汇报，先审核，不派发新任务
-5. 若有返修任务，优先返修，不跨任务开发
-6. 完成审核后同步记忆并记录循环结果
-
-启动后每一轮只允许一个主任务处于 `开发中`，避免多个 AG 同时修改同一边界。
-
-## 11. 全自动监督器
-
-- 心跳任务：`Codex-Yaobizuoduo-Heartbeat` 每 3 分钟运行，只采集 Git、任务、进展、停滞和动作标记。
-- 监督任务：`Codex-Yaobizuoduo-Supervisor` 每 3 分钟运行 `scripts/ag_supervisor.ps1 -Once`，仅在仓库状态要求动作时调用一次非交互 `codex exec`。
-- 开发转换：任务为 `dispatched` 或 `repair_requested` 时，独立 Codex worker 只实现当前任务；成功后设置 `awaiting_review`、提交并停止，不派发下一任务。
-- 审核转换：发现基线后新提交或 `awaiting_review` 时，独立 Codex reviewer 运行验收；不通过只派发返修，通过只记录批准并派发下一个最小任务，然后停止。
-- 并发保护：`.ag_supervisor.lock` 与计划任务 `IgnoreNew` 双重防止重入；不得同时恢复聊天内 Aquinas。
-- 失败保护：连续失败采用 5/10/20 分钟退避，达到 3 次生成 `AG_SUPERVISOR_BLOCKED.md` 并停止模型调用，等待人工检查。
-- 安全边界：本机 Codex 0.144.6 的 Windows `workspace-write` 沙箱无法启动 PowerShell（`CreateProcessWithLogonW failed: 2`），因此监督器使用 `danger-full-access`、`approval=never`，并以独占锁、严格提示、结构化结果、Git/任务状态后验验证、单轮 45 分钟、不推送 Git和禁用真实交易/凭证进行补偿控制。
-- 成功判定：Codex 退出码 0 不等于任务成功；监督器还要求结构化结果为 `completed`、HEAD 产生新提交，并且开发结束为 `awaiting_review|blocked`、审核结束为 `dispatched|repair_requested|blocked`。
-- 成本边界：无动作时不调用模型；每次计划运行最多执行一个开发或审核转换。
-- 可见输出：`AG_SUPERVISOR_STATUS.md`、`AG_SUPERVISOR_LAST.md` 和 `AG_SUPERVISOR.log` 记录监督结果；聊天关闭时仍不会伪造窗口消息。
+审核只允许 `ACCEPTED`、`RETURNED`、`BLOCKED`；架构 lane 可给出非合并的
+`WATCH`。每次派发、返修、审核、合并、
+收口和下一授权前都要更新 `PROJECT_STATUS.yaml` 与 `PROJECT_MEMORY.md`，并在
+安全扫描后提交上传。通过测试不是验收；缺 exact-HEAD CI、远端权限或外部证据
+时必须准确保留较低成熟度。

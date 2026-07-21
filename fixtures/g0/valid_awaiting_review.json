@@ -1,0 +1,22 @@
+{
+  "schema_version": "project-status.v2",
+  "project": "yaobizuoduo",
+  "authoritative_main_ref": "refs/heads/main",
+  "current_gate": "G0",
+  "active_tasks": [{"task_id": "G0-T01", "risk": "D0", "state": "awaiting_review", "transition": {"from": "in_progress", "to": "awaiting_review"}, "candidate_generation": 2}],
+  "evidence": {
+    "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
+    "implementation_sha": "1111111111111111111111111111111111111111",
+    "candidate": {"commit_sha": null, "local_verification": {"status": "success", "subject": "delivery_head"}, "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}},
+    "closure": {"commit_sha": null, "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}},
+    "merged_main": {"commit_sha": null, "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}},
+    "finalization": {"commit_sha": null, "d0_ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}}
+  },
+  "review": {"code_security": "pending", "architecture": "pending", "reviewed_candidate_sha": null},
+  "bootstrap_exception": {"exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721", "task_id": "G0-T01", "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa", "status": "available", "uses": 0},
+  "capability": {"maturity": "OFFLINE_EVIDENCE_ACCEPTED", "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"},
+  "release": {"product_owner_approval": null, "release_manifest": null},
+  "blockers": [],
+  "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
+  "governed_documents": ["AGENTS.md", "DEVELOPMENT_WORKFLOW.md", "AG_WORK_LOOP.md", "DESIGN.md", "CURRENT_TASK.md", "PROJECT_MEMORY.md"]
+}

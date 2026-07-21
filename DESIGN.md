@@ -1,10 +1,14 @@
 # Design
 
 ## Source of truth
-- Status: Draft
-- Last refreshed: 2026-07-20
+- Contract version: beginner-first.v1
+- Last refreshed: 2026-07-21
 - Primary product surfaces: signal dashboard, signal detail, signal history and outcome statistics
 - Evidence reviewed: product discussion, approved `api.v1` DTO boundary, and the reviewed M6 homepage/components
+
+This is one product with one formal signal truth source. Progressive disclosure
+changes how much supporting detail is visible; it must never create separate
+beginner/expert conclusions or competing signal states.
 
 ## Brand
 - Personality: calm, clear, practical, and trustworthy
@@ -25,6 +29,53 @@
 - Primary navigation: Signals, Results, Help
 - Core routes/screens: active signal dashboard, one signal detail page, historical signal list, outcome statistics summary
 - Content hierarchy: group state first, action state second, coin/exchange third, plain-language reason fourth, risk/invalidation fifth, outcome summary sixth, advanced data last
+
+### Default-view contract
+
+Without opening a detail panel, a user must be able to answer whether a confirmed
+long signal exists. The summary uses exactly one of these conclusions:
+`做多信号已出现`, `暂时没有做多信号`, or `数据延迟，暂不判断`.
+
+Confirmed signals are primary. Recent weakening or invalidation remains visible
+and never disappears silently. Potential and no-signal markets show a count and
+last scan time; their long lists are collapsed by default.
+
+### Signal-card information budget
+
+The first layer contains no more than six information classes:
+
+1. Symbol and textual exchange name.
+2. Current plain-language conclusion.
+3. One-sentence reason.
+4. Entry reference area.
+5. Invalidation condition.
+6. Last update time.
+
+Scores, full timelines, experiments and professional metrics cannot enter this
+first layer.
+
+### Progressive disclosure
+
+OI, funding, long/short ratio, MA/EMA, raw candles, strategy version, thresholds,
+reason codes, internal enums, event/availability timestamps, DTO/SSE terminology,
+complete replay windows, drawdown, fees, slippage and experimental parameters are
+hidden by default. They may appear only in `了解更多` or `专业数据` sections of the
+same product and must support—not replace—the formal conclusion.
+
+Internal states translate to ordinary Chinese:
+
+| Internal state | User-facing text |
+| --- | --- |
+| `armed` | 做多信号已出现 |
+| `active` | 信号仍然有效 |
+| `potential` | 正在观察，还不能考虑入场 |
+| `weakening` | 信号正在减弱 |
+| `invalidated` | 信号已失效，停止按此信号关注 |
+| `stale` | 数据有延迟，暂时不要按此页面判断 |
+| `not_evaluated` | 还没有足够规则计算模拟结果 |
+
+The default UI never displays internal English states or raw reason codes.
+Invalidation is explicitly not a short signal.
 
 ## Design principles
 - One screen, one decision: every active card answers “can I act now?”
@@ -95,7 +146,6 @@
 - Mobile uses single-column content and horizontally scrollable accessible outcome tables; desktop expands detail/statistics/history layouts with the existing 700px breakpoint.
 
 ## Open questions
-- [ ] USDT perpetual only or spot plus perpetual / product owner
-- [ ] Whether Telegram is included in the first release / product owner
+- [ ] Whether Telegram is included after the first station-notification Paper view / product owner
 - [ ] Exact entry and invalidation wording after strategy replay / strategy owner
-- [ ] Maximum number of simultaneously displayed active signals / strategy owner
+- [ ] G6 usability-test participant count and passing threshold / product owner
