@@ -1110,6 +1110,8 @@ def test_typed_identity_equality_distinguishes_numbers_and_booleans() -> None:
     assert not VALIDATOR._typed_equal(5, 5.0)
     assert not VALIDATOR._typed_equal(True, 1)
     assert not VALIDATOR._typed_equal({"value": [5]}, {"value": [5.0]})
+    assert not VALIDATOR._typed_equal((1,), (1.0,))
+    assert not VALIDATOR._typed_equal(("consumed", True), ("consumed", 1))
     assert VALIDATOR._typed_equal({"value": [5]}, {"value": [5]})
 
 
@@ -1282,6 +1284,7 @@ def make_prior_bound_schema_migration(tmp_path: Path, corrupt_digest: bool = Fal
     write_status(repo / "PROJECT_STATUS.yaml", current)
     write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, migration_control("no_migration", current["schema_authority"]))
     migration_sha = commit(repo, "consume prior schema migration authorization")
+    git(repo, "update-ref", "refs/remotes/origin/main", migration_sha)
     return repo, authorized, current, authorization_sha, migration_sha
 
 
@@ -1302,7 +1305,56 @@ def test_schema_authorization_digest_mismatch_and_reuse_fail_closed(tmp_path: Pa
     bad_repo, authorized, current, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path / "bad", corrupt_digest=True)
     assert VALIDATOR._schema_authority_continuity_errors(current, authorized, authorization_sha, bad_repo, migration_sha) != []
     good_repo, _, _, good_authorization, good_migration = make_prior_bound_schema_migration(tmp_path / "good")
-    assert VALIDATOR._schema_authorization_reused(good_repo, good_migration, good_authorization)
+    assert not VALIDATOR._schema_authorization_reused(good_repo, good_migration, good_authorization)
+
+
+def test_schema_authorization_reuse_on_sibling_ref_is_rejected(tmp_path: Path) -> None:
+    repo, authorized, current, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    schema_text = git(repo, "show", f"{migration_sha}:schemas/project_status.schema.json") + "\n"
+    git(repo, "switch", "-c", "sibling-consumer", authorization_sha)
+    (repo / "schemas" / "project_status.schema.json").write_text(schema_text, encoding="utf-8")
+    write_status(repo / "PROJECT_STATUS.yaml", current)
+    write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, migration_control("no_migration", current["schema_authority"]))
+    sibling_sha = commit(repo, "consume same authorization on sibling ref")
+    errors = VALIDATOR._schema_authority_continuity_errors(current, authorized, authorization_sha, repo, sibling_sha)
+    assert "$.schema_authority: migration authorization must have exactly one repository-visible consumer" in errors
+
+
+def test_higher_schema_revision_cannot_reuse_earlier_digest(tmp_path: Path) -> None:
+    repo, _, current, _, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    rollback = copy.deepcopy(current)
+    first_digest = current["schema_authority"]["migration"]["from_sha256"]
+    rollback["schema_authority"] = {
+        "revision": 3,
+        "sha256": first_digest,
+        "migration": {
+            "from_revision": 2,
+            "from_sha256": current["schema_authority"]["sha256"],
+            "to_revision": 3,
+            "to_sha256": first_digest,
+            "authorization_sha": migration_sha,
+            "compatibility_rule": "strict-current-schema-revalidation",
+            "preauthority_history_sha256": None,
+        },
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", rollback)
+    rollback_sha = commit(repo, "attempt higher-revision schema digest rollback")
+    assert "$.schema_authority: higher revision cannot reuse an earlier schema digest" in VALIDATOR._schema_digest_history_errors(repo, rollback_sha)
+
+
+def test_bootstrap_and_ci_tuple_identities_reject_bool_integer_aliases() -> None:
+    parent = load_valid()
+    parent["active_tasks"][0].update(state="in_progress", transition={"from": "authorized", "to": "in_progress"})
+    child = copy.deepcopy(parent)
+    child["bootstrap_exception"]["uses"] = True
+    assert "$.bootstrap_exception.uses: continuity requires exact integers" in VALIDATOR._parent_status_errors(child, parent, "1" * 40)
+
+    previous_ci = copy.deepcopy(parent)
+    current_ci = copy.deepcopy(parent)
+    for status, run_id in ((previous_ci, 1), (current_ci, True)):
+        status["evidence"]["candidate"]["ci"] = {"status": "pending", "subject_sha": "2" * 40, "run_id": run_id, "url": "https://github.com/a/b/actions/runs/1"}
+    errors = VALIDATOR._ci_continuity_errors(current_ci, previous_ci)
+    assert "pending CI may only become terminal for the same immutable run" in "\n".join(errors)
 
 
 def test_generation_continuity_rejects_float_and_bool_identities() -> None:

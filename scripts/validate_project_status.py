@@ -71,7 +71,7 @@ def _typed_equal(left: Any, right: Any) -> bool:
         return False
     if type(left) is dict:
         return left.keys() == right.keys() and all(_typed_equal(left[key], right[key]) for key in left)
-    if type(left) is list:
+    if type(left) in {list, tuple}:
         return len(left) == len(right) and all(_typed_equal(a, b) for a, b in zip(left, right))
     return left == right
 
@@ -663,19 +663,78 @@ def _schema_control_document_errors(status: dict[str, Any], schema_path: Path) -
     return _schema_control_errors(control, status)
 
 
-def _schema_authorization_reused(root: Path, parent_sha: str, authorization_sha: str) -> bool:
-    ok, commits_text = _git(root, "rev-list", "--first-parent", parent_sha)
-    if not ok:
-        return True
-    for sha in commits_text.splitlines():
-        if _typed_equal(sha, authorization_sha):
-            continue
+def _repository_visible_commits(root: Path) -> list[str] | None:
+    # Git cannot enumerate absent or unreachable objects. The enforceable boundary is every
+    # commit reachable from a repository-visible local branch or fetched remote-tracking ref.
+    ok, refs_text = _git(root, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes")
+    refs = refs_text.splitlines() if ok else []
+    if not refs:
+        return None
+    ok, commits_text = _git(root, "rev-list", "--topo-order", *refs)
+    return commits_text.splitlines() if ok else None
+
+
+def _schema_migration_consumers(root: Path, authorization_sha: str) -> set[str] | None:
+    commits = _repository_visible_commits(root)
+    if commits is None:
+        return None
+    consumers: set[str] = set()
+    for sha in commits:
         node = _status_at(root, sha)
         authority = node.get("schema_authority") if type(node) is dict else None
         migration = authority.get("migration") if type(authority) is dict else None
-        if type(migration) is dict and _typed_equal(migration.get("authorization_sha"), authorization_sha):
-            return True
-    return False
+        if type(migration) is not dict or not _typed_equal(migration.get("authorization_sha"), authorization_sha):
+            continue
+        ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", sha)
+        parts = parents_text.split() if ok else []
+        parent = _status_at(root, parts[1]) if len(parts) >= 2 else None
+        parent_authority = parent.get("schema_authority") if type(parent) is dict else None
+        if not _typed_equal(authority, parent_authority):
+            consumers.add(sha)
+    return consumers
+
+
+def _schema_digest_history_errors(root: Path, candidate_sha: str) -> list[str]:
+    ok, commits_text = _git(root, "rev-list", "--first-parent", candidate_sha)
+    if not ok:
+        return ["$.schema_authority: immutable schema digest history is unavailable"]
+    revisions: dict[int, str] = {}
+    digests: dict[str, int] = {}
+    for sha in reversed(commits_text.splitlines()):
+        node = _status_at(root, sha)
+        authority = node.get("schema_authority") if type(node) is dict else None
+        if type(authority) is not dict:
+            continue
+        pairs: list[tuple[Any, Any]] = [(authority.get("revision"), authority.get("sha256"))]
+        migration = authority.get("migration")
+        if type(migration) is dict:
+            pairs.append((migration.get("from_revision"), migration.get("from_sha256")))
+        for revision, digest in pairs:
+            if type(revision) is not int or type(digest) is not str:
+                continue
+            if revision in revisions and not _typed_equal(revisions[revision], digest):
+                return ["$.schema_authority: one revision cannot have multiple immutable schema digests"]
+            if digest in digests and not _typed_equal(digests[digest], revision):
+                return ["$.schema_authority: higher revision cannot reuse an earlier schema digest"]
+            revisions[revision] = digest
+            digests[digest] = revision
+    return []
+
+
+def _schema_authorization_reuse_errors(root: Path, authorization_sha: str, candidate_sha: str) -> list[str]:
+    consumers = _schema_migration_consumers(root, authorization_sha)
+    if consumers is None:
+        return ["$.schema_authority: repository-visible migration consumption set is unavailable"]
+    if consumers != {candidate_sha}:
+        return ["$.schema_authority: migration authorization must have exactly one repository-visible consumer"]
+    ok, remote_main = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+    if not ok or not _is_first_parent_ancestor(root, candidate_sha, remote_main):
+        return ["$.schema_authority: migration consumption must be on canonical origin/main first-parent history"]
+    return []
+
+
+def _schema_authorization_reused(root: Path, candidate_sha: str, authorization_sha: str) -> bool:
+    return bool(_schema_authorization_reuse_errors(root, authorization_sha, candidate_sha))
 
 
 def _schema_authority_document_errors(status: dict[str, Any], schema_path: Path) -> list[str]:
@@ -830,9 +889,17 @@ def _schema_authority_continuity_errors(
         and _typed_equal(parent_control.get("purpose"), SCHEMA_CONTROL_PURPOSE)
         and remote_ok
         and _is_first_parent_ancestor(root, authorization_baseline, remote_main)
-        and not _schema_authorization_reused(root, parent_sha, parent_sha)
     )
-    return [] if valid else ["$.schema_authority: schema migration is unauthorized or discontinuous"]
+    if not valid:
+        return ["$.schema_authority: schema migration is unauthorized or discontinuous"]
+    if child_sha is None:
+        ok, resolved_child = _git(root, "rev-parse", "HEAD")
+        if not ok:
+            return ["$.schema_authority: migration consumer identity is unavailable"]
+        child_sha = resolved_child
+    errors = _schema_authorization_reuse_errors(root, parent_sha, child_sha)
+    errors.extend(_schema_digest_history_errors(root, child_sha))
+    return errors
 
 
 def _committed_status_errors(root: Path, sha: str, current_schema: dict[str, Any], use_current_schema: bool = False) -> tuple[dict[str, Any] | None, list[str]]:
@@ -1002,6 +1069,8 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
     if type(parent_exception) is dict:
         previous_pair = (parent_exception.get("status"), parent_exception.get("uses"))
         current_pair = (current_exception.get("status"), current_exception.get("uses")) if type(current_exception) is dict else None
+        if type(parent_exception.get("uses")) is not int or type(current_exception) is not dict or type(current_exception.get("uses")) is not int:
+            errors.append("$.bootstrap_exception.uses: continuity requires exact integers")
         if _typed_equal(previous_pair, ("consumed", 1)) and not _typed_equal(current_pair, ("consumed", 1)):
             errors.append("$.bootstrap_exception: consumed exception cannot roll back or disappear")
         if _typed_equal(previous_pair, ("available", 0)) and not any(_typed_equal(current_pair, allowed) for allowed in (("available", 0), ("consumed", 1))):
