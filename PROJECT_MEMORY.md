@@ -1,10 +1,14 @@
 # Project Memory
 
-## Current state
+## Historical record and latest delivered transition
+
+This file records durable history and is not the current machine-state authority.
+Read `PROJECT_STATUS.yaml` for the validated current gate, task, evidence, review,
+CI, maturity, blockers, and next authorization.
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment are accepted as offline evidence. L0 is closed at `c3a56bafb936d7e304ff87ae29174a14c998d919` under legacy local review. The user explicitly authorized G0 on 2026-07-21 Asia/Shanghai; `G0-T01` is the sole authorized card for canonical status, validation, legacy evidence mapping, and formal beginner-first governance/design synchronization. No bootstrap CI, branch protection, live notification provider, monitoring infrastructure, exchange transport, continuous Paper validation, or trading execution is yet established.
+- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment remain capped at offline evidence. L0 closed under legacy local review. The user authorized G0 on 2026-07-21 Asia/Shanghai, and the G0-T01 developer delivered candidate `cb24b43cdab26bcd9ea9d501b9214a868c3ebdcb` for independent review. No bootstrap CI, branch protection, live notification provider, monitoring infrastructure, exchange transport, continuous Paper validation, or trading execution was established by this delivery.
 
 ## Confirmed requirements
 
@@ -49,7 +53,7 @@
 - Main AG audited `M3-T01`: 14 tests, deterministic fixture validation, whitespace, and scope checks passed. M3-T01 is approved.
 - M4-T01 was the only active task for availability-safe replay and outcome statistics; it passed review and M5 is now authorized.
 - Main AG audited `M4-T01`: 18 tests, M1 fixture validation, availability-time safety, whitespace, and scope checks passed. M4-T01 is approved.
-- M5 backend/API/storage, all M6 beginner frontend work, and M7-T01 are approved. `M7-T02` is the only active task and is limited to an offline operational-health assessment boundary; live providers, infrastructure, deployment, automation changes, and trading remain unauthorized.
+- Historical M5 backend/API/storage, M6 beginner frontend work, and M7 work are preserved in `docs/LEGACY_EVIDENCE_MAP.md` at no more than `OFFLINE_EVIDENCE_ACCEPTED`.
 - M7-T01 adds `notifications/policy.py` over approved `api.v1` `SignalEventDTO` values. Only `new_signal`, `weakening`, and `invalidation` are selectable; exact-event deduplication, signal/event-type cooldown, bounded retry reservation, and restart reconstruction use injected clock and state-store interfaces.
 - M7 station copy is traceable to the source signal/event/time/reasons, states that delivery does not execute a trade, and explicitly states that invalidation is not a short signal. Provisional five-minute event age, ten-minute cooldown, 30-second retry delay, and three-attempt values are notification-operation configuration, not strategy thresholds.
 - M7-T02 adds the pure `operational-health.v1` assessor in `observability/health.py` over approved `DataHealthDTO` and `StoredDelivery` snapshots. It emits stable structured healthy, pending, delayed, retrying, failed, exhausted, recovered, stale, empty, malformed, and unknown assessments using injected time and read-only state; recovery requires matching prior-unhealthy evidence in the injected snapshot.
@@ -61,7 +65,7 @@
 - M5-T03 adds the forward-only PostgreSQL schema in `db/migrations/001_m5_read_model.sql` and the injected DB-API `PostgresReadModel` in `persistence/postgres_read_model.py`. The adapter uses parameterized SELECTs only, closes cursors safely, performs no commit/rollback, preserves M1 event/availability timestamps and reason codes, and rejects malformed rows or evaluated strategy results.
 - M6-T01 adds an isolated React/TypeScript Vite frontend under `frontend/` with deterministic `api.v1` DTO-shaped fixtures only. The homepage is mobile-first, shows summary/confirmed/potential/collapsed no-signal/recent-invalidations groups, exchange text labels, action/reason/freshness/quality/entry/invalidation fields, stale disabled copy, and accessible loading/empty/error states without live transport or strategy calculation.
 - M6-T02 adds keyboard-operable Signals/Results/Help navigation plus deterministic signal detail, state timeline, fixed-window outcome, history, observation-statistics, and help views. Complete/incomplete price observations remain distinct from strategy PnL, which stays visibly `not_evaluated`; missing outcomes fail closed without inferred values.
-- Development must follow the gated M0-M8 workflow in `DEVELOPMENT_WORKFLOW.md`; the current milestone is M7 after M6 passed review.
+- The formal route is now the gated G0-G9 workflow in `DEVELOPMENT_WORKFLOW.md`; old M0-M7 labels are historical evidence identifiers only.
 - The AG development-review loop is active after explicit user confirmation; it enforces one task at a time, report-before-review, pass/repair/block outcomes, wake-up checks, and memory synchronization.
 - The chat execution AG `Aquinas` completed M6-T01 and was closed before enabling the autonomous CLI supervisor, preventing concurrent runtimes from modifying the repository.
 - The active loop now requires a three-minute heartbeat while a monitoring session or local monitor is running; each heartbeat checks task status, AG evidence, Git changes, tests, blockers, and wake-up conditions.
@@ -83,6 +87,7 @@
 - 2026-07-20 Asia/Shanghai: initialized this directory as a new local Git repository with branch `main`.
 - `origin` is now attached to `https://github.com/weizhenhaihaha-arch/yaobizuoduo.git`.
 - 2026-07-21 Asia/Shanghai: `origin` connectivity to `weizhenhaihaha-arch/yaobizuoduo` is verified. The remote `main` initially contained one independent `LICENSE` commit, while local `main` contained the full project history; publication must preserve both histories without a force push.
+- 2026-07-21 Asia/Shanghai: G0-T01 candidate `cb24b43cdab26bcd9ea9d501b9214a868c3ebdcb` passed 14 focused status-validator tests and all 76 backend tests, 10 frontend tests, the Vite build, Python compilation, the deterministic M1 replay digest `c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`, status/document conflict validation, diff, scope, forbidden-feature, and tracked-secret checks. It awaits independent review and has no remote CI evidence.
 - 2026-07-20 Asia/Shanghai: secret-pattern scan and staged whitespace check passed; first local documentation commit is `6952aa3`.
 - 2026-07-20 Asia/Shanghai: first `git push -u origin main` attempt failed because the GitHub connection was reset; remote publication remains unverified.
 - 2026-07-20 Asia/Shanghai: second push attempt failed to connect to `github.com:443`; local commits remain ready to publish when network access is available.
@@ -111,15 +116,13 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - FastAPI, PostgreSQL contract/read-model, and React/TypeScript are confirmed for the current implementation path; live infrastructure integration remains later work.
-- Legacy offline work through M7-T02 is accepted only at `OFFLINE_EVIDENCE_ACCEPTED`; L0 is closed. G0 governance/bootstrap-CI work requires a separate authorization. Telegram evaluation, live delivery/monitoring infrastructure, continuous paper observation, and release work remain later or unapproved.
-- The autonomous supervisor is authorized to execute one repository-state transition per run using Codex CLI; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
-- Establish or keep alive the monitoring session if unattended three-minute checks are required.
-- Start and verify the local heartbeat runner when visible unattended repository checks are required.
+- Legacy offline work through M7-T02 remains capped at `OFFLINE_EVIDENCE_ACCEPTED`; L0 is closed. G0-T01 awaits independent review. G0-T02, bootstrap CI, branch protection, Telegram evaluation, live delivery/monitoring infrastructure, continuous Paper observation, and release work are not authorized by this card.
 
 ## Development log
 
 ### 2026-07-21
 
+- Delivered G0-T01 candidate `cb24b43cdab26bcd9ea9d501b9214a868c3ebdcb` for independent review. It adds the JSON-compatible canonical status, versioned schema, standard-library fail-closed validator, adversarial fixtures/tests, traceable legacy evidence map, formal G0-G9 workflow, one-card closure loop, and beginner-first progressive-disclosure contract. The canonical status and task card are `awaiting_review`; reviewer and CI identities remain pending/not established, and no acceptance, merge, next-card authorization, runtime, network, or trading claim was made.
 - Received explicit product-owner authorization to start G0 and froze `G0-T01` as the only active card. The card is D0 governance work: canonical `PROJECT_STATUS.yaml`, schema/validator and adversarial tests, legacy M0-M7 evidence mapping without maturity inflation, replacement of stale current-route claims, and formal synchronization of the confirmed beginner-first one-truth-source design. Bootstrap CI and branch protection remain separate later G0 cards; no G1+, runtime, network, provider, strategy, frontend-feature, credential, or trading work is authorized.
 - Closed L0 after main and both independent lanes accepted the M7-T02 third repair. The exact candidate consistently rejects hostile string subclasses before any subclass-overridable operation while preserving valid recovery, delivery, and deterministic-ID behavior. The result is offline evidence only; the three-minute loop stops at the G0 authorization gate.
 - Completed the bounded M7-T02 third repair: all current data-health and delivery strings now cross one exact built-in-string boundary before equality, formatting, stripping, lowercasing, replacement, set, or map operations. Hostile current values produce sanitized malformed assessments and hostile prior evidence remains ignored. All required checks passed; no G0 or later-scope work was started. The repair awaits independent exact-HEAD review.
