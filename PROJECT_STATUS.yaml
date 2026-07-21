@@ -6,17 +6,17 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "returned",
-      "transition": {"from": "awaiting_review", "to": "returned"},
-      "candidate_generation": 2
+      "state": "in_progress",
+      "transition": {"from": "returned", "to": "in_progress"},
+      "candidate_generation": 3
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
-    "implementation_sha": "a562b8bb4892e7e06c7c90633f0e76f8aea95b07",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "e2d948f5919a02d9db0abc4aefa00ae28ac03b3d",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
@@ -33,9 +33,9 @@
     }
   },
   "review": {
-    "code_security": "request_changes",
-    "architecture": "block",
-    "reviewed_candidate_sha": "e2d948f5919a02d9db0abc4aefa00ae28ac03b3d"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
   "bootstrap_exception": {
     "exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721",
@@ -49,13 +49,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_go": false, "release_evidence_complete": false},
-  "blockers": [
-    "Repository-aware validation does not bind the declared transition or generation to the first parent's canonical status.",
-    "A merge commit outside the authoritative main ref can be recorded as merged_main.",
-    "CI URL repository and URL run number are not bound to canonical repository and run_id.",
-    "The governed document list can omit mandatory canonical mirrors and disable conflict checks.",
-    "G9 product-owner approval and release evidence are untraceable booleans rather than immutable evidence identities."
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
