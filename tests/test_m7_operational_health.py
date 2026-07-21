@@ -22,6 +22,10 @@ class FixedClock:
         return self.value
 
 
+class UnhashableStr(str):
+    __hash__ = None
+
+
 def data_health(status="healthy", usable=True, freshness="fresh", last_event_time="2026-07-21T00:00:00Z"):
     return DataHealthDTO(
         exchange="binance",
@@ -146,6 +150,40 @@ class OperationalHealthTests(unittest.TestCase):
             source_key=healthy.source_key,
             assessment_id="operational-health.v1:prior",
             status=[],
+            observed_at="2026-07-20T23:58:00Z",
+            reason_codes=("data_delayed",),
+        )
+        assessment = self.assess(data=(current,), prior=(malformed_prior,))[0]
+        self.assertEqual(assessment.status, "healthy")
+        self.assertIsNone(assessment.prior_assessment_id)
+
+    def test_unhashable_string_subclass_data_exchange_fails_closed_as_malformed(self):
+        malformed = replace(data_health(), exchange=UnhashableStr("binance"))
+        assessment = self.assess(data=(malformed,))[0]
+        self.assertEqual(assessment.status, "malformed")
+        self.assertEqual(assessment.reason_codes, ("malformed_data_health_snapshot",))
+
+    def test_unhashable_string_subclass_prior_status_is_ignored(self):
+        current = data_health()
+        healthy = self.assess(data=(current,))[0]
+        malformed_prior = PriorUnhealthyState(
+            source_key=healthy.source_key,
+            assessment_id="operational-health.v1:prior",
+            status=UnhashableStr("stale"),
+            observed_at="2026-07-20T23:58:00Z",
+            reason_codes=("data_delayed",),
+        )
+        assessment = self.assess(data=(current,), prior=(malformed_prior,))[0]
+        self.assertEqual(assessment.status, "healthy")
+        self.assertIsNone(assessment.prior_assessment_id)
+
+    def test_unhashable_string_subclass_prior_source_key_is_ignored(self):
+        current = data_health()
+        healthy = self.assess(data=(current,))[0]
+        malformed_prior = PriorUnhealthyState(
+            source_key=UnhashableStr(healthy.source_key),
+            assessment_id="operational-health.v1:prior",
+            status="stale",
             observed_at="2026-07-20T23:58:00Z",
             reason_codes=("data_delayed",),
         )

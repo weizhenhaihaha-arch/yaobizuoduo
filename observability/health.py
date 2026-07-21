@@ -169,13 +169,13 @@ class OperationalHealthAssessor:
     def _valid_data_health(item: Any) -> bool:
         return (
             isinstance(item, DataHealthDTO)
-            and isinstance(item.exchange, str)
+            and type(item.exchange) is str
             and item.exchange in APPROVED_EXCHANGES
             and item.exchange_label == APPROVED_EXCHANGE_LABELS[item.exchange]
             and (item.symbol is None or isinstance(item.symbol, str) and bool(item.symbol.strip()))
             and isinstance(item.status, str)
             and bool(item.status.strip())
-            and isinstance(item.freshness_status, str)
+            and type(item.freshness_status) is str
             and isinstance(item.usable_for_signal, bool)
             and isinstance(item.reason_codes, tuple)
             and all(isinstance(code, str) and bool(code) for code in item.reason_codes)
@@ -203,11 +203,11 @@ class OperationalHealthAssessor:
         for item in items:
             if not isinstance(item, PriorUnhealthyState):
                 continue
-            if not isinstance(item.status, str):
+            if type(item.status) is not str:
                 continue
             if item.status not in UNHEALTHY_STATUSES:
                 continue
-            if not all(isinstance(value, str) and bool(value) for value in (item.source_key, item.assessment_id, item.observed_at)):
+            if not all(type(value) is str and bool(value) for value in (item.source_key, item.assessment_id, item.observed_at)):
                 continue
             if not item.assessment_id.startswith(f"{SCHEMA_VERSION}:"):
                 continue

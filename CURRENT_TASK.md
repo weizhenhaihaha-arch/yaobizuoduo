@@ -4,8 +4,8 @@
 
 - Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: repair_requested
-- Executor: bounded developer AG repair transition
+- Status: awaiting_review
+- Executor: bounded developer AG second repair delivered
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Previous task result: `M7-T01` passed autonomous review
 
@@ -116,3 +116,21 @@ paper observation, deployment, automation changes, or M8 during this task.
   task, and memory evidence. Rerun the original M7-T02 suites, the full backend
   and frontend checks, M1 fixture validation, scope/secret scans, and all prior
   plus new adversarial probes.
+
+## Second repair delivery
+
+- Current exchange and freshness values are proven to be built-in strings
+  before approved-value set or exchange-label map access. Prior status and
+  source-key evidence are likewise proven to be built-in strings before set or
+  dictionary operations.
+- Regression tests cover unhashable `str` subclasses in current exchange, prior
+  status, and prior source key. Current malformed input is sanitized, while
+  malformed prior evidence is ignored without enabling recovery.
+- The case-insensitive delivered-state invariant and prior ordinary malformed
+  container behavior remain covered. Verification passed 15 focused tests, all
+  59 backend tests with API dependencies, 10 frontend tests, the frontend build,
+  faithful macOS M1 fixture validation with replay digest
+  `c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`,
+  adversarial probes, Python compilation, and `git diff --check`.
+- This delivery is not self-approved. Independent exact-HEAD review is still
+  required before M7-T02 can be accepted or any later task can be authorized.
