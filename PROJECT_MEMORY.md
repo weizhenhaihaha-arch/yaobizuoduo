@@ -4,7 +4,7 @@
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment are accepted as offline evidence. L0 is closed at `c3a56bafb936d7e304ff87ae29174a14c998d919` under legacy local review; G0 is not yet authorized. No live notification provider, monitoring infrastructure, exchange transport, continuous Paper validation, or trading execution is implemented.
+- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment are accepted as offline evidence. L0 is closed at `c3a56bafb936d7e304ff87ae29174a14c998d919` under legacy local review. The user explicitly authorized G0 on 2026-07-21 Asia/Shanghai; `G0-T01` is the sole authorized card for canonical status, validation, legacy evidence mapping, and formal beginner-first governance/design synchronization. No bootstrap CI, branch protection, live notification provider, monitoring infrastructure, exchange transport, continuous Paper validation, or trading execution is yet established.
 
 ## Confirmed requirements
 
@@ -120,6 +120,7 @@
 
 ### 2026-07-21
 
+- Received explicit product-owner authorization to start G0 and froze `G0-T01` as the only active card. The card is D0 governance work: canonical `PROJECT_STATUS.yaml`, schema/validator and adversarial tests, legacy M0-M7 evidence mapping without maturity inflation, replacement of stale current-route claims, and formal synchronization of the confirmed beginner-first one-truth-source design. Bootstrap CI and branch protection remain separate later G0 cards; no G1+, runtime, network, provider, strategy, frontend-feature, credential, or trading work is authorized.
 - Closed L0 after main and both independent lanes accepted the M7-T02 third repair. The exact candidate consistently rejects hostile string subclasses before any subclass-overridable operation while preserving valid recovery, delivery, and deterministic-ID behavior. The result is offline evidence only; the three-minute loop stops at the G0 authorization gate.
 - Completed the bounded M7-T02 third repair: all current data-health and delivery strings now cross one exact built-in-string boundary before equality, formatting, stripping, lowercasing, replacement, set, or map operations. Hostile current values produce sanitized malformed assessments and hostile prior evidence remains ignored. All required checks passed; no G0 or later-scope work was started. The repair awaits independent exact-HEAD review.
 - Main and independent exact-candidate review returned the M7-T02 second repair despite all declared suites passing. Hostile string subclasses can still override equality, formatting, stripping, lowercasing, or replacement on other current fields and escape as runtime exceptions. The same developer AG must repair the complete current-string trust boundary; no G0 or later work is authorized.

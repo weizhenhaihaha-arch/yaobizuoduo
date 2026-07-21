@@ -1,204 +1,112 @@
 # Current AG Task
 
-## Task
+## Task identity
 
-- Task ID: `M7-T02`
-- Milestone: M7 notification, observation, and stability
-- Status: accepted_under_legacy_local_review
-- Executor: bounded developer AG third repair delivered at `c3a56bafb936d7e304ff87ae29174a14c998d919`
+- Task ID: `G0-T01`
+- Gate: G0 governance baseline
+- Risk: `D0`
+- Status: `authorized`
+- Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
-- Previous task result: `M7-T01` passed autonomous review
+- Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
+- Baseline: `e2e0b489e1fbf555c4405f58ec1ab8d20f77199f`
 
 ## Goal
 
-Define and implement the smallest deterministic, offline-testable operational
-health assessment boundary so existing data-health and notification-delivery
-state can produce traceable delay, failure, retry, and recovery alerts without
-adding live monitoring infrastructure.
+Create the smallest canonical, machine-validatable governance source of truth
+for this repository, migrate the approved beginner-first product and G0-G9
+route into formal repository documents, and map legacy M0-M7 evidence without
+upgrading its maturity.
+
+This card establishes governance only. It does not establish bootstrap CI,
+GitHub branch protection, integration, continuous Paper validation, or release
+readiness.
+
+## Required deliverables
+
+1. Add root `PROJECT_STATUS.yaml` as the only mutable current-state source.
+   It must identify G0, exactly one active task (`G0-T01`), D0 risk, the legal
+   task state, evidence SHA fields, reviewer/CI state, capability maturity,
+   blockers, and next authorization.
+2. Add a versioned status schema and an offline validator with deterministic,
+   fail-closed diagnostics. Avoid a new unpinned runtime dependency; a
+   JSON-compatible YAML representation plus Python standard library is
+   acceptable for this bootstrap card.
+3. Validate at least: unknown states, illegal transitions, multiple active
+   tasks, missing or malformed SHA fields when required, missing reviewer/CI
+   evidence when required, conflicting current-state claims in governed
+   documents, and invalid maturity upgrades.
+4. Encode the legal lifecycle:
+   `planned -> authorized -> in_progress -> awaiting_review -> returned | blocked | accepted_pending_merge -> merged_verified -> closed`.
+   `closed` may only follow `merged_verified`; returned candidates invalidate
+   prior CI and review identity.
+5. Add a legacy M0-M7 evidence map. Historical accepted work may be represented
+   only as `OFFLINE_EVIDENCE_ACCEPTED`; L0 remains the documented legacy-local
+   exception and must not be rewritten as exact-HEAD remote CI evidence.
+6. Replace stale M-era current-route claims in governance documents with the
+   approved G0-G9 route and one-card closure loop. `PROJECT_MEMORY.md` remains
+   historical facts; `CURRENT_TASK.md` remains the task card; neither may
+   compete with `PROJECT_STATUS.yaml` for current machine state.
+7. Synchronize the approved beginner-first contract into formal `DESIGN.md`:
+   one product and one signal truth source; default view answers whether a
+   confirmed long signal exists; professional metrics and internal terms are
+   hidden behind progressive disclosure; no beginner/expert split.
+8. Add deterministic tests/fixtures for valid and adversarial status examples,
+   and update `PROJECT_MEMORY.md` with delivery evidence without self-approval.
 
 ## Allowed scope
 
-- Add a pure operational-health module over approved existing health DTO/state
-  values, using injected time and read-only snapshots
-- Produce deterministic structured health assessments for data delay,
-  notification pending/retry/exhaustion, malformed input, and recovery
-- Keep alert identifiers, severity, source, observed time, and reason codes
-  traceable to the approved source state
-- Define provisional operational thresholds as explicit configuration, separate
-  from strategy thresholds
-- Add deterministic fixtures/unit tests and a bounded observability contract or
-  runbook section
-- Update `PROJECT_MEMORY.md` with durable decisions and verification evidence
+- `PROJECT_STATUS.yaml`
+- `schemas/project_status.schema.json`
+- `scripts/validate_project_status.py`
+- status-validator tests and fixtures under `tests/` and `fixtures/g0/`
+- `docs/LEGACY_EVIDENCE_MAP.md`
+- `AGENTS.md`
+- `DEVELOPMENT_WORKFLOW.md`
+- `AG_WORK_LOOP.md`
+- `DESIGN.md`
+- `CURRENT_TASK.md`
+- `PROJECT_MEMORY.md`
+
+New files equivalent to the named schema, validator, fixture, test, or mapping
+paths are allowed only when the developer explains why the exact path differs.
 
 ## Forbidden scope
 
-- No live monitoring service, telemetry backend, production logger, pager,
-  scheduler, daemon, queue, Redis, database migration, deployment, or automation
-  file changes
-- No Telegram, email, SMS, push provider, webhook, browser notification, or live
-  SSE/network integration
-- No exchange connectivity, credentials, real orders, leverage, short logic,
-  strategy calculations, threshold changes, or profit/accuracy claims
-- No frontend redesign, continuous paper observation, M8 release work, or
-  unrelated infrastructure
+- No `.github/workflows`, GitHub settings, branch-protection mutation, PR merge,
+  supervisor/scheduler/heartbeat implementation, deployment, or release work.
+- No exchange network request, private API, credential, order, leverage, short
+  logic, strategy threshold, signal algorithm, database, notification provider,
+  frontend feature, or live/Paper runtime change.
+- No claim that G0 is complete, CI is active, branch protection exists, or the
+  product is integration/Paper/release ready.
+- Do not modify existing business implementation, contracts, M1-M7 fixtures,
+  backend tests, frontend source, dependency locks, or automation scripts.
+- Do not start `G0-T02` or any G1+ work.
 
-## Acceptance criteria
+## Acceptance checks
 
-- Approved healthy, delayed, failed, retrying, exhausted, recovered, stale,
-  empty, malformed, and unknown states are deterministic and fail closed
-- Duplicate identical assessments have stable identifiers and recovery cannot be
-  emitted without a prior unhealthy state represented in the injected snapshot
-- Assessments expose structured severity/source/time/reason evidence without
-  leaking exception details or implying a trade action
-- State and time are injected; tests require no network, credentials, database,
-  filesystem watcher, or wall-clock timing
-- Narrow tests, all backend tests, frontend tests/build, M1 fixture validation,
-  `git diff --check`, scope scan, and secret scan pass
-- Report files, decisions, commands/results, risks, branch, commit, workspace
-  status, and memory sync
+- Validator accepts the canonical repository state and deterministic valid
+  fixtures, and rejects every required adversarial fixture with stable,
+  sanitized diagnostics and a non-zero exit status.
+- Schema and validator agree; unknown keys and ambiguous/coercible field types
+  fail closed.
+- A repository/document conflict check finds zero stale current-stage claims in
+  governed documents while preserving clearly labelled history.
+- Legacy mapping contains traceable evidence and never upgrades M0-M7 above
+  `OFFLINE_EVIDENCE_ACCEPTED`.
+- Beginner-facing design contains the confirmed information hierarchy, six-item
+  signal-card budget, plain-language state translations, progressive disclosure,
+  and one-truth-source rule.
+- Focused G0 tests, all existing backend tests, frontend tests/build, M1 fixture
+  validation, Python compilation, `git diff --check`, allowed-scope scan,
+  forbidden-feature scan, and tracked-secret scan pass.
+- Delivery is on task branch `codex/g0-t01-canonical-status`, with an immutable
+  candidate commit pushed to origin and a complete report. The developer must
+  set the task/status to `awaiting_review` but must not write `accepted`.
 
-## Review blocking defects
+## Required delivery report
 
-- `observability/health.py::_valid_data_health` performs approved-exchange set
-  membership before proving `exchange` is a string. A malformed
-  `DataHealthDTO(exchange=[])` raises `TypeError` instead of producing a
-  fail-closed `malformed` assessment.
-- `observability/health.py::_valid_prior` performs unhealthy-status set
-  membership before proving `status` is a string. A malformed
-  `PriorUnhealthyState(status=[])` raises `TypeError` and aborts assessment of
-  otherwise valid current sources instead of ignoring invalid prior evidence.
-- Delivery validation checks the literal `"delivered"` before the assessment
-  path normalizes status casing. Consequently `status="DELIVERED"` with no
-  `delivered_at` is accepted and reported `healthy` from `last_attempt_at`
-  instead of failing closed as malformed.
-
-## Repair acceptance checks
-
-- Validate malformed data-health and prior-state field types before set or map
-  operations so unhashable containers cannot escape as exceptions; malformed
-  current sources produce a sanitized `malformed` assessment and malformed
-  prior evidence is ignored without enabling recovery.
-- Apply one consistent delivery-status normalization/validation rule so every
-  delivered state requires a valid `delivered_at`; retain deterministic
-  `unknown` behavior for unsupported string statuses.
-- Add regression coverage for at least unhashable `exchange`, unhashable prior
-  `status`, and case-variant delivered status without `delivered_at`.
-- Keep the repair limited to operational-health validation/tests and required
-  contract, task, fixture, or memory reporting, then rerun every original
-  M7-T02 acceptance check and the adversarial probes above.
-
-## Required report
-
-Do not proceed to live monitoring infrastructure, provider delivery, continuous
-paper observation, deployment, automation changes, or M8 during this task.
-
-## Second independent review blocking defect
-
-- The first repair rejects ordinary non-string containers before set/map use,
-  but `isinstance(value, str)` still accepts a `str` subclass whose
-  `__hash__` is `None`. Independent and main-review probes reproduced escaping
-  `TypeError` for `DataHealthDTO.exchange`, `PriorUnhealthyState.status`, and
-  `PriorUnhealthyState.source_key`. This violates the explicit fail-closed
-  requirement that malformed values cannot escape set or dictionary operations.
-
-## Second repair acceptance checks
-
-- Prove every current/prior field used as a set member or dictionary key is a
-  safe built-in string before the operation, or normalize it to a built-in
-  string only after strict validation.
-- Add regression coverage for an unhashable `str` subclass in current exchange,
-  prior status, and prior source key; current malformed input must produce the
-  sanitized `malformed` assessment, while malformed prior evidence must be
-  ignored without enabling recovery.
-- Preserve the already repaired delivered-state invariant and ordinary malformed
-  behavior.
-- Limit changes to operational-health validation/tests and required contract,
-  task, and memory evidence. Rerun the original M7-T02 suites, the full backend
-  and frontend checks, M1 fixture validation, scope/secret scans, and all prior
-  plus new adversarial probes.
-
-## Second repair delivery
-
-- Current exchange and freshness values are proven to be built-in strings
-  before approved-value set or exchange-label map access. Prior status and
-  source-key evidence are likewise proven to be built-in strings before set or
-  dictionary operations.
-- Regression tests cover unhashable `str` subclasses in current exchange, prior
-  status, and prior source key. Current malformed input is sanitized, while
-  malformed prior evidence is ignored without enabling recovery.
-- The case-insensitive delivered-state invariant and prior ordinary malformed
-  container behavior remain covered. Verification passed 15 focused tests, all
-  59 backend tests with API dependencies, 10 frontend tests, the frontend build,
-  faithful macOS M1 fixture validation with replay digest
-  `c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`,
-  adversarial probes, Python compilation, and `git diff --check`.
-- This delivery is not self-approved. Independent exact-HEAD review is still
-  required before M7-T02 can be accepted or any later task can be authorized.
-
-## Third independent review blocking defect
-
-- The second repair correctly closes the named set/map paths, but applies exact
-  built-in-string validation only to selected fields. Hostile `str` subclasses
-  can still override equality, formatting, `strip`, `lower`, or `replace` and
-  escape as `RuntimeError` through current `exchange_label`, `symbol`, `status`,
-  `last_event_time`, delivery `status`, and delivery `deduplication_key` paths.
-- Main, code/security, and architecture review independently reproduced the
-  escapes. Code/security returned `REQUEST CHANGES`; architecture returned
-  `BLOCK`. This violates the task-wide and contract-wide malformed fail-closed
-  guarantee even though all declared suites pass.
-
-## Third repair acceptance checks
-
-- Apply one consistent trust-boundary rule to every current operational-health
-  string field before invoking equality, formatting, `strip`, `lower`,
-  `replace`, set membership, or dictionary access. Exact built-in-string checks
-  are acceptable and intentionally reject hostile subclasses.
-- Cover at least current data-health `exchange_label`, `symbol`, `status`, and
-  `last_event_time`, plus delivery `deduplication_key`, `cooldown_key`, and
-  `status`; audit all remaining current string and reason-code paths for the
-  same subclass problem.
-- Add regression tests using hostile subclasses that override the invoked
-  methods. Malformed current evidence must return a sanitized `malformed`
-  assessment without leaking exceptions; malformed prior evidence remains
-  ignored without enabling recovery.
-- Preserve every prior ordinary malformed, recovery, delivered-state, and
-  deterministic identifier behavior. Keep the repair limited to this M7-T02
-  validation/test/contract/status slice and rerun all required verification.
-
-## L0 final acceptance
-
-- Main review and independent code/security review passed the exact candidate
-  `c3a56bafb936d7e304ff87ae29174a14c998d919` with no findings; independent
-  architecture status is `CLEAR`.
-- Verification passed 18 focused tests, all 62 backend tests, 10 frontend tests,
-  the TypeScript/Vite build, M1 validation with replay digest
-  `c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`,
-  Python compilation, diff/scope/automation/forbidden/secret scans, and hostile
-  string probes over all 7 current data strings, 3 delivery strings, and 5
-  prior strings.
-- M7-T02 is accepted only as `OFFLINE_EVIDENCE_ACCEPTED` under the legacy local
-  review path. This does not establish remote exact-HEAD CI, live monitoring,
-  provider delivery, exchange integration, continuous Paper validation, or
-  release readiness.
-- L0 is closed. No G0 implementation is authorized by this acceptance record;
-  the loop stops at the G0 authorization gate.
-
-## Third repair delivery
-
-- All current data-health string fields are proven to be built-in strings as a
-  single preflight step before any content operation. This covers exchange,
-  exchange label, optional symbol, status, freshness, optional event time, and
-  every reason code.
-- Delivery deduplication key, cooldown key, and status now use the same exact
-  built-in-string boundary. Prior evidence also rejects hostile reason-code
-  subclasses, and time parsing independently rejects non-built-in strings.
-- Hostile-subclass regressions cover all current data-health and delivery string
-  fields plus the remaining prior assessment ID, observed time, and reason-code
-  paths. The tests first reproduced nine escaping `RuntimeError` cases.
-- Verification passed 18 focused tests, all 62 backend tests with API
-  dependencies, 10 frontend tests, the production build, faithful macOS M1
-  fixture validation with replay digest
-  `c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`,
-  broad adversarial probes, Python compilation, and `git diff --check`.
-- This delivery is not self-approved. Independent exact-HEAD review is still
-  required before M7-T02 can be accepted or any later task can be authorized.
+Report task ID, files changed, decisions, exact commands/results, candidate SHA,
+branch/upstream status, PR status if one exists, risks/blockers, worktree status,
+and memory update. Stop after delivery and wait for independent review.
