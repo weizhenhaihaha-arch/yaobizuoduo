@@ -21,8 +21,8 @@ VALIDATOR = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(VALIDATOR)
 
 
-def run_validator(path: Path, repo_root: Path | None = None) -> subprocess.CompletedProcess[str]:
-    command = [sys.executable, str(SCRIPT), str(path), "--schema", str(SCHEMA)]
+def run_validator(path: Path, repo_root: Path | None = None, schema_path: Path = SCHEMA) -> subprocess.CompletedProcess[str]:
+    command = [sys.executable, str(SCRIPT), str(path), "--schema", str(schema_path)]
     if repo_root is not None:
         command.extend(["--repo-root", str(repo_root)])
     return subprocess.run(command, cwd=ROOT, text=True, capture_output=True, check=False)
@@ -333,6 +333,7 @@ def clone_with_ledger_migration(tmp_path: Path) -> tuple[Path, dict]:
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "update-ref", "refs/heads/main", "refs/remotes/origin/main")
     status = json.loads((ROOT / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     write_governed(repo, status)
     (repo / "schemas" / "project_status.schema.json").write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
@@ -973,7 +974,7 @@ def test_fresh_repository_cannot_self_seal_forged_generation_history(tmp_path: P
     commit(repo, "self seal forged history")
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1
-    assert "one-time authorized G0-T01 migration" in result.stdout
+    assert any(message in result.stdout for message in ("one-time authorized G0-T01 migration", "canonical ledger status requires schema authority"))
 
 
 def test_post_anchor_weakened_schema_float_generation_is_fatal_after_restore(tmp_path: Path) -> None:
@@ -1059,3 +1060,150 @@ def test_sequential_maturity_upgrade_requires_and_accepts_exact_closed_exit(
     repo, _, _ = make_closed_repo(tmp_path, gate=gate, maturity=before, next_gate=next_gate, close_maturity=after)
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 0, result.stdout
+
+
+def test_current_schema_weakening_and_generation_float_fail_content_address(tmp_path: Path) -> None:
+    status = json.loads((ROOT / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    status["active_tasks"][0]["candidate_generation"] = 5.0
+    weakened = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    weakened["$defs"]["task"]["properties"]["candidate_generation"] = {}
+    status_path = tmp_path / "status.json"
+    schema_path = tmp_path / "weakened-schema.json"
+    write_status(status_path, status)
+    write_status(schema_path, weakened)
+    result = run_validator(status_path, schema_path=schema_path)
+    assert result.returncode == 1
+    assert "canonical schema content digest mismatch" in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
+
+
+def test_typed_identity_equality_distinguishes_numbers_and_booleans() -> None:
+    assert not VALIDATOR._typed_equal(5, 5.0)
+    assert not VALIDATOR._typed_equal(True, 1)
+    assert not VALIDATOR._typed_equal({"value": [5]}, {"value": [5.0]})
+    assert VALIDATOR._typed_equal({"value": [5]}, {"value": [5]})
+
+
+def test_invalid_post_anchor_maturity_shape_is_terminal_after_restore(tmp_path: Path) -> None:
+    repo, valid = clone_with_ledger_migration(tmp_path)
+    malformed = copy.deepcopy(valid)
+    malformed["capability"]["maturity"] = []
+    write_governed(repo, malformed)
+    commit(repo, "hide invalid maturity shape")
+    write_governed(repo, valid)
+    commit(repo, "restore maturity shape")
+    (repo / "implementation.txt").write_text("delivery after invalid maturity\n", encoding="utf-8")
+    commit(repo, "move invalid maturity behind delivery")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "capability.maturity: value is not in the allowed set" in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
+
+
+def test_invalid_direct_parent_schema_is_terminal_before_continuity(tmp_path: Path) -> None:
+    repo, valid, _, _, _ = make_delivery_repo(tmp_path)
+    malformed = copy.deepcopy(valid)
+    malformed["active_tasks"][0]["candidate_generation"] = []
+    write_governed(repo, malformed)
+    commit(repo, "invalid direct parent")
+    write_governed(repo, valid)
+    commit(repo, "valid child of invalid parent")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "candidate_generation: invalid type" in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
+
+
+def test_schema_digest_and_revision_rollback_fail_closed(tmp_path: Path) -> None:
+    status = json.loads((ROOT / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    authority = status["schema_authority"]
+    authority["revision"] = 1
+    authority["sha256"] = authority["migration"]["from_sha256"]
+    authority["migration"]["from_revision"] = 1
+    authority["migration"]["to_revision"] = 1
+    authority["migration"]["to_sha256"] = authority["sha256"]
+    path = tmp_path / "rollback.json"
+    write_status(path, status)
+    result = run_validator(path)
+    assert result.returncode == 1
+    assert "content digest mismatch" in result.stdout
+    assert "revision must advance exactly one step" in result.stdout
+
+
+def test_unauthorized_schema_migration_is_rejected(tmp_path: Path) -> None:
+    repo, status = clone_with_ledger_migration(tmp_path)
+    parent_sha = git(repo, "rev-parse", "HEAD")
+    schema_path = repo / "schemas" / "project_status.schema.json"
+    changed_schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    changed_schema["$comment"] = "backward-compatible test migration"
+    write_status(schema_path, changed_schema)
+    new_digest = hashlib.sha256(schema_path.read_bytes()).hexdigest()
+    old_authority = copy.deepcopy(status["schema_authority"])
+    status["schema_authority"] = {
+        "revision": 2,
+        "sha256": new_digest,
+        "migration": {
+            "from_revision": 1,
+            "from_sha256": old_authority["sha256"],
+            "to_revision": 2,
+            "to_sha256": new_digest,
+            "authorization_sha": parent_sha,
+            "compatibility_rule": "strict-current-schema-revalidation",
+            "preauthority_history_sha256": None,
+        },
+    }
+    write_governed(repo, status)
+    commit(repo, "unauthorized in-progress schema migration")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo, schema_path)
+    assert result.returncode == 1
+    assert "schema migration is unauthorized or discontinuous" in result.stdout
+
+
+def test_committed_schema_weakening_cannot_be_hidden_by_restore(tmp_path: Path) -> None:
+    repo, valid = clone_with_ledger_migration(tmp_path)
+    schema_path = repo / "schemas" / "project_status.schema.json"
+    weakened = json.loads(schema_path.read_text(encoding="utf-8"))
+    weakened["$defs"]["task"]["properties"]["candidate_generation"] = {}
+    write_status(schema_path, weakened)
+    commit(repo, "commit weakened schema without authority change")
+    schema_path.write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
+    write_governed(repo, valid)
+    commit(repo, "restore schema bytes")
+    (repo / "implementation.txt").write_text("delivery after hidden schema weakening\n", encoding="utf-8")
+    commit(repo, "move schema weakening behind delivery")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo, schema_path)
+    assert result.returncode == 1
+    assert "schema bytes do not match its authority digest" in result.stdout
+
+
+def test_unchanged_content_addressed_schema_remains_valid(tmp_path: Path) -> None:
+    repo, _ = clone_with_ledger_migration(tmp_path)
+    (repo / "implementation.txt").write_text("ordinary work with unchanged schema\n", encoding="utf-8")
+    commit(repo, "unchanged schema work")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo, repo / "schemas" / "project_status.schema.json")
+    assert result.returncode == 0, result.stdout
+
+
+def test_generic_authorized_schema_migration_rule_has_no_subject_allowlist(tmp_path: Path) -> None:
+    repo, status = clone_with_ledger_migration(tmp_path)
+    parent_sha = git(repo, "rev-parse", "HEAD")
+    parent = copy.deepcopy(status)
+    parent["active_tasks"][0].update(state="closed", transition={"from": "merged_verified", "to": "closed"})
+    current = copy.deepcopy(parent)
+    current["active_tasks"][0].update(task_id="G1-T01", state="authorized", transition={"from": "closed", "to": "authorized"}, candidate_generation=1)
+    current["current_gate"] = "G1"
+    old_digest = parent["schema_authority"]["sha256"]
+    current["schema_authority"] = {
+        "revision": 2,
+        "sha256": "f" * 64,
+        "migration": {
+            "from_revision": 1,
+            "from_sha256": old_digest,
+            "to_revision": 2,
+            "to_sha256": "f" * 64,
+            "authorization_sha": parent_sha,
+            "compatibility_rule": "strict-current-schema-revalidation",
+            "preauthority_history_sha256": None,
+        },
+    }
+    assert VALIDATOR._schema_authority_continuity_errors(current, parent, parent_sha, repo) == []

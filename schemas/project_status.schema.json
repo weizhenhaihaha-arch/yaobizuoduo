@@ -9,6 +9,7 @@
     "schema_version": {"const": "project-status.v2"},
     "project": {"const": "yaobizuoduo"},
     "authoritative_main_ref": {"const": "refs/heads/main"},
+    "schema_authority": {"$ref": "#/$defs/schemaAuthority"},
     "transition_ledger": {"$ref": "#/$defs/transitionLedger"},
     "current_gate": {"$ref": "#/$defs/gate"},
     "active_tasks": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/task"}},
@@ -24,6 +25,7 @@
   "$defs": {
     "gate": {"enum": ["G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"]},
     "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "schemaAuthority": {"type": "object", "additionalProperties": false, "required": ["revision", "sha256", "migration"], "properties": {"revision": {"type": "integer", "minimum": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "migration": {"type": ["object", "null"], "additionalProperties": false, "required": ["from_revision", "from_sha256", "to_revision", "to_sha256", "authorization_sha", "compatibility_rule", "preauthority_history_sha256"], "properties": {"from_revision": {"type": "integer", "minimum": 0}, "from_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "to_revision": {"type": "integer", "minimum": 1}, "to_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "authorization_sha": {"$ref": "#/$defs/sha"}, "compatibility_rule": {"const": "strict-current-schema-revalidation"}, "preauthority_history_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}}}}},
     "transitionLedger": {"type": "object", "additionalProperties": false, "required": ["authorization_baseline_sha", "sealed_through_sha", "first_parent_chain_sha256"], "properties": {"authorization_baseline_sha": {"$ref": "#/$defs/sha"}, "sealed_through_sha": {"$ref": "#/$defs/sha"}, "first_parent_chain_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}},
     "nullableSha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
     "state": {"enum": ["planned", "authorized", "in_progress", "awaiting_review", "returned", "blocked", "accepted_pending_merge", "merged_verified", "closed"]},

@@ -2,6 +2,19 @@
   "schema_version": "project-status.v2",
   "project": "yaobizuoduo",
   "authoritative_main_ref": "refs/heads/main",
+  "schema_authority": {
+    "revision": 1,
+    "sha256": "192787ae5ad594bf3fce57af75de8bb9db99c83adac93ad1434fc49d63579e5e",
+    "migration": {
+      "from_revision": 0,
+      "from_sha256": "f0b1af40eac4adfad78e30cdc9dcb3104ed3c1cfbeac7a506c4128231c5a1693",
+      "to_revision": 1,
+      "to_sha256": "192787ae5ad594bf3fce57af75de8bb9db99c83adac93ad1434fc49d63579e5e",
+      "authorization_sha": "abf310da75676fed15d697786886b57f107854ed",
+      "compatibility_rule": "strict-current-schema-revalidation",
+      "preauthority_history_sha256": "0783dfa9d3ec8c281fbd175ae983f23d116edca577d6bf3d3857f5e728c95fa4"
+    }
+  },
   "transition_ledger": {
     "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
     "sealed_through_sha": "fa047696761f235cb1e5cd94bbf1881b49e4bb21",

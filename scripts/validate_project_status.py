@@ -22,6 +22,10 @@ BOOTSTRAP_BASELINE = "7aadae13efd45023d19bf8a280f7680667c930fa"
 LEDGER_ANCHOR = "fa047696761f235cb1e5cd94bbf1881b49e4bb21"
 LEDGER_DIGEST = "9519f9121f043f777473a631e804c074f5e8c62ed407ac6c0060ec4e9c7a78aa"
 LEDGER_REPOSITORY = ("weizhenhaihaha-arch", "yaobizuoduo")
+SCHEMA_BOOTSTRAP_SUBJECT = "abf310da75676fed15d697786886b57f107854ed"
+SCHEMA_BOOTSTRAP_OLD_DIGEST = "f0b1af40eac4adfad78e30cdc9dcb3104ed3c1cfbeac7a506c4128231c5a1693"
+SCHEMA_PREAUTHORITY_HISTORY_DIGEST = "0783dfa9d3ec8c281fbd175ae983f23d116edca577d6bf3d3857f5e728c95fa4"
+SCHEMA_COMPATIBILITY_RULE = "strict-current-schema-revalidation"
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -58,6 +62,16 @@ def _type_matches(value: Any, expected: str) -> bool:
     return {"object": type(value) is dict, "array": type(value) is list, "string": type(value) is str, "integer": type(value) is int, "null": value is None, "boolean": type(value) is bool}.get(expected, False)
 
 
+def _typed_equal(left: Any, right: Any) -> bool:
+    if type(left) is not type(right):
+        return False
+    if type(left) is dict:
+        return left.keys() == right.keys() and all(_typed_equal(left[key], right[key]) for key in left)
+    if type(left) is list:
+        return len(left) == len(right) and all(_typed_equal(a, b) for a, b in zip(left, right))
+    return left == right
+
+
 def _resolve_ref(schema: dict[str, Any], ref: str) -> dict[str, Any]:
     if not ref.startswith("#/"):
         raise ValueError("unsupported schema reference")
@@ -73,9 +87,9 @@ def _schema_errors(value: Any, rule: dict[str, Any], schema: dict[str, Any], pat
     if "$ref" in rule:
         return _schema_errors(value, _resolve_ref(schema, rule["$ref"]), schema, path)
     errors: list[str] = []
-    if "const" in rule and value != rule["const"]:
+    if "const" in rule and not _typed_equal(value, rule["const"]):
         errors.append(f"{path}: value does not match required constant")
-    if "enum" in rule and value not in rule["enum"]:
+    if "enum" in rule and not any(_typed_equal(value, item) for item in rule["enum"]):
         errors.append(f"{path}: value is not in the allowed set")
     expected = rule.get("type")
     if expected is not None:
@@ -550,6 +564,110 @@ def _schema_at(root: Path, sha: str) -> dict[str, Any] | None:
     return value if type(value) is dict else None
 
 
+def _schema_digest_at(root: Path, sha: str) -> str | None:
+    ok, payload = _git_bytes(root, "show", f"{sha}:schemas/project_status.schema.json")
+    return hashlib.sha256(payload).hexdigest() if ok else None
+
+
+def _schema_authority_document_errors(status: dict[str, Any], schema_path: Path) -> list[str]:
+    if type(status.get("transition_ledger")) is not dict:
+        return []
+    authority = status.get("schema_authority")
+    if type(authority) is not dict:
+        return ["$.schema_authority: canonical ledger status requires schema authority"]
+    if set(authority) != {"revision", "sha256", "migration"}:
+        return ["$.schema_authority: invalid authority shape"]
+    revision, digest, migration = authority["revision"], authority["sha256"], authority["migration"]
+    if type(revision) is not int or revision < 1 or type(digest) is not str or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
+        return ["$.schema_authority: revision and digest require exact canonical types"]
+    try:
+        actual_digest = hashlib.sha256(schema_path.read_bytes()).hexdigest()
+    except OSError:
+        return ["$.schema_authority: canonical schema bytes are unreadable"]
+    errors: list[str] = []
+    if digest != actual_digest:
+        errors.append("$.schema_authority.sha256: canonical schema content digest mismatch")
+    migration_keys = {"from_revision", "from_sha256", "to_revision", "to_sha256", "authorization_sha", "compatibility_rule", "preauthority_history_sha256"}
+    if type(migration) is not dict or set(migration) != migration_keys:
+        errors.append("$.schema_authority.migration: explicit migration identity is required")
+        return errors
+    from_revision, to_revision = migration["from_revision"], migration["to_revision"]
+    from_digest, to_digest = migration["from_sha256"], migration["to_sha256"]
+    authorization_sha, compatibility = migration["authorization_sha"], migration["compatibility_rule"]
+    preauthority_digest = migration["preauthority_history_sha256"]
+    if (
+        type(from_revision) is not int
+        or type(to_revision) is not int
+        or type(from_digest) is not str
+        or type(to_digest) is not str
+        or type(authorization_sha) is not str
+        or type(compatibility) is not str
+        or (preauthority_digest is not None and type(preauthority_digest) is not str)
+    ):
+        errors.append("$.schema_authority.migration: migration fields require exact canonical types")
+        return errors
+    if to_revision != from_revision + 1 or to_revision != revision:
+        errors.append("$.schema_authority.migration: schema revision must advance exactly one step")
+    if to_digest != digest or compatibility != SCHEMA_COMPATIBILITY_RULE:
+        errors.append("$.schema_authority.migration: target digest and compatibility rule must bind the current schema")
+    if re.fullmatch(r"[0-9a-f]{64}", from_digest) is None or re.fullmatch(r"[0-9a-f]{64}", to_digest) is None or re.fullmatch(r"[0-9a-f]{40}", authorization_sha) is None:
+        errors.append("$.schema_authority.migration: migration identities have invalid format")
+    if revision == 1:
+        if preauthority_digest != SCHEMA_PREAUTHORITY_HISTORY_DIGEST:
+            errors.append("$.schema_authority.migration: bootstrap must bind the sealed pre-authority schema history")
+    elif preauthority_digest is not None:
+        errors.append("$.schema_authority.migration: later migrations must not reuse the bootstrap history seal")
+    return errors
+
+
+def _schema_authority_continuity_errors(status: dict[str, Any], parent: dict[str, Any], parent_sha: str, root: Path) -> list[str]:
+    current = status.get("schema_authority")
+    previous = parent.get("schema_authority")
+    if current is None and previous is None:
+        return []
+    if previous is None:
+        projected = dict(status)
+        projected.pop("schema_authority", None)
+        migration = current.get("migration") if type(current) is dict else None
+        expected_bootstrap = (
+            type(current) is dict
+            and current.get("revision") == 1
+            and type(migration) is dict
+            and migration.get("from_revision") == 0
+            and migration.get("from_sha256") == SCHEMA_BOOTSTRAP_OLD_DIGEST
+            and migration.get("authorization_sha") == SCHEMA_BOOTSTRAP_SUBJECT
+            and migration.get("preauthority_history_sha256") == SCHEMA_PREAUTHORITY_HISTORY_DIGEST
+            and parent_sha == SCHEMA_BOOTSTRAP_SUBJECT
+            and status["project"] == "yaobizuoduo"
+            and status["active_tasks"][0]["task_id"] == BOOTSTRAP_TASK
+            and status["evidence"]["authorization_baseline_sha"] == BOOTSTRAP_BASELINE
+            and _typed_equal(projected, parent)
+            and _schema_digest_at(root, parent_sha) == SCHEMA_BOOTSTRAP_OLD_DIGEST
+        )
+        return [] if expected_bootstrap else ["$.schema_authority: first authority creation must be the exact generation-6 bootstrap migration"]
+    if _typed_equal(current, previous):
+        return []
+    migration = current.get("migration") if type(current) is dict else None
+    parent_task, current_task = parent["active_tasks"][0], status["active_tasks"][0]
+    valid = (
+        type(current) is dict
+        and type(previous) is dict
+        and type(migration) is dict
+        and parent_task["state"] == "closed"
+        and current_task["state"] == "authorized"
+        and current_task["transition"] == {"from": "closed", "to": "authorized"}
+        and migration.get("from_revision") == previous.get("revision")
+        and migration.get("from_sha256") == previous.get("sha256")
+        and migration.get("to_revision") == current.get("revision")
+        and migration.get("to_sha256") == current.get("sha256")
+        and migration.get("authorization_sha") == parent_sha
+        and migration.get("compatibility_rule") == SCHEMA_COMPATIBILITY_RULE
+        and migration.get("preauthority_history_sha256") is None
+        and _schema_digest_at(root, parent_sha) == previous.get("sha256")
+    )
+    return [] if valid else ["$.schema_authority: schema migration is unauthorized or discontinuous"]
+
+
 def _committed_status_errors(root: Path, sha: str, current_schema: dict[str, Any], use_current_schema: bool = False) -> tuple[dict[str, Any] | None, list[str]]:
     status = _status_at(root, sha)
     if status is None:
@@ -576,12 +694,12 @@ def _ci_continuity_errors(status: dict[str, Any], parent: dict[str, Any]) -> lis
         old_state, new_state = previous["status"], current["status"]
         old_identity = (previous["subject_sha"], previous["run_id"], previous["url"])
         new_identity = (current["subject_sha"], current["run_id"], current["url"])
-        if old_state in {"success", "failure"} and current != previous:
+        if old_state in {"success", "failure"} and not _typed_equal(current, previous):
             errors.append(f"{path}: terminal CI evidence is immutable")
         elif old_state == "pending":
             if new_state not in {"pending", "success", "failure"} or new_identity != old_identity:
                 errors.append(f"{path}: pending CI may only become terminal for the same immutable run")
-        elif old_state in {"not_established", "not_run"} and new_state in {"not_established", "not_run"} and current != previous:
+        elif old_state in {"not_established", "not_run"} and new_state in {"not_established", "not_run"} and not _typed_equal(current, previous):
             errors.append(f"{path}: inactive CI state cannot be relabelled")
     return errors
 
@@ -660,14 +778,19 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
-    if parent == status:
+    if _typed_equal(parent, status):
         if current_task["state"] != "in_progress":
             errors.append(f"$: same-status commits are restricted to byte-equivalent in_progress implementation work after {parent_sha[:12] if parent_sha else 'unknown'}")
         return errors
     if "transition_ledger" not in parent and "transition_ledger" in status:
         projected = dict(status)
         projected.pop("transition_ledger", None)
-        if projected == parent and current_task["state"] == "in_progress":
+        if _typed_equal(projected, parent) and current_task["state"] == "in_progress":
+            return errors
+    if "schema_authority" not in parent and "schema_authority" in status:
+        projected = dict(status)
+        projected.pop("schema_authority", None)
+        if _typed_equal(projected, parent) and current_task["state"] == "in_progress":
             return errors
     handoff = parent_state == "closed" and current_task["state"] == "authorized" and current_task["transition"] == {"from": "closed", "to": "authorized"}
     if handoff:
@@ -682,16 +805,16 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
             errors.append("$: inter-task handoff must clear prior evidence, review, CI, blockers, and bootstrap exception")
         if status["capability"]["maturity"] != parent["capability"]["maturity"]:
             errors.append("$.capability.maturity: inter-task handoff must preserve maturity")
-        if status.get("transition_ledger") != parent.get("transition_ledger"):
+        if not _typed_equal(status.get("transition_ledger"), parent.get("transition_ledger")):
             errors.append("$.transition_ledger: inter-task handoff must preserve the canonical ledger")
         parent_exception = parent.get("bootstrap_exception")
         if type(parent_exception) is dict and (parent_exception.get("status"), parent_exception.get("uses")) != ("consumed", 1):
             errors.append("$.bootstrap_exception: inter-task handoff may retire only a consumed exception")
         return errors
-    if parent.get("transition_ledger") is not None and status.get("transition_ledger") != parent.get("transition_ledger"):
+    if parent.get("transition_ledger") is not None and not _typed_equal(status.get("transition_ledger"), parent.get("transition_ledger")):
         errors.append("$.transition_ledger: sealed history identity is immutable outside an inter-task handoff")
     for label, current, previous in immutable:
-        if current != previous:
+        if not _typed_equal(current, previous):
             errors.append(f"$: immutable {label} changed from direct first parent")
     if current_task["transition"]["from"] != parent_state:
         errors.append("$.active_tasks[0].transition.from: must equal direct first parent state")
@@ -722,10 +845,10 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
         for phase in ("candidate", "closure", "merged_main", "finalization"):
             old_sha = parent_evidence[phase].get("commit_sha")
             new_sha = status["evidence"][phase].get("commit_sha")
-            if old_sha is not None and new_sha != old_sha:
+            if old_sha is not None and not _typed_equal(new_sha, old_sha):
                 errors.append(f"$.evidence.{phase}.commit_sha: immutable phase identity changed across direct parent")
         old_implementation = parent_evidence.get("implementation_sha")
-        if old_implementation is not None and status["evidence"].get("implementation_sha") != old_implementation:
+        if old_implementation is not None and not _typed_equal(status["evidence"].get("implementation_sha"), old_implementation):
             errors.append("$.evidence.implementation_sha: immutable implementation identity changed across direct parent")
 
     if current_task["state"] != "returned" and not (parent_state == "returned" and current_task["state"] == "in_progress"):
@@ -736,7 +859,7 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
     current_release = status.get("release", {})
     for key in ("product_owner_approval", "release_manifest"):
         old_identity = parent_release.get(key) if type(parent_release) is dict else None
-        if old_identity is not None and current_release.get(key) != old_identity:
+        if old_identity is not None and not _typed_equal(current_release.get(key), old_identity):
             errors.append(f"$.release.{key}: immutable release identity changed across direct parent")
     return errors
 
@@ -750,7 +873,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
         if not ok:
             return ["$: authorization baseline is not on the repository HEAD first-parent chain"]
         commits = full_text.splitlines()
-        statuses: list[tuple[str, dict[str, Any]]] = []
+        statuses: list[tuple[str, dict[str, Any], bool]] = []
         for sha in commits:
             node, node_errors = _committed_status_errors(root, sha, current_schema)
             if node is None:
@@ -762,8 +885,10 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             if current_errors:
                 errors.append("$.transition_ledger: legacy history requires a sealed content-addressed ledger")
                 return errors
-            statuses.append((sha, node))
-        for index, ((child_sha, child), (parent_sha, parent)) in enumerate(zip(statuses, statuses[1:])):
+            statuses.append((sha, node, not current_errors and not node_errors))
+        for index, ((child_sha, child, child_valid), (parent_sha, parent, parent_valid)) in enumerate(zip(statuses, statuses[1:])):
+            if not child_valid or not parent_valid:
+                continue
             inherited_merge_bridge = False
             if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
                 newer = statuses[index - 1][1]
@@ -798,11 +923,30 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
     payload = (("\n".join(rows) + "\n") if rows else "").encode("ascii")
     if hashlib.sha256(payload).hexdigest() != ledger.get("first_parent_chain_sha256"):
         errors.append("$.transition_ledger.first_parent_chain_sha256: sealed first-parent history digest mismatch")
+    authority = current.get("schema_authority") if type(current) is dict else None
+    migration = authority.get("migration") if type(authority) is dict else None
+    if type(authority) is dict and authority.get("revision") == 1:
+        ok, schema_history_text = _git(root, "rev-list", "--first-parent", f"{LEDGER_ANCHOR}..{SCHEMA_BOOTSTRAP_SUBJECT}")
+        schema_rows: list[str] = []
+        if ok:
+            for sha in schema_history_text.splitlines() + [LEDGER_ANCHOR]:
+                ok_blob, blob = _git(root, "rev-parse", f"{sha}:schemas/project_status.schema.json")
+                if ok_blob:
+                    schema_rows.append(f"{sha} {blob}")
+        schema_payload = (("\n".join(schema_rows) + "\n") if schema_rows else "").encode("ascii")
+        if (
+            not ok
+            or not _is_first_parent_ancestor(root, SCHEMA_BOOTSTRAP_SUBJECT, head)
+            or hashlib.sha256(schema_payload).hexdigest() != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
+            or type(migration) is not dict
+            or migration.get("preauthority_history_sha256") != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
+        ):
+            errors.append("$.schema_authority.migration: sealed pre-authority schema history mismatch")
     ok, commits_text = _git(root, "rev-list", "--first-parent", f"{anchor}..{head}")
     if not ok:
         return errors + ["$: post-ledger first-parent history is unavailable"]
     commits = commits_text.splitlines() + [anchor]
-    statuses: list[tuple[str, dict[str, Any]]] = []
+    statuses: list[tuple[str, dict[str, Any], bool]] = []
     for sha in commits:
         status, status_errors = _committed_status_errors(root, sha, current_schema, use_current_schema=True)
         if status is None:
@@ -812,8 +956,16 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             errors.extend(status_errors)
             continue
         errors.extend(status_errors)
-        statuses.append((sha, status))
-    ledger_nodes = [(sha, node) for sha, node in statuses if type(node.get("transition_ledger")) is dict]
+        valid = not status_errors
+        if valid:
+            committed_digest = _schema_digest_at(root, sha)
+            authority = status.get("schema_authority")
+            expected_digest = authority.get("sha256") if type(authority) is dict else None
+            if expected_digest is not None and committed_digest != expected_digest:
+                errors.append(f"$: first-parent status at {sha[:12]} schema bytes do not match its authority digest")
+                valid = False
+        statuses.append((sha, status, valid))
+    ledger_nodes = [(sha, node) for sha, node, valid in statuses if valid and type(node.get("transition_ledger")) is dict]
     if not ledger_nodes:
         errors.append("$.transition_ledger: authorized migration commit is absent after the sealed anchor")
     else:
@@ -834,7 +986,9 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             or first_ledger["evidence"].get("authorization_baseline_sha") != BOOTSTRAP_BASELINE
         ):
             errors.append("$.transition_ledger: first creation must be the exact authorized one-time migration immediately after fa04769")
-    for index, ((child_sha, child), (parent_sha, parent)) in enumerate(zip(statuses, statuses[1:])):
+    for index, ((child_sha, child, child_valid), (parent_sha, parent, parent_valid)) in enumerate(zip(statuses, statuses[1:])):
+        if not child_valid or not parent_valid:
+            continue
         inherited_merge_bridge = False
         if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
             newer = statuses[index - 1][1]
@@ -844,6 +998,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             )
         if not inherited_merge_bridge:
             errors.extend(_parent_status_errors(child, parent, parent_sha))
+            errors.extend(_schema_authority_continuity_errors(child, parent, parent_sha, root))
     return errors
 
 
@@ -863,6 +1018,8 @@ def _subject_status_matches(status: dict[str, Any], subject: dict[str, Any] | No
             and subject["evidence"]["authorization_baseline_sha"] == status["evidence"]["authorization_baseline_sha"]
             and subject["evidence"]["implementation_sha"] == status["evidence"]["implementation_sha"]
             and _bootstrap_identity(subject.get("bootstrap_exception")) == _bootstrap_identity(status.get("bootstrap_exception"))
+            and _typed_equal(subject.get("schema_authority"), status.get("schema_authority"))
+            and _typed_equal(subject.get("transition_ledger"), status.get("transition_ledger"))
         )
     except (KeyError, IndexError, TypeError):
         return False
@@ -898,7 +1055,9 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     else:
         parent_status, parent_schema_errors = _committed_status_errors(root, parent_parts[1], schema, use_current_schema=True)
         errors.extend(parent_schema_errors)
-        errors.extend(_parent_status_errors(status, parent_status, parent_parts[1]))
+        if not parent_schema_errors and parent_status is not None:
+            errors.extend(_parent_status_errors(status, parent_status, parent_parts[1]))
+            errors.extend(_schema_authority_continuity_errors(status, parent_status, parent_parts[1], root))
     errors.extend(_history_errors(root, head, baseline, schema))
 
     main_ref = status["authoritative_main_ref"]
@@ -931,19 +1090,24 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     closure = evidence["closure"]["commit_sha"]
     merged = evidence["merged_main"]["commit_sha"]
     finalization = evidence["finalization"]["commit_sha"]
+    def phase_status_matches(sha: str, expected_state: str) -> bool:
+        subject, subject_errors = _committed_status_errors(root, sha, schema, use_current_schema=True)
+        errors.extend(subject_errors)
+        return not subject_errors and _subject_status_matches(status, subject, expected_state)
+
     implicit_candidate = head if task_state == "awaiting_review" else candidate
     if implementation is not None and implicit_candidate is not None:
         if not _is_ancestor(root, baseline, implementation) or not _is_ancestor(root, implementation, implicit_candidate):
             errors.append("$.evidence: baseline -> implementation -> candidate ancestry is invalid")
     if candidate is not None:
-        if not _subject_status_matches(status, _status_at(root, candidate), "awaiting_review"):
+        if not phase_status_matches(candidate, "awaiting_review"):
             errors.append("$.evidence.candidate.commit_sha: commit is not the matching delivered candidate phase")
         if not _is_ancestor(root, candidate, head):
             errors.append("$.evidence.candidate.commit_sha: candidate is unrelated to current HEAD")
     implicit_closure = head if task_state == "accepted_pending_merge" else closure
     if implicit_closure is not None and candidate is not None and not _is_ancestor(root, candidate, implicit_closure):
         errors.append("$.evidence.closure.commit_sha: candidate is not an ancestor of closure")
-    if closure is not None and not _subject_status_matches(status, _status_at(root, closure), "accepted_pending_merge"):
+    if closure is not None and not phase_status_matches(closure, "accepted_pending_merge"):
         errors.append("$.evidence.closure.commit_sha: commit is not the matching closure phase")
     if merged is not None:
         if closure is None or not _is_ancestor(root, closure, merged):
@@ -965,7 +1129,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     if finalization is not None:
         if merged is None or not _is_ancestor(root, merged, finalization):
             errors.append("$.evidence.finalization.commit_sha: merged-main is not an ancestor of finalization")
-        if not _subject_status_matches(status, _status_at(root, finalization), "merged_verified"):
+        if not phase_status_matches(finalization, "merged_verified"):
             errors.append("$.evidence.finalization.commit_sha: commit is not the matching finalization phase")
     errors.extend(_release_identity_errors(status, root, main_ref))
     return errors
@@ -988,6 +1152,9 @@ def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> li
         return [f"$: unreadable JSON-compatible status/schema: {type(exc).__name__}"]
     if type(status) is not dict or type(schema) is not dict:
         return ["$: status and schema roots must be objects"]
+    authority_errors = _schema_authority_document_errors(status, schema_path)
+    if authority_errors:
+        return sorted(set(authority_errors))
     try:
         errors = _schema_errors(status, schema, schema)
     except (KeyError, TypeError, ValueError):
