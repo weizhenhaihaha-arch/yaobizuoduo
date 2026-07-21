@@ -2,6 +2,11 @@
   "schema_version": "project-status.v2",
   "project": "yaobizuoduo",
   "authoritative_main_ref": "refs/heads/main",
+  "transition_ledger": {
+    "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
+    "sealed_through_sha": "fa047696761f235cb1e5cd94bbf1881b49e4bb21",
+    "first_parent_chain_sha256": "9519f9121f043f777473a631e804c074f5e8c62ed407ac6c0060ec4e9c7a78aa"
+  },
   "current_gate": "G0",
   "active_tasks": [
     {

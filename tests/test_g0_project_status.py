@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
@@ -14,6 +15,10 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 FIXTURES = ROOT / "fixtures" / "g0"
+SPEC = importlib.util.spec_from_file_location("project_status_validator", SCRIPT)
+assert SPEC is not None and SPEC.loader is not None
+VALIDATOR = importlib.util.module_from_spec(SPEC)
+SPEC.loader.exec_module(VALIDATOR)
 
 
 def run_validator(path: Path, repo_root: Path | None = None) -> subprocess.CompletedProcess[str]:
@@ -38,6 +43,10 @@ def ci(status: str = "not_established", subject: str | None = None, run: str | N
         "run_id": run,
         "url": None if run is None else f"https://github.com/a/b/actions/runs/{run}",
     }
+
+
+def phase_ci(status: dict, phase: str) -> dict:
+    return status["evidence"][phase]["d0_ci" if phase == "finalization" else "ci"]
 
 
 def accepted_status() -> dict:
@@ -288,7 +297,7 @@ def write_governed(repo: Path, status: dict) -> None:
         (repo / name).write_text(f"# {name}\n", encoding="utf-8")
 
 
-def make_delivery_repo(tmp_path: Path) -> tuple[Path, dict, str, str, str]:
+def make_delivery_repo(tmp_path: Path, gate: str = "G1") -> tuple[Path, dict, str, str, str]:
     repo = tmp_path / "repo"
     repo.mkdir()
     git(repo, "init", "-b", "main")
@@ -298,13 +307,13 @@ def make_delivery_repo(tmp_path: Path) -> tuple[Path, dict, str, str, str]:
     (repo / "README.md").write_text("baseline\n")
     baseline = commit(repo, "baseline")
     status = load_valid()
-    status["current_gate"] = "G1"
-    status["active_tasks"][0].update(task_id="G1-T01", state="in_progress", transition={"from": "authorized", "to": "in_progress"}, candidate_generation=1)
+    status["current_gate"] = gate
+    status["active_tasks"][0].update(task_id=f"{gate}-T01", state="in_progress", transition={"from": "authorized", "to": "in_progress"}, candidate_generation=1)
     status["evidence"]["authorization_baseline_sha"] = baseline
     status["evidence"]["implementation_sha"] = None
     status["evidence"]["candidate"]["local_verification"]["status"] = "pending"
     status["bootstrap_exception"] = None
-    status["next_authorization"].update(gate="G1", task_id="G1-T02")
+    status["next_authorization"].update(gate=gate, task_id=f"{gate}-T02")
     write_governed(repo, status)
     commit(repo, "start task")
     (repo / "implementation.txt").write_text("implementation\n")
@@ -315,6 +324,44 @@ def make_delivery_repo(tmp_path: Path) -> tuple[Path, dict, str, str, str]:
     write_governed(repo, status)
     candidate = commit(repo, "candidate delivery")
     return repo, status, baseline, implementation, candidate
+
+
+def clone_with_ledger_migration(tmp_path: Path) -> tuple[Path, dict]:
+    repo = tmp_path / "history"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    status = json.loads((ROOT / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    write_governed(repo, status)
+    (repo / "schemas" / "project_status.schema.json").write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
+    commit(repo, "install sealed transition ledger")
+    return repo, status
+
+
+def make_closed_repo(tmp_path: Path) -> tuple[Path, dict, str]:
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path)
+    status["active_tasks"][0].update(state="accepted_pending_merge", transition={"from": "awaiting_review", "to": "accepted_pending_merge"})
+    status["evidence"]["candidate"].update(commit_sha=candidate, ci=ci("success", candidate, "1"))
+    status["review"] = {"code_security": "approve", "architecture": "clear", "reviewed_candidate_sha": candidate}
+    write_governed(repo, status)
+    closure = commit(repo, "closure")
+    git(repo, "switch", "-c", "merge-side")
+    (repo / "side.txt").write_text("side\n", encoding="utf-8")
+    commit(repo, "side")
+    git(repo, "switch", "main")
+    git(repo, "merge", "--no-ff", "merge-side", "-m", "implementation merge")
+    merged = git(repo, "rev-parse", "HEAD")
+    status["active_tasks"][0].update(state="merged_verified", transition={"from": "accepted_pending_merge", "to": "merged_verified"})
+    status["evidence"]["closure"].update(commit_sha=closure, ci=ci("success", closure, "2"))
+    status["evidence"]["merged_main"].update(commit_sha=merged, ci=ci("success", merged, "3"))
+    write_governed(repo, status)
+    finalization = commit(repo, "finalization")
+    status["active_tasks"][0].update(state="closed", transition={"from": "merged_verified", "to": "closed"})
+    status["evidence"]["finalization"].update(commit_sha=finalization, d0_ci=ci("success", finalization, "4"))
+    write_governed(repo, status)
+    close_record = commit(repo, "close record")
+    git(repo, "update-ref", "refs/remotes/origin/main", close_record)
+    return repo, status, close_record
 
 
 def test_repository_exact_head_and_returned_candidate_identity(tmp_path: Path) -> None:
@@ -360,12 +407,14 @@ def test_repository_phase_objects_ancestry_identity_and_close_chain(tmp_path: Pa
     status["evidence"]["merged_main"].update(commit_sha=merged, ci=ci("success", merged, "3"))
     write_governed(repo, status)
     finalization = commit(repo, "finalization")
+    git(repo, "update-ref", "refs/remotes/origin/main", finalization)
     assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
 
     status["active_tasks"][0].update(state="closed", transition={"from": "merged_verified", "to": "closed"})
     status["evidence"]["finalization"].update(commit_sha=finalization, d0_ci=ci("success", finalization, "4"))
     write_governed(repo, status)
-    commit(repo, "close record")
+    close_record = commit(repo, "close record")
+    git(repo, "update-ref", "refs/remotes/origin/main", close_record)
     assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
 
 
@@ -499,7 +548,7 @@ def test_off_main_merge_cannot_be_merged_main(tmp_path: Path) -> None:
     commit(repo, "false merged verification")
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1
-    assert "not reachable from authoritative main ref" in result.stdout
+    assert any(message in result.stdout for message in ("authoritative remote-main first-parent chain", "local main must equal fetched origin/main", "fetched origin/main evidence is unavailable"))
 
 
 def test_governed_documents_are_mandatory_unique_and_unaliased(tmp_path: Path) -> None:
@@ -561,7 +610,7 @@ def test_in_progress_rejects_leftover_blockers(tmp_path: Path) -> None:
     assert "in_progress state must not retain blockers" in result.stdout
 
 
-def test_traceable_g9_approval_and_manifest_artifacts_are_content_bound(tmp_path: Path) -> None:
+def test_legacy_self_asserted_g9_approval_and_manifest_are_rejected(tmp_path: Path) -> None:
     repo = tmp_path / "g9"
     repo.mkdir()
     git(repo, "init", "-b", "main")
@@ -603,9 +652,260 @@ def test_traceable_g9_approval_and_manifest_artifacts_are_content_bound(tmp_path
     }
     write_governed(repo, status)
     commit(repo, "G9 delivery")
-    assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "explicit go bound to the release manifest" in result.stdout
+    assert "does not prove complete immutable release evidence" in result.stdout
     status["release"]["release_manifest"]["sha256"] = "f" * 64
     write_governed(repo, status)
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1
     assert "immutable artifact content does not match sha256" in result.stdout
+
+
+def test_g9_release_artifacts_bind_authority_manifest_and_exact_finalization(tmp_path: Path) -> None:
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path, gate="G9")
+    status["active_tasks"][0].update(state="accepted_pending_merge", transition={"from": "awaiting_review", "to": "accepted_pending_merge"})
+    status["evidence"]["candidate"].update(commit_sha=candidate, ci=ci("success", candidate, "1"))
+    status["review"] = {"code_security": "approve", "architecture": "clear", "reviewed_candidate_sha": candidate}
+    write_governed(repo, status)
+    closure = commit(repo, "G9 closure")
+    git(repo, "switch", "-c", "release-merge")
+    (repo / "release.txt").write_text("release\n", encoding="utf-8")
+    commit(repo, "release merge side")
+    git(repo, "switch", "main")
+    git(repo, "merge", "--no-ff", "release-merge", "-m", "G9 implementation merge")
+    merged = git(repo, "rev-parse", "HEAD")
+    status["active_tasks"][0].update(state="merged_verified", transition={"from": "accepted_pending_merge", "to": "merged_verified"})
+    status["evidence"]["closure"].update(commit_sha=closure, ci=ci("success", closure, "2"))
+    status["evidence"]["merged_main"].update(commit_sha=merged, ci=ci("success", merged, "3"))
+    write_governed(repo, status)
+    finalization = commit(repo, "G9 finalization")
+
+    git(repo, "switch", "-c", "release-evidence")
+    evidence_dir = repo / "docs" / "release"
+    evidence_dir.mkdir(parents=True)
+    manifest = {
+        "schema_version": "release-evidence.v1",
+        "project": "yaobizuoduo",
+        "release_sha": finalization,
+        "evidence": [
+            {"phase": "candidate", "subject_sha": candidate},
+            {"phase": "closure", "subject_sha": closure},
+            {"phase": "merged_main", "subject_sha": merged},
+            {"phase": "finalization", "subject_sha": finalization},
+        ],
+    }
+    manifest_payload = (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    (evidence_dir / "manifest.json").write_bytes(manifest_payload)
+    manifest_commit = commit(repo, "enumerated release manifest")
+    manifest_digest = hashlib.sha256(manifest_payload).hexdigest()
+    approval = {
+        "schema_version": "product-owner-approval.v1",
+        "project": "yaobizuoduo",
+        "decision": "go",
+        "approving_authority": "product-owner",
+        "authorization_id": "AUTH-G9-20260721-001",
+        "release_manifest_sha256": manifest_digest,
+    }
+    approval_payload = (json.dumps(approval, sort_keys=True, separators=(",", ":")) + "\n").encode()
+    (evidence_dir / "approval.json").write_bytes(approval_payload)
+    approval_commit = commit(repo, "durable product owner approval")
+    approval_digest = hashlib.sha256(approval_payload).hexdigest()
+
+    git(repo, "switch", "main")
+    git(repo, "merge", "--no-ff", "--no-commit", "release-evidence")
+    status["active_tasks"][0].update(state="closed", transition={"from": "merged_verified", "to": "closed"})
+    status["evidence"]["finalization"].update(commit_sha=finalization, d0_ci=ci("success", finalization, "4"))
+    status["capability"]["maturity"] = "RELEASE_READY"
+    status["release"] = {
+        "product_owner_approval": {"commit_sha": approval_commit, "path": "docs/release/approval.json", "sha256": approval_digest},
+        "release_manifest": {"commit_sha": manifest_commit, "path": "docs/release/manifest.json", "sha256": manifest_digest},
+    }
+    write_governed(repo, status)
+    close_record = commit(repo, "close exact G9 release")
+    git(repo, "update-ref", "refs/remotes/origin/main", close_record)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+    status["release"]["release_manifest"]["sha256"] = "e" * 64
+    write_governed(repo, status)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "immutable artifact content does not match sha256" in result.stdout
+
+
+@pytest.mark.parametrize("mutation", ["tamper", "reorder", "truncate", "rollback", "wrong_anchor"])
+def test_transition_ledger_rejects_tamper_truncate_rollback_and_wrong_anchor(tmp_path: Path, mutation: str) -> None:
+    repo, status = clone_with_ledger_migration(tmp_path)
+    if mutation == "tamper":
+        status["transition_ledger"]["first_parent_chain_sha256"] = "f" * 64
+    elif mutation == "reorder":
+        baseline = status["transition_ledger"]["authorization_baseline_sha"]
+        anchor = status["transition_ledger"]["sealed_through_sha"]
+        commits = git(repo, "rev-list", "--first-parent", f"{baseline}..{anchor}").splitlines()
+        rows = [f"{sha} {git(repo, 'rev-parse', f'{sha}:PROJECT_STATUS.yaml')}" for sha in reversed(commits)]
+        status["transition_ledger"]["first_parent_chain_sha256"] = hashlib.sha256(("\n".join(rows) + "\n").encode()).hexdigest()
+    elif mutation == "truncate":
+        status["transition_ledger"]["sealed_through_sha"] = "0900d2af59e9f0cd6971a5f24b90aed00f0a6fe5"
+    elif mutation == "rollback":
+        status.pop("transition_ledger")
+    else:
+        status["transition_ledger"]["sealed_through_sha"] = "1" * 40
+    write_governed(repo, status)
+    commit(repo, mutation)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert any(message in result.stdout for message in ("sealed history identity is immutable", "history digest mismatch", "durable transition history ledger is required", "must be on the repository HEAD first-parent chain"))
+
+
+def test_post_ledger_forged_intermediate_generation_cannot_be_laundered(tmp_path: Path) -> None:
+    repo, valid = clone_with_ledger_migration(tmp_path)
+    forged = copy.deepcopy(valid)
+    forged["active_tasks"][0].update(transition={"from": "returned", "to": "in_progress"}, candidate_generation=99)
+    write_governed(repo, forged)
+    commit(repo, "forged intermediate generation")
+    write_governed(repo, valid)
+    commit(repo, "restore visible status")
+    (repo / "implementation.txt").write_text("unchanged status implementation\n", encoding="utf-8")
+    commit(repo, "hide forged intermediate behind same-status work")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "ordinary transition must preserve parent generation" in result.stdout or "returned repair must be exactly parent generation plus one" in result.stdout
+
+
+def test_every_intermediate_parent_status_uses_exact_current_schema_types(tmp_path: Path) -> None:
+    repo, valid = clone_with_ledger_migration(tmp_path)
+    malformed = copy.deepcopy(valid)
+    malformed["active_tasks"][0]["candidate_generation"] = "4"
+    write_governed(repo, malformed)
+    commit(repo, "malformed intermediate parent")
+    write_governed(repo, valid)
+    commit(repo, "restore status after malformed parent")
+    (repo / "implementation.txt").write_text("work\n", encoding="utf-8")
+    commit(repo, "move malformed parent out of direct-parent position")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "fails schema validation" in result.stdout
+    assert "invalid type" in result.stdout
+
+
+def test_non_in_progress_same_status_commit_is_rejected(tmp_path: Path) -> None:
+    repo, status, _, _, _ = make_delivery_repo(tmp_path)
+    (repo / "post-delivery.txt").write_text("silently moved candidate\n", encoding="utf-8")
+    commit(repo, "same awaiting-review status")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "same-status commits are restricted" in result.stdout
+
+
+def test_terminal_ci_identity_is_immutable_across_phase_transition(tmp_path: Path) -> None:
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path)
+    status["active_tasks"][0].update(state="accepted_pending_merge", transition={"from": "awaiting_review", "to": "accepted_pending_merge"})
+    status["evidence"]["candidate"]["commit_sha"] = candidate
+    status["evidence"]["candidate"]["ci"] = ci("success", candidate, "1")
+    status["review"] = {"code_security": "approve", "architecture": "clear", "reviewed_candidate_sha": candidate}
+    write_governed(repo, status)
+    commit(repo, "accepted with terminal CI")
+    status["active_tasks"][0].update(state="blocked", transition={"from": "accepted_pending_merge", "to": "blocked"})
+    status["blockers"] = ["test blocker"]
+    status["evidence"]["candidate"]["ci"] = ci("failure", candidate, "9")
+    write_governed(repo, status)
+    commit(repo, "replace terminal CI")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "terminal CI evidence is immutable" in result.stdout
+
+
+@pytest.mark.parametrize("phase", ["candidate", "closure", "merged_main", "finalization"])
+def test_every_phase_ci_is_monotonic_and_identity_immutable(phase: str) -> None:
+    parent = accepted_status()
+    current = copy.deepcopy(parent)
+    phase_ci(parent, phase).update(ci("pending", "2" * 40, "7"))
+    phase_ci(current, phase).update(ci("success", "2" * 40, "7"))
+    assert VALIDATOR._ci_continuity_errors(current, parent) == []
+
+    phase_ci(current, phase).update(ci("success", "3" * 40, "8"))
+    assert any("same immutable run" in error for error in VALIDATOR._ci_continuity_errors(current, parent))
+
+    parent = copy.deepcopy(current)
+    phase_ci(parent, phase).update(ci("success", "2" * 40, "7"))
+    phase_ci(current, phase).update(ci("failure", "2" * 40, "7"))
+    assert any("terminal CI evidence is immutable" in error for error in VALIDATOR._ci_continuity_errors(current, parent))
+
+
+def test_governed_mandatory_path_must_be_regular_git_blob_not_symlink(tmp_path: Path) -> None:
+    repo, status, _, _, _ = make_delivery_repo(tmp_path)
+    (repo / "DESIGN.md").unlink()
+    (repo / "DESIGN.md").symlink_to("AGENTS.md")
+    commit(repo, "replace mandatory document with symlink")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "symlink path component is forbidden" in result.stdout
+    assert "path must be a regular Git blob" in result.stdout
+
+
+def test_closed_task_handoff_exactly_authorizes_next_card_and_clears_prior_state(tmp_path: Path) -> None:
+    repo, status, close_record = make_closed_repo(tmp_path)
+    git(repo, "switch", "-c", "next-task")
+    status["current_gate"] = "G1"
+    status["active_tasks"][0] = {
+        "task_id": "G1-T02", "risk": "D0", "state": "authorized",
+        "transition": {"from": "closed", "to": "authorized"}, "candidate_generation": 1,
+    }
+    status["transition_ledger"] = {
+        "authorization_baseline_sha": close_record,
+        "sealed_through_sha": close_record,
+        "first_parent_chain_sha256": hashlib.sha256(b"").hexdigest(),
+    }
+    status["evidence"] = copy.deepcopy(load_valid()["evidence"])
+    status["evidence"]["authorization_baseline_sha"] = close_record
+    status["evidence"]["implementation_sha"] = None
+    status["evidence"]["candidate"]["local_verification"]["status"] = "pending"
+    status["review"] = {"code_security": "pending", "architecture": "pending", "reviewed_candidate_sha": None}
+    status["bootstrap_exception"] = None
+    status["blockers"] = []
+    status["next_authorization"] = {"gate": "G1", "task_id": "G1-T03", "state": "not_authorized"}
+    write_governed(repo, status)
+    commit(repo, "authorize exact next task")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+    git(repo, "switch", "-c", "forged-handoff", close_record)
+    status["active_tasks"][0]["task_id"] = "G1-T09"
+    write_governed(repo, status)
+    commit(repo, "forge handoff target")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "inter-task handoff" in result.stdout
+
+
+def test_second_parent_only_merge_is_not_authoritative_merged_main(tmp_path: Path) -> None:
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path)
+    status["active_tasks"][0].update(state="accepted_pending_merge", transition={"from": "awaiting_review", "to": "accepted_pending_merge"})
+    status["evidence"]["candidate"].update(commit_sha=candidate, ci=ci("success", candidate, "1"))
+    status["review"] = {"code_security": "approve", "architecture": "clear", "reviewed_candidate_sha": candidate}
+    write_governed(repo, status)
+    closure = commit(repo, "closure")
+    git(repo, "switch", "-c", "fake-merge")
+    (repo / "fake.txt").write_text("fake\n", encoding="utf-8")
+    commit(repo, "fake side")
+    git(repo, "switch", "-c", "fake-second", closure)
+    (repo / "fake-second.txt").write_text("second\n", encoding="utf-8")
+    commit(repo, "fake second side")
+    git(repo, "switch", "fake-merge")
+    git(repo, "merge", "--no-ff", "fake-second", "-m", "fake merge subject")
+    fake_merge = git(repo, "rev-parse", "HEAD")
+    git(repo, "switch", "main")
+    (repo / "main.txt").write_text("main\n", encoding="utf-8")
+    commit(repo, "main first-parent work")
+    git(repo, "merge", "--no-ff", "fake-merge", "-m", "merge fake history as second parent")
+    status["active_tasks"][0].update(state="merged_verified", transition={"from": "accepted_pending_merge", "to": "merged_verified"})
+    status["evidence"]["closure"].update(commit_sha=closure, ci=ci("success", closure, "2"))
+    status["evidence"]["merged_main"].update(commit_sha=fake_merge, ci=ci("success", fake_merge, "3"))
+    write_governed(repo, status)
+    record = commit(repo, "claim second-parent merge")
+    git(repo, "update-ref", "refs/remotes/origin/main", record)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "not on the authoritative remote-main first-parent chain" in result.stdout

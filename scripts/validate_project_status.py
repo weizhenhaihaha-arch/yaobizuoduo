@@ -9,6 +9,7 @@ import json
 import re
 import subprocess
 import sys
+import os
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -36,7 +37,7 @@ TRANSITIONS = {
     "blocked": set(),
     "accepted_pending_merge": {"merged_verified"},
     "merged_verified": {"closed"},
-    "closed": set(),
+    "closed": {"authorized"},
 }
 MATURITY = {"OFFLINE_EVIDENCE_ACCEPTED": 0, "INTEGRATION_ACCEPTED": 1, "PAPER_VALIDATED": 2, "RELEASE_READY": 3}
 GATE_CEILING = {**{f"G{i}": 0 for i in range(6)}, "G6": 1, "G7": 1, "G8": 2, "G9": 3}
@@ -327,7 +328,14 @@ def _document_errors(status: dict[str, Any], repo_root: Path) -> list[str]:
     task = status["active_tasks"][0]
     resolved_identities: set[Path] = set()
     for relative in status["governed_documents"]:
-        path = (root / relative).resolve()
+        unresolved = root / relative
+        cursor = root
+        for component in PurePosixPath(relative).parts:
+            cursor /= component
+            if os.path.islink(cursor):
+                errors.append(f"$.governed_documents: symlink path component is forbidden: {relative}")
+                break
+        path = unresolved.resolve()
         try:
             path.relative_to(root)
         except ValueError:
@@ -335,11 +343,24 @@ def _document_errors(status: dict[str, Any], repo_root: Path) -> list[str]:
             continue
         if path in resolved_identities:
             errors.append("$.governed_documents: duplicate or aliased resolved document identities are forbidden")
-            continue
-        resolved_identities.add(path)
+        else:
+            resolved_identities.add(path)
         if not path.is_file():
             errors.append(f"$.governed_documents: missing document: {relative}")
             continue
+        ok, tree_entry = _git(root, "ls-tree", "HEAD", "--", relative)
+        fields = tree_entry.split(None, 3) if ok else []
+        if len(fields) != 4 or fields[0] not in {"100644", "100755"} or fields[1] != "blob":
+            errors.append(f"$.governed_documents: path must be a regular Git blob: {relative}")
+        parent = PurePosixPath(relative).parent
+        if parent.as_posix() != ".":
+            accumulated: list[str] = []
+            for component in parent.parts:
+                accumulated.append(component)
+                ok, kind = _git(root, "cat-file", "-t", f"HEAD:{'/'.join(accumulated)}")
+                if not ok or kind != "tree":
+                    errors.append(f"$.governed_documents: parent must be a regular Git tree: {relative}")
+                    break
         text, read_error = _read_document(path, relative)
         if read_error:
             errors.append(read_error)
@@ -444,23 +465,50 @@ def _release_identity_errors(status: dict[str, Any], root: Path, main_ref: str) 
     approval = resolved.get("product_owner_approval")
     manifest = resolved.get("release_manifest")
     manifest_identity = release.get("release_manifest")
+    approval_keys = {"schema_version", "project", "decision", "approving_authority", "authorization_id", "release_manifest_sha256"}
     if approval is not None and (
-        approval.get("schema_version") != "product-owner-approval.v1"
+        set(approval) != approval_keys
+        or approval.get("schema_version") != "product-owner-approval.v1"
         or approval.get("decision") != "go"
+        or type(approval.get("approving_authority")) is not str
+        or not approval["approving_authority"].strip()
+        or type(approval.get("authorization_id")) is not str
+        or re.fullmatch(r"AUTH-[A-Za-z0-9._-]+", approval["authorization_id"]) is None
         or manifest_identity is None
         or approval.get("release_manifest_sha256") != manifest_identity["sha256"]
     ):
         errors.append("$.release.product_owner_approval: artifact is not an explicit go bound to the release manifest")
-    if manifest is not None and (
-        manifest.get("schema_version") != "release-evidence.v1"
-        or manifest.get("complete") is not True
-        or re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("release_sha", ""))) is None
-    ):
+    evidence_map: dict[str, str] = {}
+    manifest_evidence = manifest.get("evidence") if manifest is not None else None
+    if type(manifest_evidence) is list:
+        for item in manifest_evidence:
+            if type(item) is dict and set(item) == {"phase", "subject_sha"} and type(item.get("phase")) is str and type(item.get("subject_sha")) is str:
+                evidence_map[item["phase"]] = item["subject_sha"]
+    bad_manifest_shape = (
+        manifest is not None
+        and (
+            set(manifest) != {"schema_version", "project", "release_sha", "evidence"}
+            or manifest.get("schema_version") != "release-evidence.v1"
+            or re.fullmatch(r"[0-9a-f]{40}", str(manifest.get("release_sha", ""))) is None
+            or type(manifest_evidence) is not list
+            or len(manifest_evidence) != 4
+            or set(evidence_map) != {"candidate", "closure", "merged_main", "finalization"}
+        )
+    )
+    if bad_manifest_shape:
         errors.append("$.release.release_manifest: artifact does not prove complete immutable release evidence")
     elif manifest is not None:
         release_sha = manifest["release_sha"]
-        if not _commit_exists(root, release_sha) or not _is_ancestor(root, release_sha, main_ref):
-            errors.append("$.release.release_manifest: release_sha is not an authoritative-main commit")
+        expected = {
+            "candidate": status["evidence"]["candidate"]["commit_sha"],
+            "closure": status["evidence"]["closure"]["commit_sha"],
+            "merged_main": status["evidence"]["merged_main"]["commit_sha"],
+            "finalization": status["evidence"]["finalization"]["commit_sha"],
+        }
+        if release_sha != expected["finalization"] or evidence_map != expected:
+            errors.append("$.release.release_manifest: release_sha and evidence must bind the exact finalization chain")
+        elif not _commit_exists(root, release_sha) or not _is_first_parent_ancestor(root, release_sha, main_ref):
+            errors.append("$.release.release_manifest: release_sha is not on authoritative main first-parent history")
     return errors
 
 
@@ -470,6 +518,11 @@ def _commit_exists(root: Path, sha: str) -> bool:
 
 def _is_ancestor(root: Path, older: str, newer: str) -> bool:
     return _git(root, "merge-base", "--is-ancestor", older, newer)[0]
+
+
+def _is_first_parent_ancestor(root: Path, older: str, newer: str) -> bool:
+    ok, history = _git(root, "rev-list", "--first-parent", newer)
+    return ok and older in history.splitlines()
 
 
 def _status_at(root: Path, sha: str) -> dict[str, Any] | None:
@@ -483,17 +536,70 @@ def _status_at(root: Path, sha: str) -> dict[str, Any] | None:
     return value if type(value) is dict else None
 
 
+def _schema_at(root: Path, sha: str) -> dict[str, Any] | None:
+    ok, text = _git(root, "show", f"{sha}:schemas/project_status.schema.json")
+    if not ok:
+        return None
+    try:
+        value = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    return value if type(value) is dict else None
+
+
+def _committed_status_errors(root: Path, sha: str, current_schema: dict[str, Any], use_current_schema: bool = False) -> tuple[dict[str, Any] | None, list[str]]:
+    status = _status_at(root, sha)
+    if status is None:
+        return None, [f"$: first-parent status at {sha[:12]} is unreadable"]
+    schema = current_schema if use_current_schema else (_schema_at(root, sha) or current_schema)
+    if schema is None:
+        return status, [f"$: first-parent status at {sha[:12]} has no readable schema"]
+    try:
+        errors = _schema_errors(status, schema, schema)
+    except (KeyError, TypeError, ValueError):
+        errors = ["schema is malformed or unsupported"]
+    return status, [f"$: first-parent status at {sha[:12]} fails schema validation: {item}" for item in errors]
+
+
 def _bootstrap_identity(value: Any) -> tuple[Any, Any, Any] | None:
     if type(value) is not dict:
         return None
     return (value.get("exception_id"), value.get("task_id"), value.get("authorization_baseline_sha"))
 
 
-def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None) -> list[str]:
+def _ci_continuity_errors(status: dict[str, Any], parent: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    for (path, current), (_, previous) in zip(_all_ci(status["evidence"]), _all_ci(parent["evidence"])):
+        old_state, new_state = previous["status"], current["status"]
+        old_identity = (previous["subject_sha"], previous["run_id"], previous["url"])
+        new_identity = (current["subject_sha"], current["run_id"], current["url"])
+        if old_state in {"success", "failure"} and current != previous:
+            errors.append(f"{path}: terminal CI evidence is immutable")
+        elif old_state == "pending":
+            if new_state not in {"pending", "success", "failure"} or new_identity != old_identity:
+                errors.append(f"{path}: pending CI may only become terminal for the same immutable run")
+        elif old_state in {"not_established", "not_run"} and new_state in {"not_established", "not_run"} and current != previous:
+            errors.append(f"{path}: inactive CI state cannot be relabelled")
+    return errors
+
+
+def _cleared_handoff(status: dict[str, Any]) -> bool:
+    evidence = status["evidence"]
+    empty_ci = all(ci["status"] in {"not_established", "not_run"} and ci["subject_sha"] is None and ci["run_id"] is None and ci["url"] is None for _, ci in _all_ci(evidence))
+    return (
+        evidence["implementation_sha"] is None
+        and all(evidence[name]["commit_sha"] is None for name in ("candidate", "closure", "merged_main", "finalization"))
+        and evidence["candidate"]["local_verification"] == {"status": "pending", "subject": "delivery_head"}
+        and empty_ci
+        and status["review"] == {"code_security": "pending", "architecture": "pending", "reviewed_candidate_sha": None}
+        and status["blockers"] == []
+        and status["bootstrap_exception"] is None
+    )
+
+
+def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None, parent_sha: str | None = None) -> list[str]:
     if parent is None:
         return ["$: direct first parent has no readable canonical project status"]
-    if parent == status:
-        return []
     errors: list[str] = []
     current_task = status["active_tasks"][0]
     try:
@@ -508,10 +614,36 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None)
         ]
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
+    parent_state = parent_task["state"]
+    if parent == status:
+        if current_task["state"] != "in_progress":
+            errors.append(f"$: same-status commits are restricted to byte-equivalent in_progress implementation work after {parent_sha[:12] if parent_sha else 'unknown'}")
+        return errors
+    if "transition_ledger" not in parent and "transition_ledger" in status:
+        projected = dict(status)
+        projected.pop("transition_ledger", None)
+        if projected == parent and current_task["state"] == "in_progress":
+            return errors
+    handoff = parent_state == "closed" and current_task["state"] == "authorized" and current_task["transition"] == {"from": "closed", "to": "authorized"}
+    if handoff:
+        next_auth = parent.get("next_authorization")
+        if type(next_auth) is not dict or (current_task["task_id"], status["current_gate"]) != (next_auth.get("task_id"), next_auth.get("gate")):
+            errors.append("$: inter-task handoff must match the exact prior next authorization")
+        if current_task["candidate_generation"] != 1:
+            errors.append("$.active_tasks[0].candidate_generation: inter-task handoff must reset generation to one")
+        if parent_sha is None or status["evidence"]["authorization_baseline_sha"] != parent_sha:
+            errors.append("$.evidence.authorization_baseline_sha: inter-task handoff baseline must equal the prior close commit")
+        if not _cleared_handoff(status):
+            errors.append("$: inter-task handoff must clear prior evidence, review, CI, blockers, and bootstrap exception")
+        parent_exception = parent.get("bootstrap_exception")
+        if type(parent_exception) is dict and (parent_exception.get("status"), parent_exception.get("uses")) != ("consumed", 1):
+            errors.append("$.bootstrap_exception: inter-task handoff may retire only a consumed exception")
+        return errors
+    if parent.get("transition_ledger") is not None and status.get("transition_ledger") != parent.get("transition_ledger"):
+        errors.append("$.transition_ledger: sealed history identity is immutable outside an inter-task handoff")
     for label, current, previous in immutable:
         if current != previous:
             errors.append(f"$: immutable {label} changed from direct first parent")
-    parent_state = parent_task["state"]
     if current_task["transition"]["from"] != parent_state:
         errors.append("$.active_tasks[0].transition.from: must equal direct first parent state")
     current_generation = current_task["candidate_generation"]
@@ -547,12 +679,110 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None)
         if old_implementation is not None and status["evidence"].get("implementation_sha") != old_implementation:
             errors.append("$.evidence.implementation_sha: immutable implementation identity changed across direct parent")
 
+    if current_task["state"] != "returned" and not (parent_state == "returned" and current_task["state"] == "in_progress"):
+        errors.extend(_ci_continuity_errors(status, parent))
+
     parent_release = parent.get("release", {})
     current_release = status.get("release", {})
     for key in ("product_owner_approval", "release_manifest"):
         old_identity = parent_release.get(key) if type(parent_release) is dict else None
         if old_identity is not None and current_release.get(key) != old_identity:
             errors.append(f"$.release.{key}: immutable release identity changed across direct parent")
+    return errors
+
+
+def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    current = _status_at(root, head)
+    ledger = current.get("transition_ledger") if type(current) is dict else None
+    if type(ledger) is not dict:
+        ok, full_text = _git(root, "rev-list", "--first-parent", f"{baseline}..{head}")
+        if not ok:
+            return ["$: authorization baseline is not on the repository HEAD first-parent chain"]
+        commits = full_text.splitlines()
+        statuses: list[tuple[str, dict[str, Any]]] = []
+        for sha in commits:
+            node, node_errors = _committed_status_errors(root, sha, current_schema)
+            if node is None:
+                if statuses:
+                    break
+                errors.extend(node_errors)
+                continue
+            current_errors = _schema_errors(node, current_schema, current_schema)
+            if current_errors:
+                errors.append("$.transition_ledger: legacy history requires a sealed content-addressed ledger")
+                return errors
+            statuses.append((sha, node))
+        for index, ((child_sha, child), (parent_sha, parent)) in enumerate(zip(statuses, statuses[1:])):
+            inherited_merge_bridge = False
+            if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
+                newer = statuses[index - 1][1]
+                inherited_merge_bridge = (
+                    newer["active_tasks"][0]["state"] == "merged_verified"
+                    and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
+                )
+            if not inherited_merge_bridge:
+                errors.extend(_parent_status_errors(child, parent, parent_sha))
+        return errors
+    if ledger.get("authorization_baseline_sha") != baseline:
+        errors.append("$.transition_ledger.authorization_baseline_sha: must equal the active task authorization baseline")
+    anchor = ledger.get("sealed_through_sha")
+    if type(anchor) is not str or not _is_first_parent_ancestor(root, anchor, head):
+        return errors + ["$.transition_ledger.sealed_through_sha: must be on the repository HEAD first-parent chain"]
+    ok, sealed_text = _git(root, "rev-list", "--first-parent", f"{baseline}..{anchor}")
+    if not ok:
+        return errors + ["$.transition_ledger: sealed authorization history is unavailable"]
+    rows: list[str] = []
+    for sha in sealed_text.splitlines():
+        ok, blob = _git(root, "rev-parse", f"{sha}:PROJECT_STATUS.yaml")
+        if ok:
+            rows.append(f"{sha} {blob}")
+    payload = (("\n".join(rows) + "\n") if rows else "").encode("ascii")
+    if hashlib.sha256(payload).hexdigest() != ledger.get("first_parent_chain_sha256"):
+        errors.append("$.transition_ledger.first_parent_chain_sha256: sealed first-parent history digest mismatch")
+    ok, commits_text = _git(root, "rev-list", "--first-parent", f"{anchor}..{head}")
+    if not ok:
+        return errors + ["$: post-ledger first-parent history is unavailable"]
+    commits = commits_text.splitlines() + [anchor]
+    statuses: list[tuple[str, dict[str, Any]]] = []
+    for sha in commits:
+        status, status_errors = _committed_status_errors(root, sha, current_schema)
+        if status is None:
+            # Commits before status authorization are allowed only after the last status-bearing commit.
+            if statuses:
+                break
+            errors.extend(status_errors)
+            continue
+        errors.extend(status_errors)
+        statuses.append((sha, status))
+    for index, ((child_sha, child), (parent_sha, parent)) in enumerate(zip(statuses, statuses[1:])):
+        child_current = not _schema_errors(child, current_schema, current_schema)
+        parent_current = not _schema_errors(parent, current_schema, current_schema)
+        if child_current and parent_current:
+            inherited_merge_bridge = False
+            if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
+                newer = statuses[index - 1][1]
+                inherited_merge_bridge = (
+                    newer["active_tasks"][0]["state"] == "merged_verified"
+                    and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
+                )
+            if not inherited_merge_bridge:
+                errors.extend(_parent_status_errors(child, parent, parent_sha))
+        else:
+            try:
+                child_task, parent_task = child["active_tasks"][0], parent["active_tasks"][0]
+                same = child == parent
+                if same and child_task["state"] != "in_progress":
+                    errors.append("$: legacy same-status commits are restricted to byte-equivalent in_progress work")
+                elif not same:
+                    if child_task["transition"]["from"] != parent_task["state"]:
+                        errors.append("$: legacy first-parent transition does not match its parent state")
+                    repair = parent_task["state"] == "returned" and child_task["state"] == "in_progress"
+                    expected = parent_task["candidate_generation"] + (1 if repair else 0)
+                    if child_task["candidate_generation"] != expected:
+                        errors.append("$: legacy first-parent candidate generation is discontinuous")
+            except (KeyError, IndexError, TypeError):
+                errors.append("$: legacy first-parent status is structurally incompatible")
     return errors
 
 
@@ -577,7 +807,7 @@ def _subject_status_matches(status: dict[str, Any], subject: dict[str, Any] | No
         return False
 
 
-def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Path) -> list[str]:
+def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Path, schema: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     root = repo_root.resolve()
     ok, top = _git(root, "rev-parse", "--show-toplevel")
@@ -605,13 +835,18 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     if len(parent_parts) < 2:
         errors.append("$: repository HEAD has no direct first parent canonical history")
     else:
-        errors.extend(_parent_status_errors(status, _status_at(root, parent_parts[1])))
+        parent_status, parent_schema_errors = _committed_status_errors(root, parent_parts[1], schema, use_current_schema=True)
+        errors.extend(parent_schema_errors)
+        errors.extend(_parent_status_errors(status, parent_status, parent_parts[1]))
+    errors.extend(_history_errors(root, head, baseline, schema))
 
     main_ref = status["authoritative_main_ref"]
     ok, main_sha = _git(root, "rev-parse", "--verify", main_ref)
     if not ok:
         errors.append("$.authoritative_main_ref: authoritative main ref does not exist")
         main_sha = ""
+    remote_main_ref = "refs/remotes/origin/" + main_ref.removeprefix("refs/heads/")
+    remote_main_ok, remote_main_sha = _git(root, "rev-parse", "--verify", remote_main_ref)
     ok, origin_url = _git(root, "remote", "get-url", "origin")
     repository_identity = _github_repository_identity(origin_url) if ok else None
     if repository_identity is None:
@@ -655,8 +890,17 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
         ok, parents = _git(root, "rev-list", "--parents", "-n", "1", merged)
         if not ok or len(parents.split()) < 3:
             errors.append("$.evidence.merged_main.commit_sha: merged-main subject is not a merge commit")
-        if main_sha and not _is_ancestor(root, merged, main_ref):
-            errors.append("$.evidence.merged_main.commit_sha: merge is not reachable from authoritative main ref")
+        if not remote_main_ok:
+            errors.append("$.evidence.merged_main.commit_sha: fetched origin/main evidence is unavailable")
+        elif main_sha != remote_main_sha:
+            errors.append("$.authoritative_main_ref: local main must equal fetched origin/main")
+        elif not _is_first_parent_ancestor(root, merged, remote_main_sha):
+            errors.append("$.evidence.merged_main.commit_sha: merge is not on the authoritative remote-main first-parent chain")
+    task = status["active_tasks"][0]
+    if task["transition"] == {"from": "closed", "to": "authorized"}:
+        direct_parent = parent_parts[1] if len(parent_parts) >= 2 else None
+        if not remote_main_ok or main_sha != remote_main_sha or direct_parent != remote_main_sha:
+            errors.append("$: inter-task handoff must start from the exact fetched authoritative main close")
     if finalization is not None:
         if merged is None or not _is_ancestor(root, merged, finalization):
             errors.append("$.evidence.finalization.commit_sha: merged-main is not an ancestor of finalization")
@@ -691,7 +935,7 @@ def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> li
         errors.extend(_semantic_errors(status))
         if repo_root is not None:
             errors.extend(_document_errors(status, repo_root))
-            errors.extend(_repository_errors(status, status_path, repo_root))
+            errors.extend(_repository_errors(status, status_path, repo_root, schema))
     return sorted(set(errors))
 
 
