@@ -25,17 +25,17 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "returned",
-      "transition": {"from": "awaiting_review", "to": "returned"},
-      "candidate_generation": 7
+      "state": "in_progress",
+      "transition": {"from": "returned", "to": "in_progress"},
+      "candidate_generation": 8
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
-    "implementation_sha": "975de4f25671c10552c32b599350e1312b737ae4",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "b3ed7d4521e2ed3745c92ff4eab8dd57c6c27581",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "request_changes",
-    "architecture": "block",
-    "reviewed_candidate_sha": "b3ed7d4521e2ed3745c92ff4eab8dd57c6c27581"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
   "bootstrap_exception": {
     "exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721",
@@ -68,9 +68,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [
-    "Exact delivery HEAD focused verification is 82 passed and 1 failed because the unauthorized-migration regression still asserts an obsolete diagnostic instead of the new earlier fail-closed boundary."
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
