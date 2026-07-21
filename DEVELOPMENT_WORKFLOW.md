@@ -97,10 +97,13 @@ train/validation/untouched holdout；禁止未来数据和幸存者偏差。
 - 缺数据、未知状态、权限不足或证据不匹配一律 fail-closed。
 - SHA 只能由后续提交记录：delivery、closure 与 finalization 提交都不保存自身
   SHA；repository-aware validator 从 exact HEAD 解析隐式 subject，并在下一阶段
-  检查对象、状态、祖先和 CI subject 身份。
+  检查对象、第一父状态、generation、祖先、authoritative main 可达性和 CI
+  subject/origin/run 身份。
 - 唯一例外是绑定 G0-T01 与授权基线的一次性 no-CI bootstrap exception；它要求
   两条独立本地审核均通过、local evidence 成功、成熟度仅 offline、使用次数为 1，
   且不可用于 G0-T02 或任何后续任务。
+- G9 go/no-go 与 release completion 必须由进入 authoritative main 的不可变
+  approval/manifest JSON artifact、commit、path 和 SHA-256 证明，不接受布尔自报。
 
 ## 5. 风险等级
 

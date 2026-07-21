@@ -1,6 +1,7 @@
 {
   "schema_version": "project-status.v2",
   "project": "yaobizuoduo",
+  "authoritative_main_ref": "refs/heads/main",
   "current_gate": "G0",
   "active_tasks": [
     {
@@ -48,7 +49,7 @@
     "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
-  "release": {"product_owner_go": false, "release_evidence_complete": false},
+  "release": {"product_owner_approval": null, "release_manifest": null},
   "blockers": [],
   "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
   "governed_documents": [
