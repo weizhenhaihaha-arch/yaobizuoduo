@@ -1185,7 +1185,7 @@ def test_unauthorized_schema_migration_is_rejected(tmp_path: Path) -> None:
     commit(repo, "unauthorized in-progress schema migration")
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo, schema_path)
     assert result.returncode == 1
-    assert "schema migration is unauthorized or discontinuous" in result.stdout
+    assert "explicit no-migration decision must bind current schema authority" in result.stdout
 
 
 def test_committed_schema_weakening_cannot_be_hidden_by_restore(tmp_path: Path) -> None:
