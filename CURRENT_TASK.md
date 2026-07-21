@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -368,3 +368,34 @@ and memory update. Stop after delivery and wait for independent review.
    Report only those post-delivery results and stop for dual independent review.
 4. No G0-T02, business, runtime, network, Paper, deployment, release or trading
    work is authorized.
+
+## Generation 8 independent review result: returned
+
+- Reviewed exact delivered head:
+  `f46c8bb3e7ba8aa59f1031385f4a9e13fb199696`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `CLEAR`.
+- Main and independent exact-head verification passed 83 focused, 145 backend,
+  10 frontend tests and the production build. The prior migration authorization,
+  generation typing, and stable exact-head defects were repaired, but broader
+  review found three remaining continuity gaps.
+
+### Generation 9 repair requirements
+
+1. Make schema-migration authorization consumption unique across every relevant
+   local and remote repository ref, not only the consumer's first-parent
+   ancestors. Reject a second child/branch consuming the same authorization.
+   Bind final acceptance to the single canonical remote-main first-parent route;
+   document the Git visibility boundary without claiming knowledge of absent
+   objects.
+2. Maintain an immutable digest history for schema authority and reject reuse of
+   any digest previously assigned to an earlier revision. Revisions and content
+   must both move forward; a higher revision may not restore old bytes.
+3. Extend typed recursive equality to tuples, or remove tuples from governed
+   identity comparisons. Explicitly reject `("consumed", True)` versus
+   `("consumed", 1)` and `(1,)` versus `(1.0,)`, including bootstrap and CI
+   identity paths.
+4. Add repository-level sibling-consumption, schema-digest rollback, and nested
+   tuple regressions. Preserve all existing tests and production behavior.
+   Create the separate delivery commit before running and reporting the entire
+   exact-head suite. Deliver only G0-T01 generation 9; no G0-T02 or other scope.

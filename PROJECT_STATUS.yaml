@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "awaiting_review",
-      "transition": {"from": "in_progress", "to": "awaiting_review"},
+      "state": "returned",
+      "transition": {"from": "awaiting_review", "to": "returned"},
       "candidate_generation": 8
     }
   ],
@@ -34,7 +34,7 @@
     "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
     "implementation_sha": "c5f7756df434288f036b251f4658187c9e175767",
     "candidate": {
-      "commit_sha": null,
+      "commit_sha": "f46c8bb3e7ba8aa59f1031385f4a9e13fb199696",
       "local_verification": {"status": "success", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "request_changes",
+    "architecture": "clear",
+    "reviewed_candidate_sha": "f46c8bb3e7ba8aa59f1031385f4a9e13fb199696"
   },
   "bootstrap_exception": {
     "exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721",
@@ -68,7 +68,11 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "One schema-migration authorization can be consumed by multiple sibling histories because reuse detection is only first-parent local.",
+    "A higher schema revision can restore a digest used by an earlier revision, allowing content rollback under a monotonic revision number.",
+    "Typed equality does not recurse into tuples, so tuple-wrapped booleans, integers, and floats can compare loosely."
+  ],
   "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
