@@ -1335,6 +1335,18 @@ def test_schema_authorization_reuse_reachable_only_from_tag_is_rejected(tmp_path
     assert "$.schema_authority: migration authorization must have exactly one repository-visible consumer" in errors
 
 
+def test_tag_visible_migration_shaped_root_commit_fails_closed_without_traceback(tmp_path: Path) -> None:
+    repo, _, _, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    tree = git(repo, "rev-parse", f"{migration_sha}^{{tree}}")
+    root_sha = git(repo, "commit-tree", tree, "-m", "parentless migration-shaped root")
+    git(repo, "tag", "parentless-migration", root_sha)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo, repo / "schemas" / "project_status.schema.json")
+    assert result.returncode == 1
+    assert "repository-visible migration consumption set is unavailable" in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
+    assert VALIDATOR._schema_migration_consumers(repo, authorization_sha) is None
+
+
 def test_final_schema_migration_state_rejects_consumer_off_origin_main(tmp_path: Path) -> None:
     repo, _, current, _, migration_sha = make_prior_bound_schema_migration(tmp_path)
     final_status = copy.deepcopy(current)

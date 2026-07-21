@@ -687,7 +687,9 @@ def _schema_migration_consumers(root: Path, authorization_sha: str) -> set[str] 
             continue
         ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", sha)
         parts = parents_text.split() if ok else []
-        parent = _status_at(root, parts[1]) if len(parts) >= 2 else None
+        if len(parts) < 2:
+            return None
+        parent = _status_at(root, parts[1])
         parent_authority = parent.get("schema_authority") if type(parent) is dict else None
         task = node["active_tasks"][0] if type(node) is dict and type(node.get("active_tasks")) is list and node["active_tasks"] else None
         if (
