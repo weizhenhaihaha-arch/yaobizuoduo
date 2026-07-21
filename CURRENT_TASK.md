@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -236,3 +236,40 @@ and memory update. Stop after delivery and wait for independent review.
    repository file, never a symlink or alias. Add adversarial coverage for all
    findings above, preserve the complete passing suite, and return only this
    same G0-T01 card to `awaiting_review`. Do not start G0-T02.
+
+## Generation 4 independent review result: returned
+
+- Reviewed exact delivered head:
+  `982e9d0e2d36136f31ce54e63c61ba14001edf2e`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `BLOCK`.
+- Main and independent checks passed 61 focused governance tests, all 123
+  backend tests, 10 frontend tests and the production build, canonical
+  validation, and diff checks. Generation 4 repaired the legal close-to-next
+  handoff, phase CI continuity, remote-main first-parent binding, mandatory
+  regular documents, and exact G9 evidence shape, but three governance bypasses
+  remain.
+
+### Generation 5 repair requirements
+
+1. Make ledger creation an explicit one-time migration authorized only for this
+   repository, task, baseline, and exact generation-4 start SHA `fa047696761f235cb1e5cd94bbf1881b49e4bb21`.
+   A fresh repository or any other commit must not be able to seal a previously
+   invalid generation jump or transition. Preserve digest tamper, reorder,
+   truncate, rollback, and anchor checks.
+2. From the sealed anchor onward, validate every status commit against the
+   current canonical schema with exact types. A post-anchor schema failure is
+   terminal; never route it through legacy comparison, even if that historical
+   commit includes a locally weakened schema. Add the reproduced floating
+   generation/schema-downgrade and restore regression.
+3. Make `capability.maturity` monotonic and evidence-transition-bound. Preserve
+   maturity across task handoff and every planned, authorized, in-progress,
+   awaiting-review, returned, and blocked transition. Permit an upgrade only on
+   an explicitly defined accepted/closed transition with the qualifying gate,
+   exact candidate, dual review, required phase CI, and exit evidence. Reject
+   rollback and skipped levels.
+4. Add adversarial coverage for G5 closed/offline to G6 authorized/integration
+   inflation, G6 pre-review or returned inflation, G7 to G8 Paper inflation,
+   arbitrary rollback, and the fresh-repository self-seal proof. Preserve all
+   existing checks and deliver only G0-T01 generation 5 on the same PR. Do not
+   start G0-T02 or any runtime/business work.
