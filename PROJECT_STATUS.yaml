@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "merged_verified",
-      "transition": {"from": "accepted_pending_merge", "to": "merged_verified"},
+      "state": "closed",
+      "transition": {"from": "merged_verified", "to": "closed"},
       "candidate_generation": 11
     }
   ],
@@ -47,7 +47,7 @@
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "finalization": {
-      "commit_sha": null,
+      "commit_sha": "1a16a1df8efb4f3ee687509e6adbd9276bf0e7b6",
       "d0_ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     }
   },

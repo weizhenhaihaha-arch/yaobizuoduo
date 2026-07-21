@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `merged_verified`
+- Status: `closed`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -494,3 +494,17 @@ and memory update. Stop after delivery and wait for independent review.
   push and final close.
 - G0-T02 remains `not_authorized`; no product/runtime/network/Paper/deployment,
   release or trading work is included.
+
+## G0-T01 final closure
+
+- Exact `merged_verified` and finalization head:
+  `1a16a1df8efb4f3ee687509e6adbd9276bf0e7b6`.
+- Local `main` and fetched `origin/main` matched exactly; the canonical
+  repository-aware validator passed on the clean exact head.
+- Exact-head verification passed all 158 backend/governance tests, all 10
+  frontend tests, and the production frontend build.
+- G0-T01 is closed at capability `OFFLINE_EVIDENCE_ACCEPTED`. The no-CI
+  bootstrap exception remains accurately consumed; no remote CI claim has been
+  invented.
+- G0-T02 remains `not_authorized`. A later card requires separate user
+  authorization and normal phase CI gates before any new work begins.
