@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -157,3 +157,40 @@ and memory update. Stop after delivery and wait for independent review.
    behavior, rerun the complete original acceptance set, update status/memory,
    push a new immutable delivery head to the same PR, and stop at
    `awaiting_review`. Do not start G0-T02.
+
+## Generation 2 independent review result: returned
+
+- Reviewed exact delivered head:
+  `e2d948f5919a02d9db0abc4aefa00ae28ac03b3d`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `BLOCK`.
+- Generation 2 repaired self-referential phase identity, distinct phase CI
+  slots, bootstrap handling, returned evidence shape, architecture WATCH,
+  maturity ceilings, next-gate checks, and document decoding.
+
+### Generation 3 repair requirements
+
+1. In repository-aware mode, read the direct first parent's committed
+   `PROJECT_STATUS.yaml`. Require immutable project/task/gate/risk/baseline and
+   bootstrap identity continuity; require `transition.from == parent.state`;
+   require generation unchanged for ordinary transitions and exactly parent + 1
+   for `returned -> in_progress`. Reject jumps, reuse, rollback, or reappearance
+   of a consumed bootstrap exception. Repair start must also clear blockers.
+2. Bind `merged_main` to an explicit authoritative main ref. A merge commit only
+   reachable from a task/fake branch must fail. Add off-main regression coverage.
+3. Bind every active CI identity to the canonical repository remote: URL owner
+   and repository must match GitHub origin, URL run number must equal `run_id`,
+   and phase `subject_sha` must remain exact.
+4. Make the canonical governed-document set mandatory and unique. It must
+   include `AGENTS.md`, `DEVELOPMENT_WORKFLOW.md`, `AG_WORK_LOOP.md`, `DESIGN.md`,
+   `CURRENT_TASK.md`, and `PROJECT_MEMORY.md`; entries may not be removed,
+   duplicated, aliased, or replaced to disable conflict validation.
+5. Replace G9 owner-go and release-complete booleans with traceable immutable
+   approval and release evidence identities. `RELEASE_READY` must not be
+   reachable by self-asserting two booleans.
+6. Strengthen phase-subject continuity to include project, current gate, risk,
+   implementation SHA, and bootstrap identity. Add rewrite regressions.
+7. Require same-gate `next_authorization` task sequence to move forward, and
+   reject leftover blockers in normal `in_progress` repair state.
+8. Preserve all passing checks; update status/memory, deliver a new exact PR
+   head on the same branch, and stop at `awaiting_review`. No G0-T02.
