@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -273,3 +273,34 @@ and memory update. Stop after delivery and wait for independent review.
    arbitrary rollback, and the fresh-repository self-seal proof. Preserve all
    existing checks and deliver only G0-T01 generation 5 on the same PR. Do not
    start G0-T02 or any runtime/business work.
+
+## Generation 5 independent review result: returned
+
+- Reviewed exact delivered head:
+  `702888c6c8e03857879d561eff71ed471f6f449c`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `BLOCK`.
+- Generation 5 closed the fresh-ledger fabrication, post-anchor historical
+  schema downgrade, and maturity inflation paths. Independent checks passed 70
+  focused, 132 backend, 10 frontend tests/build and canonical/diff checks, but
+  the schema authority itself and invalid-node fail-closed boundary remain open.
+
+### Generation 6 repair requirements
+
+1. Give the canonical schema an immutable, content-addressed identity and a
+   machine-validated migration protocol. Reject arbitrary working-tree or
+   committed schema weakening; any future schema change requires an explicit
+   previous digest, new digest, version step, authorized migration subject, and
+   deterministic compatibility rule.
+2. Replace Python loose equality at status identity boundaries with canonical
+   typed comparison after schema success. Integer `5` and number `5.0`, booleans
+   and integers, or coercible identities must never be byte-equivalent state.
+3. Treat every direct-parent and post-anchor schema error as terminal before
+   semantic continuity. Do not call parent, maturity, mapping, or arithmetic
+   helpers on an invalid node. Diagnostics must be deterministic, sanitized,
+   and traceback-free.
+4. Add regressions for current-schema weakening plus generation `5.0`, invalid
+   maturity containers such as `[]` hidden behind a later valid commit, invalid
+   direct parents, schema digest/version rollback, unauthorized migration, and
+   a valid no-change schema path. Preserve all prior checks and deliver only
+   G0-T01 generation 6. No G0-T02 or business/runtime work.
