@@ -232,11 +232,11 @@ def test_structural_document_conflicts_and_memory_authority_fail_closed(tmp_path
     path = tmp_path / "status.json"
     write_status(path, status)
     (tmp_path / "GOVERNANCE.md").write_text("- Current Gate: G9\n", encoding="utf-8")
-    (tmp_path / "CURRENT_TASK.md").write_text("- Task ID: `G0-T02`\n- Gate: G9 release\n- Risk: `D2`\n- Status: `closed`\n- Baseline: `" + "9" * 40 + "`\n", encoding="utf-8")
+    (tmp_path / "CURRENT_TASK.md").write_text("- Task ID: `G0-T02`\n- Gate: G9 release\n- Risk: `D2`\n- Status: `closed`\n- Status: `awaiting_review`\n- Baseline: `" + "9" * 40 + "`\n- Current Maturity: RELEASE_READY\n", encoding="utf-8")
     (tmp_path / "PROJECT_MEMORY.md").write_text("- Current Maturity: RELEASE_READY\n", encoding="utf-8")
     result = run_validator(path, tmp_path)
     assert result.returncode == 1
-    for diagnostic in ("forbidden current-state mirror", "CURRENT_TASK task_id conflicts", "CURRENT_TASK gate conflicts", "CURRENT_TASK state conflicts", "PROJECT_MEMORY must declare historical-only authority"):
+    for diagnostic in ("forbidden current-state mirror", "CURRENT_TASK task_id conflicts", "CURRENT_TASK gate conflicts", "CURRENT_TASK state conflicts", "unsupported current-state mirror", "PROJECT_MEMORY must declare historical-only authority"):
         assert diagnostic in result.stdout
 
 
@@ -356,3 +356,4 @@ def test_uncommitted_phase_subject_and_fabricated_object_fail(tmp_path: Path) ->
     assert result.returncode == 1
     assert "Git commit does not exist" in result.stdout
     assert "exact committed repository HEAD" in result.stdout
+    assert "phase subject requires a clean worktree" in result.stdout

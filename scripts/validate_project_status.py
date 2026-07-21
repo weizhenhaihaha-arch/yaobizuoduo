@@ -32,7 +32,7 @@ TRANSITIONS = {
 MATURITY = {"OFFLINE_EVIDENCE_ACCEPTED": 0, "INTEGRATION_ACCEPTED": 1, "PAPER_VALIDATED": 2, "RELEASE_READY": 3}
 GATE_CEILING = {**{f"G{i}": 0 for i in range(6)}, "G6": 1, "G7": 1, "G8": 2, "G9": 3}
 FORBIDDEN_CURRENT_MIRROR = re.compile(
-    r"^\s*(?:[-*]\s*)?(?:current\s+(?:gate|task|status|state|maturity)|当前(?:门禁|任务|状态|成熟度))\s*[:：]",
+    r"^\s*(?:[-*]\s*)?(?:gate|task\s+id|status|risk|baseline|maturity|current\s+(?:gate|task|status|state|maturity|stage|milestone)|当前(?:门禁|任务|状态|成熟度|阶段|里程碑))\s*[:：]",
     re.IGNORECASE | re.MULTILINE,
 )
 STALE_M_CLAIM = re.compile(
@@ -306,9 +306,12 @@ def _document_errors(status: dict[str, Any], repo_root: Path) -> list[str]:
                 "baseline": (r"^- Baseline: `([^`]+)`$", status["evidence"]["authorization_baseline_sha"]),
             }
             for label, (pattern, expected) in mirrors.items():
-                match = re.search(pattern, text, re.MULTILINE)
-                if match is None or match.group(1) != expected:
+                matches = re.findall(pattern, text, re.MULTILINE)
+                if len(matches) != 1 or matches[0] != expected:
                     errors.append(f"$.governed_documents: CURRENT_TASK {label} conflicts with canonical status")
+            extra_current = re.sub(r"^- (?:Task ID|Gate|Risk|Status|Baseline):.*$", "", text, flags=re.MULTILINE)
+            if FORBIDDEN_CURRENT_MIRROR.search(extra_current):
+                errors.append("$.governed_documents: CURRENT_TASK contains an unsupported current-state mirror")
         elif relative == "PROJECT_MEMORY.md":
             if "not the current machine-state authority" not in text:
                 errors.append("$.governed_documents: PROJECT_MEMORY must declare historical-only authority")
@@ -395,6 +398,9 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
             working = ""
         if not ok or committed != working:
             errors.append("$: phase subject must be the exact committed repository HEAD")
+        clean, porcelain = _git(root, "status", "--porcelain", "--untracked-files=all")
+        if not clean or porcelain:
+            errors.append("$: phase subject requires a clean worktree")
 
     implementation = evidence["implementation_sha"]
     candidate = evidence["candidate"]["commit_sha"]
