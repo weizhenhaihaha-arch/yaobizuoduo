@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -429,3 +429,31 @@ and memory update. Stop after delivery and wait for independent review.
    ledger, maturity, CI, G9, bootstrap and product-route behavior. Create the
    separate generation-10 delivery commit before the full exact-head suite.
    Deliver only G0-T01; no G0-T02 or business/runtime/network/trading scope.
+
+## Generation 10 independent review result: returned
+
+- Reviewed exact delivered head:
+  `bc9c0fb86dc77a1d8fcb5f60c86b8b70f080db15`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `CLEAR`.
+- Main exact-head verification passed 88 focused, 150 backend, 10 frontend
+  tests and the production build. Phase-correct canonical-main enforcement and
+  tag-retained duplicate detection passed, but one hostile visible-ref boundary
+  still raises an uncaught exception.
+
+### Generation 11 repair requirements
+
+1. In migration-consumer discovery, handle a visible commit with no parent
+   before accessing its parent identity. A root commit retained by any included
+   ref must never produce `IndexError` or another traceback.
+2. Fail closed deterministically for a tag-visible root commit that claims or
+   contains migration-consumer state. It may be counted as a conflicting
+   claimant or make the consumer set unavailable, but it must cause canonical
+   validation to reject rather than crash or silently accept.
+3. Add a repository-level regression that constructs such a root commit using
+   `git commit-tree`, retains it only by `refs/tags/*`, and proves deterministic
+   rejection without an exception.
+4. Preserve all accepted Generation 10 lifecycle, visible-ref, digest, tuple,
+   schema/control, ledger, maturity, CI, G9, bootstrap and route behavior.
+   Create the separate generation-11 delivery commit before the full exact-head
+   suite. Deliver only G0-T01; no G0-T02 or other scope.
