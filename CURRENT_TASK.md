@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -399,3 +399,33 @@ and memory update. Stop after delivery and wait for independent review.
    tuple regressions. Preserve all existing tests and production behavior.
    Create the separate delivery commit before running and reporting the entire
    exact-head suite. Deliver only G0-T01 generation 9; no G0-T02 or other scope.
+
+## Generation 9 independent review result: returned
+
+- Reviewed exact delivered head:
+  `c11a332e71f261837b5b6871a7f244061add4375`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `BLOCK`.
+- Main exact-head verification passed 86 focused, 148 backend, 10 frontend
+  tests and the production build. Digest rollback prevention and recursive
+  tuple identity are accepted. Two migration-closure defects remain.
+
+### Generation 10 repair requirements
+
+1. Keep repository-visible single-consumer enforcement active on the
+   pre-merge task branch, but do not require the `authorized -> in_progress`
+   consumer itself to already be on `origin/main`. Enforce canonical
+   `origin/main` first-parent membership only at the lifecycle phase where
+   merge/final acceptance can legally have occurred.
+2. Enumerate every documented repository-visible ref that can retain a commit,
+   including `refs/tags/*`, or define and enforce an explicit ref-exclusion
+   policy that does not contradict the visibility guarantee. Continue to state
+   the honest limitation for absent or unreachable Git objects.
+3. Add a positive pre-review migration regression with `origin/main` remaining
+   at the closed authorization baseline, a negative final-state regression
+   whose consumer is not on canonical main, and a negative duplicate consumer
+   retained only by a tag.
+4. Preserve all accepted digest, typed equality, schema authority/control,
+   ledger, maturity, CI, G9, bootstrap and product-route behavior. Create the
+   separate generation-10 delivery commit before the full exact-head suite.
+   Deliver only G0-T01; no G0-T02 or business/runtime/network/trading scope.
