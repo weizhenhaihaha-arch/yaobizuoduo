@@ -1,0 +1,19 @@
+{
+  "fixture_version": "g0-adversarial.v2",
+  "base": "valid_awaiting_review.json",
+  "cases": [
+    {"id": "unknown_state", "expected": "value is not in the allowed set"},
+    {"id": "illegal_transition", "expected": "illegal lifecycle transition"},
+    {"id": "multiple_active_tasks", "expected": "too many items"},
+    {"id": "malformed_sha", "expected": "string has invalid format"},
+    {"id": "missing_review_ci", "expected": "normal accepted phases require"},
+    {"id": "maturity_ceiling", "expected": "maturity exceeds current gate ceiling"},
+    {"id": "unknown_key", "expected": "unknown field"},
+    {"id": "returned_pending_review", "expected": "returned verdict cannot contain pending reviewers"},
+    {"id": "returned_success_ci", "expected": "returned state cannot retain successful CI"},
+    {"id": "watch_non_mergeable", "expected": "architecture clear"},
+    {"id": "next_gate_prefix", "expected": "task prefix must match"},
+    {"id": "next_gate_skip", "expected": "advance one gate"},
+    {"id": "bootstrap_reuse", "expected": "above maximum"}
+  ]
+}

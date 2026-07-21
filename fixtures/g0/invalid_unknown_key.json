@@ -1,7 +1,0 @@
-{
-  "schema_version": "project-status.v1", "project": "yaobizuoduo", "current_gate": "G0", "surprise": true,
-  "active_tasks": [{"task_id": "G0-T01", "risk": "D0", "state": "in_progress", "transition": {"from": "authorized", "to": "in_progress"}, "candidate_generation": 1}],
-  "evidence": {"baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa", "candidate_sha": null, "closure_sha": null, "implementation_merge_sha": null, "finalization_sha": null},
-  "review": {"code_security": "pending", "architecture": "pending", "reviewed_candidate_sha": null}, "ci": {"status": "not_established", "head_sha": null, "run_id": null, "url": null},
-  "capability": {"maturity": "OFFLINE_EVIDENCE_ACCEPTED", "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"}, "blockers": [], "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"}, "governed_documents": ["AGENTS.md"]
-}

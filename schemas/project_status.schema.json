@@ -1,104 +1,38 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://yaobizuoduo.invalid/schemas/project-status.v1.json",
-  "title": "yaobizuoduo canonical project status",
+  "$id": "https://yaobizuoduo.invalid/schemas/project-status.v2.json",
+  "title": "yaobizuoduo canonical project status v2",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "project", "current_gate", "active_tasks", "evidence", "review", "ci", "capability", "blockers", "next_authorization", "governed_documents"],
+  "required": ["schema_version", "project", "current_gate", "active_tasks", "evidence", "review", "bootstrap_exception", "capability", "release", "blockers", "next_authorization", "governed_documents"],
   "properties": {
-    "schema_version": {"const": "project-status.v1"},
+    "schema_version": {"const": "project-status.v2"},
     "project": {"const": "yaobizuoduo"},
-    "current_gate": {"enum": ["G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"]},
-    "active_tasks": {
-      "type": "array",
-      "minItems": 1,
-      "maxItems": 1,
-      "items": {"$ref": "#/$defs/task"}
-    },
+    "current_gate": {"$ref": "#/$defs/gate"},
+    "active_tasks": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"$ref": "#/$defs/task"}},
     "evidence": {"$ref": "#/$defs/evidence"},
     "review": {"$ref": "#/$defs/review"},
-    "ci": {"$ref": "#/$defs/ci"},
+    "bootstrap_exception": {"type": ["object", "null"], "additionalProperties": false, "required": ["exception_id", "task_id", "authorization_baseline_sha", "status", "uses"], "properties": {"exception_id": {"const": "G0-T01-NO-CI-BOOTSTRAP-20260721"}, "task_id": {"const": "G0-T01"}, "authorization_baseline_sha": {"const": "7aadae13efd45023d19bf8a280f7680667c930fa"}, "status": {"enum": ["available", "consumed"]}, "uses": {"type": "integer", "minimum": 0, "maximum": 1}}},
     "capability": {"$ref": "#/$defs/capability"},
+    "release": {"$ref": "#/$defs/release"},
     "blockers": {"type": "array", "items": {"type": "string", "minLength": 1}},
     "next_authorization": {"$ref": "#/$defs/nextAuthorization"},
-    "governed_documents": {
-      "type": "array",
-      "minItems": 1,
-      "items": {"type": "string", "pattern": "^[A-Za-z0-9_./-]+$"}
-    }
+    "governed_documents": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Za-z0-9_./-]+$"}}
   },
   "$defs": {
+    "gate": {"enum": ["G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"]},
     "sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "nullableSha": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
     "state": {"enum": ["planned", "authorized", "in_progress", "awaiting_review", "returned", "blocked", "accepted_pending_merge", "merged_verified", "closed"]},
-    "task": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["task_id", "risk", "state", "transition", "candidate_generation"],
-      "properties": {
-        "task_id": {"type": "string", "pattern": "^G[0-9]-T[0-9]{2}$"},
-        "risk": {"enum": ["D0", "D1", "D2"]},
-        "state": {"$ref": "#/$defs/state"},
-        "transition": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["from", "to"],
-          "properties": {"from": {"$ref": "#/$defs/state"}, "to": {"$ref": "#/$defs/state"}}
-        },
-        "candidate_generation": {"type": "integer", "minimum": 1}
-      }
-    },
-    "evidence": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["baseline_sha", "candidate_sha", "closure_sha", "implementation_merge_sha", "finalization_sha"],
-      "properties": {
-        "baseline_sha": {"$ref": "#/$defs/sha"},
-        "candidate_sha": {"$ref": "#/$defs/nullableSha"},
-        "closure_sha": {"$ref": "#/$defs/nullableSha"},
-        "implementation_merge_sha": {"$ref": "#/$defs/nullableSha"},
-        "finalization_sha": {"$ref": "#/$defs/nullableSha"}
-      }
-    },
-    "review": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["code_security", "architecture", "reviewed_candidate_sha"],
-      "properties": {
-        "code_security": {"enum": ["pending", "approve", "request_changes", "blocked"]},
-        "architecture": {"enum": ["pending", "clear", "block"]},
-        "reviewed_candidate_sha": {"$ref": "#/$defs/nullableSha"}
-      }
-    },
-    "ci": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["status", "head_sha", "run_id", "url"],
-      "properties": {
-        "status": {"enum": ["not_established", "not_run", "pending", "success", "failure"]},
-        "head_sha": {"$ref": "#/$defs/nullableSha"},
-        "run_id": {"type": ["string", "null"], "pattern": "^[1-9][0-9]*$"},
-        "url": {"type": ["string", "null"], "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[1-9][0-9]*$"}
-      }
-    },
-    "capability": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["maturity", "legacy_maximum"],
-      "properties": {
-        "maturity": {"enum": ["OFFLINE_EVIDENCE_ACCEPTED", "INTEGRATION_ACCEPTED", "PAPER_VALIDATED", "RELEASE_READY"]},
-        "legacy_maximum": {"const": "OFFLINE_EVIDENCE_ACCEPTED"}
-      }
-    },
-    "nextAuthorization": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["gate", "task_id", "state"],
-      "properties": {
-        "gate": {"enum": ["G0", "G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8", "G9"]},
-        "task_id": {"type": "string", "pattern": "^G[0-9]-T[0-9]{2}$"},
-        "state": {"const": "not_authorized"}
-      }
-    }
+    "task": {"type": "object", "additionalProperties": false, "required": ["task_id", "risk", "state", "transition", "candidate_generation"], "properties": {"task_id": {"type": "string", "pattern": "^G[0-9]-T[0-9]{2}$"}, "risk": {"enum": ["D0", "D1", "D2"]}, "state": {"$ref": "#/$defs/state"}, "transition": {"type": "object", "additionalProperties": false, "required": ["from", "to"], "properties": {"from": {"$ref": "#/$defs/state"}, "to": {"$ref": "#/$defs/state"}}}, "candidate_generation": {"type": "integer", "minimum": 1}}},
+    "ci": {"type": "object", "additionalProperties": false, "required": ["status", "subject_sha", "run_id", "url"], "properties": {"status": {"enum": ["not_established", "not_run", "pending", "success", "failure"]}, "subject_sha": {"$ref": "#/$defs/nullableSha"}, "run_id": {"type": ["string", "null"], "pattern": "^[1-9][0-9]*$"}, "url": {"type": ["string", "null"], "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/actions/runs/[1-9][0-9]*$"}}},
+    "phase": {"type": "object", "additionalProperties": false, "required": ["commit_sha", "ci"], "properties": {"commit_sha": {"$ref": "#/$defs/nullableSha"}, "ci": {"$ref": "#/$defs/ci"}}},
+    "candidatePhase": {"type": "object", "additionalProperties": false, "required": ["commit_sha", "local_verification", "ci"], "properties": {"commit_sha": {"$ref": "#/$defs/nullableSha"}, "local_verification": {"type": "object", "additionalProperties": false, "required": ["status", "subject"], "properties": {"status": {"enum": ["pending", "success", "failure"]}, "subject": {"const": "delivery_head"}}}, "ci": {"$ref": "#/$defs/ci"}}},
+    "finalizationPhase": {"type": "object", "additionalProperties": false, "required": ["commit_sha", "d0_ci"], "properties": {"commit_sha": {"$ref": "#/$defs/nullableSha"}, "d0_ci": {"$ref": "#/$defs/ci"}}},
+    "evidence": {"type": "object", "additionalProperties": false, "required": ["authorization_baseline_sha", "implementation_sha", "candidate", "closure", "merged_main", "finalization"], "properties": {"authorization_baseline_sha": {"$ref": "#/$defs/sha"}, "implementation_sha": {"$ref": "#/$defs/nullableSha"}, "candidate": {"$ref": "#/$defs/candidatePhase"}, "closure": {"$ref": "#/$defs/phase"}, "merged_main": {"$ref": "#/$defs/phase"}, "finalization": {"$ref": "#/$defs/finalizationPhase"}}},
+    "review": {"type": "object", "additionalProperties": false, "required": ["code_security", "architecture", "reviewed_candidate_sha"], "properties": {"code_security": {"enum": ["pending", "approve", "request_changes", "blocked"]}, "architecture": {"enum": ["pending", "clear", "watch", "block"]}, "reviewed_candidate_sha": {"$ref": "#/$defs/nullableSha"}}},
+    "capability": {"type": "object", "additionalProperties": false, "required": ["maturity", "legacy_maximum"], "properties": {"maturity": {"enum": ["OFFLINE_EVIDENCE_ACCEPTED", "INTEGRATION_ACCEPTED", "PAPER_VALIDATED", "RELEASE_READY"]}, "legacy_maximum": {"const": "OFFLINE_EVIDENCE_ACCEPTED"}}},
+    "release": {"type": "object", "additionalProperties": false, "required": ["product_owner_go", "release_evidence_complete"], "properties": {"product_owner_go": {"type": "boolean"}, "release_evidence_complete": {"type": "boolean"}}},
+    "nextAuthorization": {"type": "object", "additionalProperties": false, "required": ["gate", "task_id", "state"], "properties": {"gate": {"$ref": "#/$defs/gate"}, "task_id": {"type": "string", "pattern": "^G[0-9]-T[0-9]{2}$"}, "state": {"const": "not_authorized"}}}
   }
 }
