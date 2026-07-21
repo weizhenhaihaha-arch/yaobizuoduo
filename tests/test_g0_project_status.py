@@ -14,6 +14,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
+SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
 FIXTURES = ROOT / "fixtures" / "g0"
 SPEC = importlib.util.spec_from_file_location("project_status_validator", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
@@ -34,6 +35,34 @@ def load_valid() -> dict:
 
 def write_status(path: Path, status: dict) -> None:
     path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
+
+
+def migration_control(decision: str, authority: dict, **overrides: object) -> dict:
+    if decision == "no_migration":
+        control = {
+            "schema_version": "schema-migration-control.v1",
+            "project": "yaobizuoduo",
+            "decision": decision,
+            "current_revision": authority["revision"],
+            "current_sha256": authority["sha256"],
+        }
+    else:
+        control = {
+            "schema_version": "schema-migration-control.v1",
+            "project": "yaobizuoduo",
+            "decision": "authorize_migration",
+            "task_id": "G1-T01",
+            "gate": "G1",
+            "purpose": "project-status-schema-migration",
+            "from_revision": authority["revision"],
+            "from_sha256": authority["sha256"],
+            "to_revision": authority["revision"] + 1,
+            "to_sha256": "f" * 64,
+            "compatibility_rule": "strict-current-schema-revalidation",
+        }
+    control.update(overrides)
+    control["payload_sha256"] = VALIDATOR._payload_digest(control)
+    return control
 
 
 def ci(status: str = "not_established", subject: str | None = None, run: str | None = None) -> dict:
@@ -299,7 +328,7 @@ def write_governed(repo: Path, status: dict) -> None:
 
 def make_delivery_repo(tmp_path: Path, gate: str = "G1", maturity: str = "OFFLINE_EVIDENCE_ACCEPTED") -> tuple[Path, dict, str, str, str]:
     repo = tmp_path / "repo"
-    repo.mkdir()
+    repo.mkdir(parents=True)
     git(repo, "init", "-b", "main")
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
@@ -1177,33 +1206,101 @@ def test_committed_schema_weakening_cannot_be_hidden_by_restore(tmp_path: Path) 
 
 
 def test_unchanged_content_addressed_schema_remains_valid(tmp_path: Path) -> None:
-    repo, _ = clone_with_ledger_migration(tmp_path)
+    repo = tmp_path / "pinned-in-progress"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "-c", "pinned", VALIDATOR.SCHEMA_CONTROL_BOOTSTRAP_PARENT)
+    git(repo, "update-ref", "refs/heads/main", "refs/remotes/origin/main")
+    (repo / "schemas" / SCHEMA_CONTROL.name).write_text(SCHEMA_CONTROL.read_text(encoding="utf-8"), encoding="utf-8")
+    commit(repo, "install explicit no-migration control")
     (repo / "implementation.txt").write_text("ordinary work with unchanged schema\n", encoding="utf-8")
     commit(repo, "unchanged schema work")
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo, repo / "schemas" / "project_status.schema.json")
     assert result.returncode == 0, result.stdout
 
 
-def test_generic_authorized_schema_migration_rule_has_no_subject_allowlist(tmp_path: Path) -> None:
-    repo, status = clone_with_ledger_migration(tmp_path)
-    parent_sha = git(repo, "rev-parse", "HEAD")
-    parent = copy.deepcopy(status)
+def make_prior_bound_schema_migration(tmp_path: Path, corrupt_digest: bool = False) -> tuple[Path, dict, dict, str, str]:
+    repo = tmp_path / "prior-bound"
+    repo.mkdir(parents=True)
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "add", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    (repo / "schemas").mkdir()
+    schema_path = repo / "schemas" / "project_status.schema.json"
+    schema_path.write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
+    parent = json.loads((ROOT / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     parent["active_tasks"][0].update(state="closed", transition={"from": "merged_verified", "to": "closed"})
-    current = copy.deepcopy(parent)
-    current["active_tasks"][0].update(task_id="G1-T01", state="authorized", transition={"from": "closed", "to": "authorized"}, candidate_generation=1)
-    current["current_gate"] = "G1"
+    write_status(repo / "PROJECT_STATUS.yaml", parent)
+    write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, migration_control("no_migration", parent["schema_authority"]))
+    main_sha = commit(repo, "authoritative closed main")
+    git(repo, "update-ref", "refs/remotes/origin/main", main_sha)
+
+    changed_schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    changed_schema["$comment"] = "prior-authorized compatible migration"
+    target_bytes = (json.dumps(changed_schema, indent=2) + "\n").encode()
+    target_digest = hashlib.sha256(target_bytes).hexdigest()
+    authorized = copy.deepcopy(parent)
+    authorized["current_gate"] = "G1"
+    authorized["active_tasks"][0].update(task_id="G1-T01", state="authorized", transition={"from": "closed", "to": "authorized"}, candidate_generation=1)
+    authorized["evidence"]["authorization_baseline_sha"] = main_sha
+    auth_control = migration_control("authorize_migration", parent["schema_authority"], to_sha256=target_digest)
+    if corrupt_digest:
+        auth_control["payload_sha256"] = "0" * 64
+    write_status(repo / "PROJECT_STATUS.yaml", authorized)
+    write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, auth_control)
+    authorization_sha = commit(repo, "bind exact future schema migration")
+
+    current = copy.deepcopy(authorized)
+    current["active_tasks"][0].update(state="in_progress", transition={"from": "authorized", "to": "in_progress"})
     old_digest = parent["schema_authority"]["sha256"]
     current["schema_authority"] = {
         "revision": 2,
-        "sha256": "f" * 64,
+        "sha256": target_digest,
         "migration": {
             "from_revision": 1,
             "from_sha256": old_digest,
             "to_revision": 2,
-            "to_sha256": "f" * 64,
-            "authorization_sha": parent_sha,
+            "to_sha256": target_digest,
+            "authorization_sha": authorization_sha,
             "compatibility_rule": "strict-current-schema-revalidation",
             "preauthority_history_sha256": None,
         },
     }
-    assert VALIDATOR._schema_authority_continuity_errors(current, parent, parent_sha, repo) == []
+    schema_path.write_bytes(target_bytes)
+    write_status(repo / "PROJECT_STATUS.yaml", current)
+    write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, migration_control("no_migration", current["schema_authority"]))
+    migration_sha = commit(repo, "consume prior schema migration authorization")
+    return repo, authorized, current, authorization_sha, migration_sha
+
+
+def test_future_schema_cannot_self_authorize_from_generic_closed_parent(tmp_path: Path) -> None:
+    repo, authorized, current, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    closed = copy.deepcopy(authorized)
+    closed["active_tasks"][0].update(state="closed", transition={"from": "merged_verified", "to": "closed"})
+    write_status(repo / VALIDATOR.SCHEMA_CONTROL_PATH, migration_control("no_migration", closed["schema_authority"]))
+    assert VALIDATOR._schema_authority_continuity_errors(current, closed, authorization_sha, repo, migration_sha) != []
+
+
+def test_valid_prior_bound_schema_migration_is_accepted(tmp_path: Path) -> None:
+    repo, authorized, current, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path)
+    assert VALIDATOR._schema_authority_continuity_errors(current, authorized, authorization_sha, repo, migration_sha) == []
+
+
+def test_schema_authorization_digest_mismatch_and_reuse_fail_closed(tmp_path: Path) -> None:
+    bad_repo, authorized, current, authorization_sha, migration_sha = make_prior_bound_schema_migration(tmp_path / "bad", corrupt_digest=True)
+    assert VALIDATOR._schema_authority_continuity_errors(current, authorized, authorization_sha, bad_repo, migration_sha) != []
+    good_repo, _, _, good_authorization, good_migration = make_prior_bound_schema_migration(tmp_path / "good")
+    assert VALIDATOR._schema_authorization_reused(good_repo, good_migration, good_authorization)
+
+
+def test_generation_continuity_rejects_float_and_bool_identities() -> None:
+    parent = load_valid()
+    parent["active_tasks"][0].update(state="in_progress", transition={"from": "authorized", "to": "in_progress"}, candidate_generation=1)
+    for forged in (1.0, True):
+        child = copy.deepcopy(parent)
+        child["active_tasks"][0]["candidate_generation"] = forged
+        errors = VALIDATOR._parent_status_errors(child, parent, "1" * 40)
+        assert "$.active_tasks[0].candidate_generation: continuity requires exact integers" in errors

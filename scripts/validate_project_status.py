@@ -26,6 +26,10 @@ SCHEMA_BOOTSTRAP_SUBJECT = "abf310da75676fed15d697786886b57f107854ed"
 SCHEMA_BOOTSTRAP_OLD_DIGEST = "f0b1af40eac4adfad78e30cdc9dcb3104ed3c1cfbeac7a506c4128231c5a1693"
 SCHEMA_PREAUTHORITY_HISTORY_DIGEST = "0783dfa9d3ec8c281fbd175ae983f23d116edca577d6bf3d3857f5e728c95fa4"
 SCHEMA_COMPATIBILITY_RULE = "strict-current-schema-revalidation"
+SCHEMA_CONTROL_PATH = "schemas/project_status.schema-migration-control.json"
+SCHEMA_CONTROL_VERSION = "schema-migration-control.v1"
+SCHEMA_CONTROL_PURPOSE = "project-status-schema-migration"
+SCHEMA_CONTROL_BOOTSTRAP_PARENT = "3128dd4a5c767d1a8b292a68c3418299e9d89ac3"
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -70,6 +74,12 @@ def _typed_equal(left: Any, right: Any) -> bool:
     if type(left) is list:
         return len(left) == len(right) and all(_typed_equal(a, b) for a, b in zip(left, right))
     return left == right
+
+
+def _payload_digest(value: dict[str, Any]) -> str:
+    payload = {key: item for key, item in value.items() if key != "payload_sha256"}
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
 
 
 def _resolve_ref(schema: dict[str, Any], ref: str) -> dict[str, Any]:
@@ -569,6 +579,103 @@ def _schema_digest_at(root: Path, sha: str) -> str | None:
     return hashlib.sha256(payload).hexdigest() if ok else None
 
 
+def _schema_control_from_bytes(payload: bytes) -> dict[str, Any] | None:
+    try:
+        value = json.loads(payload.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys)
+    except (UnicodeError, json.JSONDecodeError, ValueError):
+        return None
+    return value if type(value) is dict else None
+
+
+def _schema_control_at(root: Path, sha: str) -> dict[str, Any] | None:
+    ok, payload = _git_bytes(root, "show", f"{sha}:{SCHEMA_CONTROL_PATH}")
+    return _schema_control_from_bytes(payload) if ok else None
+
+
+def _schema_control_errors(control: Any, status: dict[str, Any]) -> list[str]:
+    if type(control) is not dict:
+        return ["$.schema_migration_control: required canonical control artifact is unreadable"]
+    common = {"schema_version", "project", "decision", "payload_sha256"}
+    no_migration_keys = common | {"current_revision", "current_sha256"}
+    authorization_keys = common | {
+        "task_id", "gate", "purpose", "from_revision", "from_sha256",
+        "to_revision", "to_sha256", "compatibility_rule",
+    }
+    decision = control.get("decision")
+    expected_keys = no_migration_keys if decision == "no_migration" else authorization_keys if decision == "authorize_migration" else set()
+    if not expected_keys or set(control) != expected_keys:
+        return ["$.schema_migration_control: invalid control artifact shape or decision"]
+    if (
+        type(control.get("schema_version")) is not str
+        or type(control.get("project")) is not str
+        or type(control.get("payload_sha256")) is not str
+        or control["schema_version"] != SCHEMA_CONTROL_VERSION
+        or control["project"] != "yaobizuoduo"
+        or re.fullmatch(r"[0-9a-f]{64}", control["payload_sha256"]) is None
+        or not _typed_equal(control["payload_sha256"], _payload_digest(control))
+    ):
+        return ["$.schema_migration_control: identity or payload digest mismatch"]
+    authority = status.get("schema_authority")
+    task = status["active_tasks"][0]
+    if decision == "no_migration":
+        valid = (
+            type(control.get("current_revision")) is int
+            and type(control.get("current_sha256")) is str
+            and _typed_equal(control["current_revision"], authority.get("revision"))
+            and _typed_equal(control["current_sha256"], authority.get("sha256"))
+        )
+        return [] if valid else ["$.schema_migration_control: explicit no-migration decision must bind current schema authority"]
+    exact_types = (
+        type(control.get("task_id")) is str
+        and type(control.get("gate")) is str
+        and type(control.get("purpose")) is str
+        and type(control.get("from_revision")) is int
+        and type(control.get("from_sha256")) is str
+        and type(control.get("to_revision")) is int
+        and type(control.get("to_sha256")) is str
+        and type(control.get("compatibility_rule")) is str
+    )
+    if not exact_types:
+        return ["$.schema_migration_control: authorization fields require exact canonical types"]
+    valid = (
+        task["state"] == "authorized"
+        and _typed_equal(control["task_id"], task["task_id"])
+        and _typed_equal(control["gate"], status["current_gate"])
+        and control["purpose"] == SCHEMA_CONTROL_PURPOSE
+        and _typed_equal(control["from_revision"], authority.get("revision"))
+        and _typed_equal(control["from_sha256"], authority.get("sha256"))
+        and _typed_equal(control["to_revision"], authority.get("revision") + 1)
+        and re.fullmatch(r"[0-9a-f]{64}", control["to_sha256"]) is not None
+        and not _typed_equal(control["to_sha256"], authority.get("sha256"))
+        and control["compatibility_rule"] == SCHEMA_COMPATIBILITY_RULE
+    )
+    return [] if valid else ["$.schema_migration_control: authorization must pre-bind task, gate, purpose, compatibility, and exact schema transition"]
+
+
+def _schema_control_document_errors(status: dict[str, Any], schema_path: Path) -> list[str]:
+    if type(status.get("transition_ledger")) is not dict:
+        return []
+    path = schema_path.parent / Path(SCHEMA_CONTROL_PATH).name
+    try:
+        control = _schema_control_from_bytes(path.read_bytes())
+    except OSError:
+        control = None
+    return _schema_control_errors(control, status)
+
+
+def _schema_authorization_reused(root: Path, parent_sha: str, authorization_sha: str) -> bool:
+    ok, commits_text = _git(root, "rev-list", "--first-parent", parent_sha)
+    if not ok:
+        return True
+    for sha in commits_text.splitlines()[1:]:
+        node = _status_at(root, sha)
+        authority = node.get("schema_authority") if type(node) is dict else None
+        migration = authority.get("migration") if type(authority) is dict else None
+        if type(migration) is dict and _typed_equal(migration.get("authorization_sha"), authorization_sha):
+            return True
+    return False
+
+
 def _schema_authority_document_errors(status: dict[str, Any], schema_path: Path) -> list[str]:
     if type(status.get("transition_ledger")) is not dict:
         return []
@@ -620,7 +727,9 @@ def _schema_authority_document_errors(status: dict[str, Any], schema_path: Path)
     return errors
 
 
-def _schema_authority_continuity_errors(status: dict[str, Any], parent: dict[str, Any], parent_sha: str, root: Path) -> list[str]:
+def _schema_authority_continuity_errors(
+    status: dict[str, Any], parent: dict[str, Any], parent_sha: str, root: Path, child_sha: str | None = None
+) -> list[str]:
     current = status.get("schema_authority")
     previous = parent.get("schema_authority")
     if current is None and previous is None:
@@ -645,25 +754,81 @@ def _schema_authority_continuity_errors(status: dict[str, Any], parent: dict[str
             and _schema_digest_at(root, parent_sha) == SCHEMA_BOOTSTRAP_OLD_DIGEST
         )
         return [] if expected_bootstrap else ["$.schema_authority: first authority creation must be the exact generation-6 bootstrap migration"]
+    current_control = _schema_control_at(root, child_sha) if child_sha is not None else _schema_control_from_bytes((root / SCHEMA_CONTROL_PATH).read_bytes()) if (root / SCHEMA_CONTROL_PATH).is_file() else None
+    parent_control = _schema_control_at(root, parent_sha)
     if _typed_equal(current, previous):
-        return []
+        if current_control is None and parent_control is None:
+            return []
+        if parent_control is None:
+            bootstrap = (
+                parent_sha == SCHEMA_CONTROL_BOOTSTRAP_PARENT
+                and type(current_control) is dict
+                and current_control.get("decision") == "no_migration"
+                and status["project"] == "yaobizuoduo"
+                and status["active_tasks"][0]["task_id"] == BOOTSTRAP_TASK
+                and status["active_tasks"][0]["state"] == "in_progress"
+                and not _schema_control_errors(current_control, status)
+            )
+            return [] if bootstrap else ["$.schema_migration_control: first control creation is not the authorized generation-7 bootstrap"]
+        if _typed_equal(current_control, parent_control):
+            return []
+        if type(current_control) is dict and current_control.get("decision") == "authorize_migration":
+            parent_task, current_task = parent["active_tasks"][0], status["active_tasks"][0]
+            remote_ok, remote_main = _git(root, "rev-parse", "--verify", "refs/remotes/origin/" + status["authoritative_main_ref"].removeprefix("refs/heads/"))
+            authorized = (
+                type(parent_control) is dict
+                and parent_control.get("decision") == "no_migration"
+                and parent_task["state"] == "closed"
+                and current_task["state"] == "authorized"
+                and current_task["transition"] == {"from": "closed", "to": "authorized"}
+                and _typed_equal(status["evidence"]["authorization_baseline_sha"], parent_sha)
+                and remote_ok
+                and _is_first_parent_ancestor(root, parent_sha, remote_main)
+                and not _schema_control_errors(current_control, status)
+            )
+            return [] if authorized else ["$.schema_migration_control: migration authorization must be an authorized handoff from authoritative main"]
+        return ["$.schema_migration_control: authorization cannot be changed, discarded, or consumed without its exact migration"]
     migration = current.get("migration") if type(current) is dict else None
     parent_task, current_task = parent["active_tasks"][0], status["active_tasks"][0]
+    control_valid = (
+        type(parent_control) is dict
+        and parent_control.get("decision") == "authorize_migration"
+        and not _schema_control_errors(parent_control, parent)
+        and type(current_control) is dict
+        and current_control.get("decision") == "no_migration"
+        and not _schema_control_errors(current_control, status)
+    )
+    remote_ok, remote_main = _git(root, "rev-parse", "--verify", "refs/remotes/origin/" + status["authoritative_main_ref"].removeprefix("refs/heads/"))
+    authorization_baseline = parent["evidence"]["authorization_baseline_sha"]
     valid = (
         type(current) is dict
         and type(previous) is dict
         and type(migration) is dict
-        and parent_task["state"] == "closed"
-        and current_task["state"] == "authorized"
-        and current_task["transition"] == {"from": "closed", "to": "authorized"}
-        and migration.get("from_revision") == previous.get("revision")
-        and migration.get("from_sha256") == previous.get("sha256")
-        and migration.get("to_revision") == current.get("revision")
-        and migration.get("to_sha256") == current.get("sha256")
-        and migration.get("authorization_sha") == parent_sha
-        and migration.get("compatibility_rule") == SCHEMA_COMPATIBILITY_RULE
+        and control_valid
+        and parent_task["state"] == "authorized"
+        and current_task["state"] == "in_progress"
+        and current_task["transition"] == {"from": "authorized", "to": "in_progress"}
+        and _typed_equal(current_task["task_id"], parent_task["task_id"])
+        and _typed_equal(status["current_gate"], parent["current_gate"])
+        and _typed_equal(current_task["candidate_generation"], parent_task["candidate_generation"])
+        and _typed_equal(migration.get("from_revision"), previous.get("revision"))
+        and _typed_equal(migration.get("from_sha256"), previous.get("sha256"))
+        and _typed_equal(migration.get("to_revision"), current.get("revision"))
+        and _typed_equal(migration.get("to_sha256"), current.get("sha256"))
+        and _typed_equal(migration.get("authorization_sha"), parent_sha)
+        and _typed_equal(migration.get("compatibility_rule"), SCHEMA_COMPATIBILITY_RULE)
         and migration.get("preauthority_history_sha256") is None
         and _schema_digest_at(root, parent_sha) == previous.get("sha256")
+        and _typed_equal(parent_control.get("from_revision"), previous.get("revision"))
+        and _typed_equal(parent_control.get("from_sha256"), previous.get("sha256"))
+        and _typed_equal(parent_control.get("to_revision"), current.get("revision"))
+        and _typed_equal(parent_control.get("to_sha256"), current.get("sha256"))
+        and _typed_equal(parent_control.get("task_id"), current_task["task_id"])
+        and _typed_equal(parent_control.get("gate"), status["current_gate"])
+        and _typed_equal(parent_control.get("purpose"), SCHEMA_CONTROL_PURPOSE)
+        and remote_ok
+        and _is_first_parent_ancestor(root, authorization_baseline, remote_main)
+        and not _schema_authorization_reused(root, parent_sha, parent_sha)
     )
     return [] if valid else ["$.schema_authority: schema migration is unauthorized or discontinuous"]
 
@@ -697,7 +862,7 @@ def _ci_continuity_errors(status: dict[str, Any], parent: dict[str, Any]) -> lis
         if old_state in {"success", "failure"} and not _typed_equal(current, previous):
             errors.append(f"{path}: terminal CI evidence is immutable")
         elif old_state == "pending":
-            if new_state not in {"pending", "success", "failure"} or new_identity != old_identity:
+            if new_state not in {"pending", "success", "failure"} or not _typed_equal(new_identity, old_identity):
                 errors.append(f"{path}: pending CI may only become terminal for the same immutable run")
         elif old_state in {"not_established", "not_run"} and new_state in {"not_established", "not_run"} and not _typed_equal(current, previous):
             errors.append(f"{path}: inactive CI state cannot be relabelled")
@@ -797,7 +962,7 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
         next_auth = parent.get("next_authorization")
         if type(next_auth) is not dict or (current_task["task_id"], status["current_gate"]) != (next_auth.get("task_id"), next_auth.get("gate")):
             errors.append("$: inter-task handoff must match the exact prior next authorization")
-        if current_task["candidate_generation"] != 1:
+        if not _typed_equal(current_task["candidate_generation"], 1):
             errors.append("$.active_tasks[0].candidate_generation: inter-task handoff must reset generation to one")
         if parent_sha is None or status["evidence"]["authorization_baseline_sha"] != parent_sha:
             errors.append("$.evidence.authorization_baseline_sha: inter-task handoff baseline must equal the prior close commit")
@@ -816,28 +981,30 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
     for label, current, previous in immutable:
         if not _typed_equal(current, previous):
             errors.append(f"$: immutable {label} changed from direct first parent")
-    if current_task["transition"]["from"] != parent_state:
+    if not _typed_equal(current_task["transition"]["from"], parent_state):
         errors.append("$.active_tasks[0].transition.from: must equal direct first parent state")
     current_generation = current_task["candidate_generation"]
     parent_generation = parent_task["candidate_generation"]
-    if parent_state == "returned" and current_task["state"] == "in_progress":
-        if current_generation != parent_generation + 1:
+    if type(current_generation) is not int or type(parent_generation) is not int:
+        errors.append("$.active_tasks[0].candidate_generation: continuity requires exact integers")
+    elif parent_state == "returned" and current_task["state"] == "in_progress":
+        if not _typed_equal(current_generation, parent_generation + 1):
             errors.append("$.active_tasks[0].candidate_generation: returned repair must be exactly parent generation plus one")
-    elif current_generation != parent_generation:
+    elif not _typed_equal(current_generation, parent_generation):
         errors.append("$.active_tasks[0].candidate_generation: ordinary transition must preserve parent generation")
 
     parent_exception = parent.get("bootstrap_exception")
     current_exception = status.get("bootstrap_exception")
-    if _bootstrap_identity(current_exception) != _bootstrap_identity(parent_exception):
+    if not _typed_equal(_bootstrap_identity(current_exception), _bootstrap_identity(parent_exception)):
         errors.append("$.bootstrap_exception: immutable identity changed or reappeared across direct parent")
     if type(parent_exception) is dict:
         previous_pair = (parent_exception.get("status"), parent_exception.get("uses"))
         current_pair = (current_exception.get("status"), current_exception.get("uses")) if type(current_exception) is dict else None
-        if previous_pair == ("consumed", 1) and current_pair != ("consumed", 1):
+        if _typed_equal(previous_pair, ("consumed", 1)) and not _typed_equal(current_pair, ("consumed", 1)):
             errors.append("$.bootstrap_exception: consumed exception cannot roll back or disappear")
-        if previous_pair == ("available", 0) and current_pair not in {("available", 0), ("consumed", 1)}:
+        if _typed_equal(previous_pair, ("available", 0)) and not any(_typed_equal(current_pair, allowed) for allowed in (("available", 0), ("consumed", 1))):
             errors.append("$.bootstrap_exception: exception consumption must be monotonic")
-        if current_pair == ("consumed", 1) and current_task["state"] not in {"accepted_pending_merge", "merged_verified", "closed"}:
+        if _typed_equal(current_pair, ("consumed", 1)) and current_task["state"] not in {"accepted_pending_merge", "merged_verified", "closed"}:
             errors.append("$.bootstrap_exception: exception may be consumed only on an accepted transition")
 
     if not (parent_state == "returned" and current_task["state"] == "in_progress"):
@@ -998,7 +1165,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             )
         if not inherited_merge_bridge:
             errors.extend(_parent_status_errors(child, parent, parent_sha))
-            errors.extend(_schema_authority_continuity_errors(child, parent, parent_sha, root))
+            errors.extend(_schema_authority_continuity_errors(child, parent, parent_sha, root, child_sha))
     return errors
 
 
@@ -1007,17 +1174,17 @@ def _subject_status_matches(status: dict[str, Any], subject: dict[str, Any] | No
         return False
     try:
         return (
-            subject["schema_version"] == "project-status.v2"
-            and subject["project"] == status["project"]
-            and subject["authoritative_main_ref"] == status["authoritative_main_ref"]
-            and subject["current_gate"] == status["current_gate"]
-            and subject["active_tasks"][0]["task_id"] == status["active_tasks"][0]["task_id"]
-            and subject["active_tasks"][0]["risk"] == status["active_tasks"][0]["risk"]
-            and subject["active_tasks"][0]["candidate_generation"] == status["active_tasks"][0]["candidate_generation"]
-            and subject["active_tasks"][0]["state"] == expected_state
-            and subject["evidence"]["authorization_baseline_sha"] == status["evidence"]["authorization_baseline_sha"]
-            and subject["evidence"]["implementation_sha"] == status["evidence"]["implementation_sha"]
-            and _bootstrap_identity(subject.get("bootstrap_exception")) == _bootstrap_identity(status.get("bootstrap_exception"))
+            _typed_equal(subject["schema_version"], "project-status.v2")
+            and _typed_equal(subject["project"], status["project"])
+            and _typed_equal(subject["authoritative_main_ref"], status["authoritative_main_ref"])
+            and _typed_equal(subject["current_gate"], status["current_gate"])
+            and _typed_equal(subject["active_tasks"][0]["task_id"], status["active_tasks"][0]["task_id"])
+            and _typed_equal(subject["active_tasks"][0]["risk"], status["active_tasks"][0]["risk"])
+            and _typed_equal(subject["active_tasks"][0]["candidate_generation"], status["active_tasks"][0]["candidate_generation"])
+            and _typed_equal(subject["active_tasks"][0]["state"], expected_state)
+            and _typed_equal(subject["evidence"]["authorization_baseline_sha"], status["evidence"]["authorization_baseline_sha"])
+            and _typed_equal(subject["evidence"]["implementation_sha"], status["evidence"]["implementation_sha"])
+            and _typed_equal(_bootstrap_identity(subject.get("bootstrap_exception")), _bootstrap_identity(status.get("bootstrap_exception")))
             and _typed_equal(subject.get("schema_authority"), status.get("schema_authority"))
             and _typed_equal(subject.get("transition_ledger"), status.get("transition_ledger"))
         )
@@ -1155,6 +1322,9 @@ def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> li
     authority_errors = _schema_authority_document_errors(status, schema_path)
     if authority_errors:
         return sorted(set(authority_errors))
+    control_errors = _schema_control_document_errors(status, schema_path)
+    if control_errors:
+        return sorted(set(control_errors))
     try:
         errors = _schema_errors(status, schema, schema)
     except (KeyError, TypeError, ValueError):

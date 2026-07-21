@@ -1,0 +1,8 @@
+{
+  "schema_version": "schema-migration-control.v1",
+  "project": "yaobizuoduo",
+  "decision": "no_migration",
+  "current_revision": 1,
+  "current_sha256": "192787ae5ad594bf3fce57af75de8bb9db99c83adac93ad1434fc49d63579e5e",
+  "payload_sha256": "d51e56d06bac3cec0fafcd2b3e48759814e0d5c7486e38cad4ec978d4ff64302"
+}
