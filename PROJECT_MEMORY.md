@@ -8,7 +8,7 @@ CI, maturity, blockers, and next authorization.
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment remain capped at offline evidence. L0 closed under legacy local review. G0-T01 generation 3 implementation `60e4274a9c96ad4d4468360526f2a2faa3c90076` is delivered for independent review with repository-history, authoritative-main, canonical-origin CI, mandatory-document, immutable phase and traceable G9 evidence validation. The exact candidate is the committed PR HEAD and is intentionally recorded only by a later review commit. No bootstrap CI, branch protection, live notification provider, monitoring infrastructure, exchange transport, continuous Paper validation, or trading execution is established.
+- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment remain capped at offline evidence. L0 closed under legacy local review. Independent review returned G0-T01 generation 3 exact head `2384d22ace87ad7d304f3def74a7ff7f19cdf7c7`; generation 4 has now started atomically from review commit `0900d2af59e9f0cd6971a5f24b90aed00f0a6fe5` with all candidate, implementation, review, CI and blocker identities cleared. No bootstrap CI, branch protection, live notification provider, monitoring infrastructure, exchange transport, continuous Paper validation, or trading execution is established.
 
 ## Confirmed requirements
 
@@ -121,6 +121,8 @@ CI, maturity, blockers, and next authorization.
 - Legacy offline work through M7-T02 remains capped at `OFFLINE_EVIDENCE_ACCEPTED`; L0 is closed. G0-T01 awaits independent review. G0-T02, bootstrap CI, branch protection, Telegram evaluation, live delivery/monitoring infrastructure, continuous Paper observation, and release work are not authorized by this card.
 
 ## Development log
+
+- 2026-07-21 Asia/Shanghai: Started the bounded G0-T01 generation 4 repair from review commit `0900d2af59e9f0cd6971a5f24b90aed00f0a6fe5`. The canonical transition is `returned -> in_progress`, generation is exactly 4, prior implementation/candidate/review/CI/blocker identities are clear, and the baseline-bound bootstrap exception remains available with zero uses. Work remains restricted to the six generation 4 governance defects and their adversarial regressions.
 
 ### 2026-07-21
 
