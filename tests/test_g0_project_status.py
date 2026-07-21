@@ -297,7 +297,7 @@ def write_governed(repo: Path, status: dict) -> None:
         (repo / name).write_text(f"# {name}\n", encoding="utf-8")
 
 
-def make_delivery_repo(tmp_path: Path, gate: str = "G1") -> tuple[Path, dict, str, str, str]:
+def make_delivery_repo(tmp_path: Path, gate: str = "G1", maturity: str = "OFFLINE_EVIDENCE_ACCEPTED") -> tuple[Path, dict, str, str, str]:
     repo = tmp_path / "repo"
     repo.mkdir()
     git(repo, "init", "-b", "main")
@@ -313,6 +313,7 @@ def make_delivery_repo(tmp_path: Path, gate: str = "G1") -> tuple[Path, dict, st
     status["evidence"]["implementation_sha"] = None
     status["evidence"]["candidate"]["local_verification"]["status"] = "pending"
     status["bootstrap_exception"] = None
+    status["capability"]["maturity"] = maturity
     status["next_authorization"].update(gate=gate, task_id=f"{gate}-T02")
     write_governed(repo, status)
     commit(repo, "start task")
@@ -331,6 +332,7 @@ def clone_with_ledger_migration(tmp_path: Path) -> tuple[Path, dict]:
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
     status = json.loads((ROOT / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     write_governed(repo, status)
     (repo / "schemas" / "project_status.schema.json").write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
@@ -338,8 +340,16 @@ def clone_with_ledger_migration(tmp_path: Path) -> tuple[Path, dict]:
     return repo, status
 
 
-def make_closed_repo(tmp_path: Path) -> tuple[Path, dict, str]:
-    repo, status, _, _, candidate = make_delivery_repo(tmp_path)
+def make_closed_repo(
+    tmp_path: Path,
+    gate: str = "G1",
+    maturity: str = "OFFLINE_EVIDENCE_ACCEPTED",
+    next_gate: str | None = None,
+    close_maturity: str | None = None,
+) -> tuple[Path, dict, str]:
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path, gate=gate, maturity=maturity)
+    if next_gate is not None:
+        status["next_authorization"].update(gate=next_gate, task_id=f"{next_gate}-T01")
     status["active_tasks"][0].update(state="accepted_pending_merge", transition={"from": "awaiting_review", "to": "accepted_pending_merge"})
     status["evidence"]["candidate"].update(commit_sha=candidate, ci=ci("success", candidate, "1"))
     status["review"] = {"code_security": "approve", "architecture": "clear", "reviewed_candidate_sha": candidate}
@@ -357,11 +367,33 @@ def make_closed_repo(tmp_path: Path) -> tuple[Path, dict, str]:
     write_governed(repo, status)
     finalization = commit(repo, "finalization")
     status["active_tasks"][0].update(state="closed", transition={"from": "merged_verified", "to": "closed"})
+    if close_maturity is not None:
+        status["capability"]["maturity"] = close_maturity
     status["evidence"]["finalization"].update(commit_sha=finalization, d0_ci=ci("success", finalization, "4"))
     write_governed(repo, status)
     close_record = commit(repo, "close record")
     git(repo, "update-ref", "refs/remotes/origin/main", close_record)
     return repo, status, close_record
+
+
+def handoff_status(status: dict, close_record: str, gate: str, task_id: str, maturity: str) -> dict:
+    result = copy.deepcopy(status)
+    result["current_gate"] = gate
+    result["active_tasks"][0] = {
+        "task_id": task_id, "risk": "D0", "state": "authorized",
+        "transition": {"from": "closed", "to": "authorized"}, "candidate_generation": 1,
+    }
+    result["evidence"] = copy.deepcopy(load_valid()["evidence"])
+    result["evidence"]["authorization_baseline_sha"] = close_record
+    result["evidence"]["implementation_sha"] = None
+    result["evidence"]["candidate"]["local_verification"]["status"] = "pending"
+    result["review"] = {"code_security": "pending", "architecture": "pending", "reviewed_candidate_sha": None}
+    result["bootstrap_exception"] = None
+    result["capability"]["maturity"] = maturity
+    result["blockers"] = []
+    result["release"] = {"product_owner_approval": None, "release_manifest": None}
+    result["next_authorization"] = {"gate": gate, "task_id": f"{gate}-T02", "state": "not_authorized"}
+    return result
 
 
 def test_repository_exact_head_and_returned_candidate_identity(tmp_path: Path) -> None:
@@ -664,7 +696,7 @@ def test_legacy_self_asserted_g9_approval_and_manifest_are_rejected(tmp_path: Pa
 
 
 def test_g9_release_artifacts_bind_authority_manifest_and_exact_finalization(tmp_path: Path) -> None:
-    repo, status, _, _, candidate = make_delivery_repo(tmp_path, gate="G9")
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path, gate="G9", maturity="PAPER_VALIDATED")
     status["active_tasks"][0].update(state="accepted_pending_merge", transition={"from": "awaiting_review", "to": "accepted_pending_merge"})
     status["evidence"]["candidate"].update(commit_sha=candidate, ci=ci("success", candidate, "1"))
     status["review"] = {"code_security": "approve", "architecture": "clear", "reviewed_candidate_sha": candidate}
@@ -853,11 +885,7 @@ def test_closed_task_handoff_exactly_authorizes_next_card_and_clears_prior_state
         "task_id": "G1-T02", "risk": "D0", "state": "authorized",
         "transition": {"from": "closed", "to": "authorized"}, "candidate_generation": 1,
     }
-    status["transition_ledger"] = {
-        "authorization_baseline_sha": close_record,
-        "sealed_through_sha": close_record,
-        "first_parent_chain_sha256": hashlib.sha256(b"").hexdigest(),
-    }
+    status.pop("transition_ledger", None)
     status["evidence"] = copy.deepcopy(load_valid()["evidence"])
     status["evidence"]["authorization_baseline_sha"] = close_record
     status["evidence"]["implementation_sha"] = None
@@ -909,3 +937,125 @@ def test_second_parent_only_merge_is_not_authoritative_merged_main(tmp_path: Pat
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1
     assert "not on the authoritative remote-main first-parent chain" in result.stdout
+
+
+def test_fresh_repository_cannot_self_seal_forged_generation_history(tmp_path: Path) -> None:
+    repo = tmp_path / "fresh-seal"
+    repo.mkdir()
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "add", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    (repo / "README.md").write_text("fresh baseline\n", encoding="utf-8")
+    baseline = commit(repo, "fresh baseline")
+    status = load_valid()
+    status["current_gate"] = "G1"
+    status["active_tasks"][0].update(task_id="G1-T01", state="in_progress", transition={"from": "authorized", "to": "in_progress"}, candidate_generation=1)
+    status["evidence"]["authorization_baseline_sha"] = baseline
+    status["evidence"]["implementation_sha"] = None
+    status["evidence"]["candidate"]["local_verification"]["status"] = "pending"
+    status["bootstrap_exception"] = None
+    status["next_authorization"].update(gate="G1", task_id="G1-T02")
+    write_governed(repo, status)
+    commit(repo, "start fresh history")
+    status["active_tasks"][0]["candidate_generation"] = 9
+    write_governed(repo, status)
+    forged_anchor = commit(repo, "forge generation jump")
+    commits = git(repo, "rev-list", "--first-parent", f"{baseline}..{forged_anchor}").splitlines()
+    rows = [f"{sha} {git(repo, 'rev-parse', f'{sha}:PROJECT_STATUS.yaml')}" for sha in commits]
+    status["transition_ledger"] = {
+        "authorization_baseline_sha": baseline,
+        "sealed_through_sha": forged_anchor,
+        "first_parent_chain_sha256": hashlib.sha256(("\n".join(rows) + "\n").encode()).hexdigest(),
+    }
+    status["active_tasks"][0]["candidate_generation"] = 1
+    write_governed(repo, status)
+    commit(repo, "self seal forged history")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "one-time authorized G0-T01 migration" in result.stdout
+
+
+def test_post_anchor_weakened_schema_float_generation_is_fatal_after_restore(tmp_path: Path) -> None:
+    repo, valid = clone_with_ledger_migration(tmp_path)
+    malformed = copy.deepcopy(valid)
+    malformed["active_tasks"][0]["candidate_generation"] = 4.0
+    weakened = json.loads(SCHEMA.read_text(encoding="utf-8"))
+    weakened["$defs"]["task"]["properties"]["candidate_generation"] = {"type": "number", "minimum": 1}
+    write_governed(repo, malformed)
+    write_status(repo / "schemas" / "project_status.schema.json", weakened)
+    commit(repo, "weaken schema and inject floating generation")
+    write_governed(repo, valid)
+    (repo / "schemas" / "project_status.schema.json").write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
+    commit(repo, "restore canonical status and schema")
+    (repo / "implementation.txt").write_text("delivery after hidden weakened schema\n", encoding="utf-8")
+    commit(repo, "move attack behind delivery")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "fails schema validation" in result.stdout
+    assert "candidate_generation: invalid type" in result.stdout
+
+
+def test_g5_closed_offline_to_g6_authorized_cannot_inflate_integration(tmp_path: Path) -> None:
+    repo, parent, close_record = make_closed_repo(tmp_path, gate="G5", next_gate="G6")
+    git(repo, "switch", "-c", "G6-task")
+    status = handoff_status(parent, close_record, "G6", "G6-T01", "INTEGRATION_ACCEPTED")
+    write_governed(repo, status)
+    commit(repo, "inflate maturity during G6 handoff")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "inter-task handoff must preserve maturity" in result.stdout
+
+
+@pytest.mark.parametrize("target_state", ["awaiting_review", "returned"])
+def test_g6_pre_review_or_return_cannot_inflate_integration(tmp_path: Path, target_state: str) -> None:
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path, gate="G6")
+    if target_state == "returned":
+        status["active_tasks"][0].update(state="returned", transition={"from": "awaiting_review", "to": "returned"})
+        status["evidence"]["candidate"]["commit_sha"] = candidate
+        status["review"] = {"code_security": "request_changes", "architecture": "clear", "reviewed_candidate_sha": candidate}
+    status["capability"]["maturity"] = "INTEGRATION_ACCEPTED"
+    write_governed(repo, status)
+    commit(repo, f"inflate G6 {target_state}")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "exact qualifying closed gate-exit evidence transition" in result.stdout
+
+
+def test_g7_to_g8_handoff_cannot_inflate_paper_maturity(tmp_path: Path) -> None:
+    repo, parent, close_record = make_closed_repo(tmp_path, gate="G7", maturity="INTEGRATION_ACCEPTED", next_gate="G8")
+    git(repo, "switch", "-c", "G8-task")
+    status = handoff_status(parent, close_record, "G8", "G8-T01", "PAPER_VALIDATED")
+    write_governed(repo, status)
+    commit(repo, "inflate paper maturity during G8 handoff")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "inter-task handoff must preserve maturity" in result.stdout
+
+
+def test_maturity_rollback_is_rejected(tmp_path: Path) -> None:
+    repo, status, _, _, candidate = make_delivery_repo(tmp_path, gate="G8", maturity="PAPER_VALIDATED")
+    status["active_tasks"][0].update(state="returned", transition={"from": "awaiting_review", "to": "returned"})
+    status["evidence"]["candidate"]["commit_sha"] = candidate
+    status["review"] = {"code_security": "request_changes", "architecture": "clear", "reviewed_candidate_sha": candidate}
+    status["capability"]["maturity"] = "INTEGRATION_ACCEPTED"
+    write_governed(repo, status)
+    commit(repo, "roll maturity backward")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "maturity rollback is forbidden" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("gate", "before", "after", "next_gate"),
+    [
+        ("G6", "OFFLINE_EVIDENCE_ACCEPTED", "INTEGRATION_ACCEPTED", "G7"),
+        ("G8", "INTEGRATION_ACCEPTED", "PAPER_VALIDATED", "G9"),
+    ],
+)
+def test_sequential_maturity_upgrade_requires_and_accepts_exact_closed_exit(
+    tmp_path: Path, gate: str, before: str, after: str, next_gate: str
+) -> None:
+    repo, _, _ = make_closed_repo(tmp_path, gate=gate, maturity=before, next_gate=next_gate, close_maturity=after)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout

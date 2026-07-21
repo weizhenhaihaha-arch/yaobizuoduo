@@ -19,6 +19,9 @@ DEFAULT_STATUS = ROOT / "PROJECT_STATUS.yaml"
 DEFAULT_SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 BOOTSTRAP_TASK = "G0-T01"
 BOOTSTRAP_BASELINE = "7aadae13efd45023d19bf8a280f7680667c930fa"
+LEDGER_ANCHOR = "fa047696761f235cb1e5cd94bbf1881b49e4bb21"
+LEDGER_DIGEST = "9519f9121f043f777473a631e804c074f5e8c62ed407ac6c0060ec4e9c7a78aa"
+LEDGER_REPOSITORY = ("weizhenhaihaha-arch", "yaobizuoduo")
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -597,6 +600,48 @@ def _cleared_handoff(status: dict[str, Any]) -> bool:
     )
 
 
+def _maturity_upgrade_allowed(status: dict[str, Any], previous: str, current: str) -> bool:
+    gate_rules = {
+        ("OFFLINE_EVIDENCE_ACCEPTED", "INTEGRATION_ACCEPTED"): ("G6", "G7"),
+        ("INTEGRATION_ACCEPTED", "PAPER_VALIDATED"): ("G8", "G9"),
+        ("PAPER_VALIDATED", "RELEASE_READY"): ("G9", "G9"),
+    }
+    rule = gate_rules.get((previous, current))
+    if rule is None:
+        return False
+    task = status["active_tasks"][0]
+    evidence = status["evidence"]
+    candidate = evidence["candidate"]
+    all_phase_shas = [candidate["commit_sha"], evidence["closure"]["commit_sha"], evidence["merged_main"]["commit_sha"], evidence["finalization"]["commit_sha"]]
+    all_ci_success = all(ci["status"] == "success" for _, ci in _all_ci(evidence))
+    release_ready = current != "RELEASE_READY" or all(value is not None for value in status["release"].values())
+    return (
+        (status["current_gate"], status["next_authorization"]["gate"]) == rule
+        and task["state"] == "closed"
+        and task["transition"] == {"from": "merged_verified", "to": "closed"}
+        and all(sha is not None for sha in all_phase_shas)
+        and status["review"] == {"code_security": "approve", "architecture": "clear", "reviewed_candidate_sha": candidate["commit_sha"]}
+        and candidate["local_verification"] == {"status": "success", "subject": "delivery_head"}
+        and all_ci_success
+        and release_ready
+    )
+
+
+def _maturity_continuity_errors(status: dict[str, Any], parent: dict[str, Any]) -> list[str]:
+    previous = parent["capability"]["maturity"]
+    current = status["capability"]["maturity"]
+    old_rank, new_rank = MATURITY[previous], MATURITY[current]
+    if new_rank < old_rank:
+        return ["$.capability.maturity: maturity rollback is forbidden"]
+    if new_rank == old_rank:
+        return []
+    if new_rank != old_rank + 1:
+        return ["$.capability.maturity: maturity upgrades must advance exactly one level"]
+    if not _maturity_upgrade_allowed(status, previous, current):
+        return ["$.capability.maturity: upgrade requires the exact qualifying closed gate-exit evidence transition"]
+    return []
+
+
 def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None, parent_sha: str | None = None) -> list[str]:
     if parent is None:
         return ["$: direct first parent has no readable canonical project status"]
@@ -635,6 +680,10 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
             errors.append("$.evidence.authorization_baseline_sha: inter-task handoff baseline must equal the prior close commit")
         if not _cleared_handoff(status):
             errors.append("$: inter-task handoff must clear prior evidence, review, CI, blockers, and bootstrap exception")
+        if status["capability"]["maturity"] != parent["capability"]["maturity"]:
+            errors.append("$.capability.maturity: inter-task handoff must preserve maturity")
+        if status.get("transition_ledger") != parent.get("transition_ledger"):
+            errors.append("$.transition_ledger: inter-task handoff must preserve the canonical ledger")
         parent_exception = parent.get("bootstrap_exception")
         if type(parent_exception) is dict and (parent_exception.get("status"), parent_exception.get("uses")) != ("consumed", 1):
             errors.append("$.bootstrap_exception: inter-task handoff may retire only a consumed exception")
@@ -681,6 +730,7 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
 
     if current_task["state"] != "returned" and not (parent_state == "returned" and current_task["state"] == "in_progress"):
         errors.extend(_ci_continuity_errors(status, parent))
+    errors.extend(_maturity_continuity_errors(status, parent))
 
     parent_release = parent.get("release", {})
     current_release = status.get("release", {})
@@ -724,12 +774,20 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             if not inherited_merge_bridge:
                 errors.extend(_parent_status_errors(child, parent, parent_sha))
         return errors
-    if ledger.get("authorization_baseline_sha") != baseline:
-        errors.append("$.transition_ledger.authorization_baseline_sha: must equal the active task authorization baseline")
+    expected_ledger = {
+        "authorization_baseline_sha": BOOTSTRAP_BASELINE,
+        "sealed_through_sha": LEDGER_ANCHOR,
+        "first_parent_chain_sha256": LEDGER_DIGEST,
+    }
+    ok, origin_url = _git(root, "remote", "get-url", "origin")
+    if not ok or _github_repository_identity(origin_url) != LEDGER_REPOSITORY:
+        errors.append("$.transition_ledger: ledger migration is restricted to the canonical yaobizuoduo repository")
+    if ledger != expected_ledger:
+        errors.append("$.transition_ledger: ledger identity must equal the one-time authorized G0-T01 migration")
     anchor = ledger.get("sealed_through_sha")
     if type(anchor) is not str or not _is_first_parent_ancestor(root, anchor, head):
         return errors + ["$.transition_ledger.sealed_through_sha: must be on the repository HEAD first-parent chain"]
-    ok, sealed_text = _git(root, "rev-list", "--first-parent", f"{baseline}..{anchor}")
+    ok, sealed_text = _git(root, "rev-list", "--first-parent", f"{BOOTSTRAP_BASELINE}..{anchor}")
     if not ok:
         return errors + ["$.transition_ledger: sealed authorization history is unavailable"]
     rows: list[str] = []
@@ -746,7 +804,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
     commits = commits_text.splitlines() + [anchor]
     statuses: list[tuple[str, dict[str, Any]]] = []
     for sha in commits:
-        status, status_errors = _committed_status_errors(root, sha, current_schema)
+        status, status_errors = _committed_status_errors(root, sha, current_schema, use_current_schema=True)
         if status is None:
             # Commits before status authorization are allowed only after the last status-bearing commit.
             if statuses:
@@ -755,34 +813,37 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             continue
         errors.extend(status_errors)
         statuses.append((sha, status))
+    ledger_nodes = [(sha, node) for sha, node in statuses if type(node.get("transition_ledger")) is dict]
+    if not ledger_nodes:
+        errors.append("$.transition_ledger: authorized migration commit is absent after the sealed anchor")
+    else:
+        first_ledger_sha, first_ledger = ledger_nodes[-1]
+        ok, first_parents = _git(root, "rev-list", "--parents", "-n", "1", first_ledger_sha)
+        parts = first_parents.split() if ok else []
+        anchor_status = _status_at(root, anchor)
+        projected = dict(first_ledger)
+        projected.pop("transition_ledger", None)
+        first_task = first_ledger["active_tasks"][0]
+        if (
+            len(parts) < 2
+            or parts[1] != LEDGER_ANCHOR
+            or anchor_status is None
+            or projected != anchor_status
+            or first_ledger.get("project") != "yaobizuoduo"
+            or first_task.get("task_id") != BOOTSTRAP_TASK
+            or first_ledger["evidence"].get("authorization_baseline_sha") != BOOTSTRAP_BASELINE
+        ):
+            errors.append("$.transition_ledger: first creation must be the exact authorized one-time migration immediately after fa04769")
     for index, ((child_sha, child), (parent_sha, parent)) in enumerate(zip(statuses, statuses[1:])):
-        child_current = not _schema_errors(child, current_schema, current_schema)
-        parent_current = not _schema_errors(parent, current_schema, current_schema)
-        if child_current and parent_current:
-            inherited_merge_bridge = False
-            if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
-                newer = statuses[index - 1][1]
-                inherited_merge_bridge = (
-                    newer["active_tasks"][0]["state"] == "merged_verified"
-                    and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
-                )
-            if not inherited_merge_bridge:
-                errors.extend(_parent_status_errors(child, parent, parent_sha))
-        else:
-            try:
-                child_task, parent_task = child["active_tasks"][0], parent["active_tasks"][0]
-                same = child == parent
-                if same and child_task["state"] != "in_progress":
-                    errors.append("$: legacy same-status commits are restricted to byte-equivalent in_progress work")
-                elif not same:
-                    if child_task["transition"]["from"] != parent_task["state"]:
-                        errors.append("$: legacy first-parent transition does not match its parent state")
-                    repair = parent_task["state"] == "returned" and child_task["state"] == "in_progress"
-                    expected = parent_task["candidate_generation"] + (1 if repair else 0)
-                    if child_task["candidate_generation"] != expected:
-                        errors.append("$: legacy first-parent candidate generation is discontinuous")
-            except (KeyError, IndexError, TypeError):
-                errors.append("$: legacy first-parent status is structurally incompatible")
+        inherited_merge_bridge = False
+        if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
+            newer = statuses[index - 1][1]
+            inherited_merge_bridge = (
+                newer["active_tasks"][0]["state"] == "merged_verified"
+                and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
+            )
+        if not inherited_merge_bridge:
+            errors.extend(_parent_status_errors(child, parent, parent_sha))
     return errors
 
 
