@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "awaiting_review",
-      "transition": {"from": "in_progress", "to": "awaiting_review"},
+      "state": "returned",
+      "transition": {"from": "awaiting_review", "to": "returned"},
       "candidate_generation": 6
     }
   ],
@@ -34,7 +34,7 @@
     "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
     "implementation_sha": "82002e3d9ce292fcf516d43032ee2bde63740be3",
     "candidate": {
-      "commit_sha": null,
+      "commit_sha": "5f4503bc7e15ccac74784210fdd260f3c9057d3a",
       "local_verification": {"status": "success", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "request_changes",
+    "architecture": "block",
+    "reviewed_candidate_sha": "5f4503bc7e15ccac74784210fdd260f3c9057d3a"
   },
   "bootstrap_exception": {
     "exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721",
@@ -68,7 +68,11 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "A future schema migration can cite its direct closed-task parent while self-authoring a weakened schema that the parent never content-authorized.",
+    "Candidate-generation continuity still uses Python loose equality, so integer 1 and number 1.0 can compare as the same generation.",
+    "The exact delivered HEAD fails its own unchanged-schema positive test because the fixture inherits awaiting_review and appends an illegal same-phase commit."
+  ],
   "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

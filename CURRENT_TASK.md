@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -304,3 +304,39 @@ and memory update. Stop after delivery and wait for independent review.
    direct parents, schema digest/version rollback, unauthorized migration, and
    a valid no-change schema path. Preserve all prior checks and deliver only
    G0-T01 generation 6. No G0-T02 or business/runtime work.
+
+## Generation 6 independent review result: returned
+
+- Reviewed exact delivered head:
+  `5f4503bc7e15ccac74784210fdd260f3c9057d3a`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `BLOCK`.
+- Invalid-node terminal gating and the current schema authority were materially
+  improved, but exact-head verification failed: focused was 78 passed / 1
+  failed and full backend was 140 passed / 1 failed. Two additional authority
+  and typed-continuity defects were independently reproduced.
+
+### Generation 7 repair requirements
+
+1. A schema migration must be authorized by a prior immutable subject that
+   already binds the proposed `from_revision`, `from_sha256`, `to_revision`,
+   `to_sha256`, compatibility rule, task/gate, and migration purpose. The new
+   schema commit cannot create its own authorization. A generic closed parent
+   without that exact proposal is insufficient.
+2. Define and validate the durable schema-migration authorization artifact or
+   prior-state field, including canonical serialization/content digest,
+   repository/main reachability, single-use consumption, rollback prevention,
+   and explicit no-migration state. Do not require a commit to contain its own
+   SHA and do not widen this card into G0-T02.
+3. Apply typed equality to generation arithmetic/continuity and every remaining
+   numeric or identity comparison. Explicitly reject int/float and bool/int
+   equivalence before addition or equality.
+4. Make the unchanged-schema positive regression independent of the live
+   delivery state: build or pin a valid `in_progress` fixture before appending
+   ordinary work. Run the entire suite after creating the separate
+   `awaiting_review` delivery commit, so the reported exact head itself must
+   pass 100%.
+5. Add regressions for a self-authorized weakened revision-2 schema, a valid
+   prior-content-authorized migration, authorization digest mismatch/reuse,
+   generation `1` versus `1.0`, and exact delivery-head suite stability.
+   Preserve all prior checks; deliver only G0-T01 generation 7.
