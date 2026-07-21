@@ -4,8 +4,8 @@
 
 - Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: awaiting_review
-- Executor: bounded developer AG second repair delivered
+- Status: repair_requested
+- Executor: bounded developer AG third repair required
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Previous task result: `M7-T01` passed autonomous review
 
@@ -134,3 +134,33 @@ paper observation, deployment, automation changes, or M8 during this task.
   adversarial probes, Python compilation, and `git diff --check`.
 - This delivery is not self-approved. Independent exact-HEAD review is still
   required before M7-T02 can be accepted or any later task can be authorized.
+
+## Third independent review blocking defect
+
+- The second repair correctly closes the named set/map paths, but applies exact
+  built-in-string validation only to selected fields. Hostile `str` subclasses
+  can still override equality, formatting, `strip`, `lower`, or `replace` and
+  escape as `RuntimeError` through current `exchange_label`, `symbol`, `status`,
+  `last_event_time`, delivery `status`, and delivery `deduplication_key` paths.
+- Main, code/security, and architecture review independently reproduced the
+  escapes. Code/security returned `REQUEST CHANGES`; architecture returned
+  `BLOCK`. This violates the task-wide and contract-wide malformed fail-closed
+  guarantee even though all declared suites pass.
+
+## Third repair acceptance checks
+
+- Apply one consistent trust-boundary rule to every current operational-health
+  string field before invoking equality, formatting, `strip`, `lower`,
+  `replace`, set membership, or dictionary access. Exact built-in-string checks
+  are acceptable and intentionally reject hostile subclasses.
+- Cover at least current data-health `exchange_label`, `symbol`, `status`, and
+  `last_event_time`, plus delivery `deduplication_key`, `cooldown_key`, and
+  `status`; audit all remaining current string and reason-code paths for the
+  same subclass problem.
+- Add regression tests using hostile subclasses that override the invoked
+  methods. Malformed current evidence must return a sanitized `malformed`
+  assessment without leaking exceptions; malformed prior evidence remains
+  ignored without enabling recovery.
+- Preserve every prior ordinary malformed, recovery, delivered-state, and
+  deterministic identifier behavior. Keep the repair limited to this M7-T02
+  validation/test/contract/status slice and rerun all required verification.
