@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -340,3 +340,31 @@ and memory update. Stop after delivery and wait for independent review.
    prior-content-authorized migration, authorization digest mismatch/reuse,
    generation `1` versus `1.0`, and exact delivery-head suite stability.
    Preserve all prior checks; deliver only G0-T01 generation 7.
+
+## Generation 7 exact-head result: returned before dual review
+
+- Exact delivered and independently reproduced head:
+  `b3ed7d4521e2ed3745c92ff4eab8dd57c6c27581`.
+- Main code verdict: `REQUEST CHANGES`.
+- Route status: `BLOCK` because exact-head acceptance is red.
+- The implementation-head suite passed, but the separate delivery HEAD produced
+  82 focused passes and one failure. The validator correctly rejects the
+  unauthorized migration earlier with `explicit no-migration decision must bind
+  current schema authority`; the regression still requires the superseded
+  `schema migration is unauthorized or discontinuous` text.
+
+### Generation 8 repair requirements
+
+1. Repair only the stale diagnostic assertion so it accepts the current,
+   deterministic earlier fail-closed boundary. Do not weaken validation or
+   change production behavior merely to reproduce the old message.
+2. Start a new generation atomically; do not append a repair commit to the
+   generation-7 `awaiting_review` phase. Preserve all schema authority,
+   migration-control, typed-continuity, ledger, maturity, CI, main, G9 and
+   product-route behavior.
+3. Create the separate generation-8 `awaiting_review` delivery commit first,
+   then run focused, full backend, frontend/build, canonical, diff, ancestry,
+   allowlist, forbidden and secret checks on that exact immutable delivery HEAD.
+   Report only those post-delivery results and stop for dual independent review.
+4. No G0-T02, business, runtime, network, Paper, deployment, release or trading
+   work is authorized.
