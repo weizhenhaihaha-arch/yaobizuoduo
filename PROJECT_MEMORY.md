@@ -4,7 +4,7 @@
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries, the deterministic beginner-facing frontend, and the pure station-notification policy are approved through M7-T01. The bounded M7-T02 operational-health validation repair is `awaiting_review`; no live notification provider, monitoring infrastructure, exchange transport, or trading execution is implemented.
+- Offline application boundaries, the deterministic beginner-facing frontend, and the pure station-notification policy are approved through M7-T01. The bounded M7-T02 operational-health validation repair is `repair_requested` after a second independent fail-closed review; no live notification provider, monitoring infrastructure, exchange transport, or trading execution is implemented.
 
 ## Confirmed requirements
 
@@ -95,6 +95,7 @@
 - 2026-07-21 Asia/Shanghai: M7-T02 work verification passed 9 focused operational-health tests, all 53 backend tests, 10 frontend tests, the TypeScript/Vite build, and M1 fixture validation (`c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`). Focused coverage includes stable IDs, traceable evidence, all approved states, pending/retry/exhaustion, injected-time staleness, malformed/future inputs, and matching-prior-only recovery.
 - 2026-07-21 Asia/Shanghai: M7-T02 review reran 9 focused and all 53 backend tests, 10 frontend tests, the TypeScript/Vite build, M1 fixture validation with the same digest, `git diff --check`, scope/automation, forbidden-implementation, tracked-secret, and Python compile checks successfully. Adversarial probes failed the acceptance gate: unhashable `DataHealthDTO.exchange` and `PriorUnhealthyState.status` values raise `TypeError`, while case-variant `StoredDelivery(status="DELIVERED", delivered_at=None)` is incorrectly assessed healthy. M7-T02 requires a bounded validation-order and delivered-invariant repair.
 - 2026-07-21 Asia/Shanghai: bounded M7-T02 repair verification passed 12 focused operational-health tests, all 56 backend tests, 10 frontend tests, the TypeScript/Vite build, and M1 fixture validation (`c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`). Unhashable current exchange values now produce sanitized malformed assessments, unhashable prior statuses are ignored without enabling recovery, and every case variant of delivered requires `delivered_at`; the task is awaiting independent review.
+- 2026-07-21 Asia/Shanghai: the resumed L0 independent review passed 12 focused tests, all 56 backend tests, 10 frontend tests and the build, M1 fixture validation with the same digest, diff/scope/secret checks, and ordinary malformed probes. Code/security review nevertheless requested changes: an unhashable `str` subclass still passes `isinstance(..., str)` and raises `TypeError` when used as current exchange, prior status, or prior source key in set/dict operations. Main review independently reproduced all three escapes. Architecture status was `CLEAR`, but the deterministic review rule makes the task `repair_requested` until the same-slice validation and regression repair passes re-review.
 - 2026-07-21 Asia/Shanghai: merged the remote-only initial `LICENSE` commit without force and pushed the complete local project history to `origin/main`; publication succeeded at merge commit `f61cfe5`.
 
 ## Open items
@@ -106,7 +107,7 @@
 - Build a historical replay/evaluation set before presenting a strategy as reliable.
 - Decide observation-pool size, pagination behavior, outcome windows, and exact beginner-facing entry/invalidation copy.
 - FastAPI, PostgreSQL contract/read-model, and React/TypeScript are confirmed for the current implementation path; live infrastructure integration remains later work.
-- M0 through M6 and M7-T01 are complete and approved; the bounded M7-T02 fail-closed repair is `awaiting_review`. Telegram evaluation, live delivery/monitoring infrastructure, continuous paper observation, and M8 work remain later work or unapproved decisions.
+- M0 through M6 and M7-T01 are complete and approved; the bounded M7-T02 fail-closed repair is `repair_requested` for unhashable string-subclass validation. Telegram evaluation, live delivery/monitoring infrastructure, continuous paper observation, and M8 work remain later work or unapproved decisions.
 - The autonomous supervisor is authorized to execute one repository-state transition per run using Codex CLI; live API/exchange transport, authentication, credentials, deployment, and trading remain unauthorized.
 - Establish or keep alive the monitoring session if unattended three-minute checks are required.
 - Start and verify the local heartbeat runner when visible unattended repository checks are required.
@@ -115,6 +116,7 @@
 
 ### 2026-07-21
 
+- Resumed the three-minute developer/review loop after explicit user confirmation. L0 used independent code/security and architecture lanes plus main-review reruns. Architecture returned `CLEAR`; code/security returned `REQUEST CHANGES` for unhashable `str` subclasses escaping from current-exchange and prior-state set/map operations. Main review reproduced all three `TypeError` cases, returned only M7-T02 for bounded repair, and did not start G0 or any live/integration work.
 - Verified the new GitHub repository over HTTPS, configured local `main` to track `origin/main`, and confirmed the only remote-only file before publication was `LICENSE`. The autonomous supervisor was paused during history reconciliation to prevent concurrent commits.
 - Preserved the remote `LICENSE`, merged the unrelated initial history, and published all tracked project files and durable memory to `https://github.com/weizhenhaihaha-arch/yaobizuoduo.git` without force-pushing.
 - Completed the bounded M7-T02 validation repair: current exchange and prior-status types are proven before set/map operations, known delivery statuses use consistent case normalization, and every delivered case variant requires `delivered_at`. Regression tests cover all three review defects; all task checks passed and no live infrastructure, provider, automation, strategy, or trading behavior was added.

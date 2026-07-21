@@ -4,9 +4,9 @@
 
 - Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: awaiting_review
-- Executor: autonomous Codex CLI worker repair transition
-- Reviewer: autonomous Codex CLI review transition
+- Status: repair_requested
+- Executor: bounded developer AG repair transition
+- Reviewer: main Codex plus independent code/security and architecture lanes
 - Previous task result: `M7-T01` passed autonomous review
 
 ## Goal
@@ -91,3 +91,28 @@ adding live monitoring infrastructure.
 
 Do not proceed to live monitoring infrastructure, provider delivery, continuous
 paper observation, deployment, automation changes, or M8 during this task.
+
+## Second independent review blocking defect
+
+- The first repair rejects ordinary non-string containers before set/map use,
+  but `isinstance(value, str)` still accepts a `str` subclass whose
+  `__hash__` is `None`. Independent and main-review probes reproduced escaping
+  `TypeError` for `DataHealthDTO.exchange`, `PriorUnhealthyState.status`, and
+  `PriorUnhealthyState.source_key`. This violates the explicit fail-closed
+  requirement that malformed values cannot escape set or dictionary operations.
+
+## Second repair acceptance checks
+
+- Prove every current/prior field used as a set member or dictionary key is a
+  safe built-in string before the operation, or normalize it to a built-in
+  string only after strict validation.
+- Add regression coverage for an unhashable `str` subclass in current exchange,
+  prior status, and prior source key; current malformed input must produce the
+  sanitized `malformed` assessment, while malformed prior evidence must be
+  ignored without enabling recovery.
+- Preserve the already repaired delivered-state invariant and ordinary malformed
+  behavior.
+- Limit changes to operational-health validation/tests and required contract,
+  task, and memory evidence. Rerun the original M7-T02 suites, the full backend
+  and frontend checks, M1 fixture validation, scope/secret scans, and all prior
+  plus new adversarial probes.
