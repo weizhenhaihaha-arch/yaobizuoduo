@@ -8,7 +8,7 @@ CI, maturity, blockers, and next authorization.
 
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
-- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment remain capped at offline evidence. L0 closed under legacy local review. Generation 7 exact delivery head `b3ed7d4521e2ed3745c92ff4eab8dd57c6c27581` was formally returned at `a9bb0d74ab090bdddf1c5a05d1372977a8a4cb38` only because one regression asserted an obsolete diagnostic; generation 8 has started atomically with all prior delivery, review, CI, and blocker identities cleared. Schema authority, migration control, ledger, and bootstrap remain unchanged. No G0-T02, runtime, network, Paper, deployment, release, or trading work is authorized.
+- Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment remain capped at offline evidence. L0 closed under legacy local review. G0-T01 generation 8 implementation `c5f7756df434288f036b251f4658187c9e175767` is delivered for independent review after changing only the stale unauthorized-migration diagnostic assertion. Schema authority, migration control, production validator, ledger, bootstrap, and all product/runtime boundaries are unchanged. No G0-T02, runtime, network, Paper, deployment, release, or trading work is authorized.
 
 ## Confirmed requirements
 
@@ -121,6 +121,8 @@ CI, maturity, blockers, and next authorization.
 - Legacy offline work through M7-T02 remains capped at `OFFLINE_EVIDENCE_ACCEPTED`; L0 is closed. G0-T01 awaits independent review. G0-T02, bootstrap CI, branch protection, Telegram evaluation, live delivery/monitoring infrastructure, continuous Paper observation, and release work are not authorized by this card.
 
 ## Development log
+
+- 2026-07-21 Asia/Shanghai: Delivered the assertion-only G0-T01 generation 8 implementation `c5f7756df434288f036b251f4658187c9e175767`. Relative to exact start `153255f6c44a3b2c3e6899128e8bb1a10d46e846`, the implementation changes exactly one assertion in `test_unauthorized_schema_migration_is_rejected` to require the current deterministic earlier fail-closed diagnostic. Production validator behavior and every other repository file are unchanged. The implementation-head focused suite passed 83/83; the separate immutable delivery HEAD must pass the full focused/backend/frontend/build/canonical/static suite before it is reported for review. All CI remains accurately `not_established`.
 
 - 2026-07-21 Asia/Shanghai: Started the bounded G0-T01 generation 8 assertion-only repair from exact review head `a9bb0d74ab090bdddf1c5a05d1372977a8a4cb38`. The canonical transition is `returned -> in_progress`, generation is exactly 8, prior delivery/review/CI/blocker identities are clear, and schema authority, migration control, ledger, and bootstrap are preserved. The only authorized implementation change is to update the stale unauthorized-migration assertion to the deterministic earlier fail-closed no-migration diagnostic, followed by a new exact-delivery-HEAD full-suite run.
 
