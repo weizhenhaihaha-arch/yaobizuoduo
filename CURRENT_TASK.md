@@ -5,7 +5,7 @@
 - Task ID: `G0-T01`
 - Gate: G0 governance baseline
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized G0 on 2026-07-21 Asia/Shanghai
@@ -194,3 +194,45 @@ and memory update. Stop after delivery and wait for independent review.
    reject leftover blockers in normal `in_progress` repair state.
 8. Preserve all passing checks; update status/memory, deliver a new exact PR
    head on the same branch, and stop at `awaiting_review`. No G0-T02.
+
+## Generation 3 independent review result: returned
+
+- Reviewed exact delivered head:
+  `2384d22ace87ad7d304f3def74a7ff7f19cdf7c7`.
+- Code/security verdict: `REQUEST CHANGES`.
+- Architecture/route status: `BLOCK`.
+- Generation 3 fixed direct-parent transition checks, exact generation increments,
+  origin-shaped CI identities, mandatory document membership, same-gate task
+  ordering, blocker-free repair starts, and basic main reachability. Focused and
+  full backend tests, frontend tests/build, canonical validation, and diff checks
+  passed independently.
+
+### Generation 4 repair requirements
+
+1. Validate durable first-parent status history back to the task authorization
+   boundary, or introduce an equally durable transition ledger. Reject forged
+   intermediate generations and same-status laundering. Same-status commits may
+   be allowed only for constrained `in_progress` implementation work; a phase
+   state must not silently move its implicit candidate or stale verification.
+2. Validate every direct-parent status document against the same schema and
+   exact types before continuity comparison or arithmetic.
+3. Define and validate one legal inter-task handoff from a fully finalized
+   `closed` task to its exact `next_authorization`: generation resets to 1,
+   prior evidence/reviews/CI/blockers are cleared, the new baseline binds to the
+   accepted main close state, and the consumed bootstrap exception is retired
+   permanently. Task, gate, and risk may change only under this rule.
+4. Require `merged_main` to be on the authoritative main first-parent chain and
+   bind local main to fetched `origin/main` (or equivalent immutable remote-main
+   evidence). A second-parent-only fake merge and a movable local-only main ref
+   must fail.
+5. Enforce monotonic immutable phase CI evidence: inactive may become pending or
+   terminal; pending may become terminal only for the same subject, run, and
+   URL; terminal evidence cannot be replaced. Apply this to every phase.
+6. Bind G9 `release_sha` to the exact finalization/release subject. Release
+   approval must name an approving authority and durable authorization identity,
+   and the manifest must enumerate its evidence rather than self-asserting
+   completeness.
+7. Require every mandatory governed path and parent component to be a regular
+   repository file, never a symlink or alias. Add adversarial coverage for all
+   findings above, preserve the complete passing suite, and return only this
+   same G0-T01 card to `awaiting_review`. Do not start G0-T02.
