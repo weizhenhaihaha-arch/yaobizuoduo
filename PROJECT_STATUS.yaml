@@ -25,17 +25,17 @@
     {
       "task_id": "G0-T01",
       "risk": "D0",
-      "state": "returned",
-      "transition": {"from": "awaiting_review", "to": "returned"},
-      "candidate_generation": 9
+      "state": "in_progress",
+      "transition": {"from": "returned", "to": "in_progress"},
+      "candidate_generation": 10
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
-    "implementation_sha": "380b85600dadea627a3210b4e6acee8c6d29b18d",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "c11a332e71f261837b5b6871a7f244061add4375",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "request_changes",
-    "architecture": "block",
-    "reviewed_candidate_sha": "c11a332e71f261837b5b6871a7f244061add4375"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
   "bootstrap_exception": {
     "exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721",
@@ -68,10 +68,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [
-    "Schema migration consumption requires origin/main first-parent membership during authorized-to-in_progress validation, before review and merge can legally occur.",
-    "Repository-visible migration-consumer discovery omits refs/tags, so a tag-retained sibling consumer is not detected."
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
