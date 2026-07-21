@@ -26,6 +26,23 @@ class UnhashableStr(str):
     __hash__ = None
 
 
+class HostileStr(str):
+    __hash__ = None
+
+    @staticmethod
+    def _raise(*args, **kwargs):
+        raise RuntimeError("hostile_string_method_called")
+
+    __bool__ = _raise
+    __eq__ = _raise
+    __format__ = _raise
+    __len__ = _raise
+    lower = _raise
+    replace = _raise
+    startswith = _raise
+    strip = _raise
+
+
 def data_health(status="healthy", usable=True, freshness="fresh", last_event_time="2026-07-21T00:00:00Z"):
     return DataHealthDTO(
         exchange="binance",
@@ -190,6 +207,56 @@ class OperationalHealthTests(unittest.TestCase):
         assessment = self.assess(data=(current,), prior=(malformed_prior,))[0]
         self.assertEqual(assessment.status, "healthy")
         self.assertIsNone(assessment.prior_assessment_id)
+
+    def test_all_current_data_health_strings_reject_hostile_subclasses(self):
+        cases = (
+            ("exchange", HostileStr("binance")),
+            ("exchange_label", HostileStr("币安")),
+            ("symbol", HostileStr("BTCUSDT")),
+            ("status", HostileStr("healthy")),
+            ("freshness_status", HostileStr("fresh")),
+            ("last_event_time", HostileStr("2026-07-21T00:00:00Z")),
+            ("reason_codes", (HostileStr("approved_health_source"),)),
+        )
+        for field, value in cases:
+            with self.subTest(field=field):
+                malformed = replace(data_health(), **{field: value})
+                assessment = self.assess(data=(malformed,))[0]
+                self.assertEqual(assessment.status, "malformed")
+                self.assertEqual(assessment.reason_codes, ("malformed_data_health_snapshot",))
+
+    def test_all_current_delivery_strings_reject_hostile_subclasses(self):
+        for field, value in (
+            ("deduplication_key", HostileStr("station.v1:abc")),
+            ("cooldown_key", HostileStr("signal-1:new_signal")),
+            ("status", HostileStr("pending")),
+        ):
+            with self.subTest(field=field):
+                malformed = replace(delivery(), **{field: value})
+                assessment = self.assess(deliveries=(malformed,))[0]
+                self.assertEqual(assessment.status, "malformed")
+                self.assertEqual(assessment.reason_codes, ("malformed_notification_snapshot",))
+
+    def test_remaining_prior_strings_reject_hostile_subclasses(self):
+        current = data_health()
+        healthy = self.assess(data=(current,))[0]
+        base = PriorUnhealthyState(
+            source_key=healthy.source_key,
+            assessment_id="operational-health.v1:prior",
+            status="stale",
+            observed_at="2026-07-20T23:58:00Z",
+            reason_codes=("data_delayed",),
+        )
+        for field, value in (
+            ("assessment_id", HostileStr("operational-health.v1:prior")),
+            ("observed_at", HostileStr("2026-07-20T23:58:00Z")),
+            ("reason_codes", (HostileStr("data_delayed"),)),
+        ):
+            with self.subTest(field=field):
+                malformed_prior = replace(base, **{field: value})
+                assessment = self.assess(data=(current,), prior=(malformed_prior,))[0]
+                self.assertEqual(assessment.status, "healthy")
+                self.assertIsNone(assessment.prior_assessment_id)
 
     def test_case_variant_delivered_without_delivery_time_is_malformed(self):
         assessment = self.assess(deliveries=(delivery("DELIVERED"),))[0]

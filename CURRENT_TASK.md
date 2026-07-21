@@ -4,8 +4,8 @@
 
 - Task ID: `M7-T02`
 - Milestone: M7 notification, observation, and stability
-- Status: repair_requested
-- Executor: bounded developer AG third repair required
+- Status: awaiting_review
+- Executor: bounded developer AG third repair delivered
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Previous task result: `M7-T01` passed autonomous review
 
@@ -164,3 +164,23 @@ paper observation, deployment, automation changes, or M8 during this task.
 - Preserve every prior ordinary malformed, recovery, delivered-state, and
   deterministic identifier behavior. Keep the repair limited to this M7-T02
   validation/test/contract/status slice and rerun all required verification.
+
+## Third repair delivery
+
+- All current data-health string fields are proven to be built-in strings as a
+  single preflight step before any content operation. This covers exchange,
+  exchange label, optional symbol, status, freshness, optional event time, and
+  every reason code.
+- Delivery deduplication key, cooldown key, and status now use the same exact
+  built-in-string boundary. Prior evidence also rejects hostile reason-code
+  subclasses, and time parsing independently rejects non-built-in strings.
+- Hostile-subclass regressions cover all current data-health and delivery string
+  fields plus the remaining prior assessment ID, observed time, and reason-code
+  paths. The tests first reproduced nine escaping `RuntimeError` cases.
+- Verification passed 18 focused tests, all 62 backend tests with API
+  dependencies, 10 frontend tests, the production build, faithful macOS M1
+  fixture validation with replay digest
+  `c4326c783ba02c0f8414aff7c81fb08bcb6ac1dc0d2a22674055984ea6242785`,
+  broad adversarial probes, Python compilation, and `git diff --check`.
+- This delivery is not self-approved. Independent exact-HEAD review is still
+  required before M7-T02 can be accepted or any later task can be authorized.

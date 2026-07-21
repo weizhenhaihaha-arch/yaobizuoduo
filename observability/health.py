@@ -167,25 +167,36 @@ class OperationalHealthAssessor:
 
     @staticmethod
     def _valid_data_health(item: Any) -> bool:
+        if not isinstance(item, DataHealthDTO):
+            return False
+        if not all(
+            type(value) is str
+            for value in (item.exchange, item.exchange_label, item.status, item.freshness_status)
+        ):
+            return False
+        if item.symbol is not None and type(item.symbol) is not str:
+            return False
+        if item.last_event_time is not None and type(item.last_event_time) is not str:
+            return False
+        if not isinstance(item.reason_codes, tuple) or any(type(code) is not str for code in item.reason_codes):
+            return False
         return (
-            isinstance(item, DataHealthDTO)
-            and type(item.exchange) is str
-            and item.exchange in APPROVED_EXCHANGES
+            item.exchange in APPROVED_EXCHANGES
             and item.exchange_label == APPROVED_EXCHANGE_LABELS[item.exchange]
-            and (item.symbol is None or isinstance(item.symbol, str) and bool(item.symbol.strip()))
-            and isinstance(item.status, str)
+            and (item.symbol is None or bool(item.symbol.strip()))
             and bool(item.status.strip())
-            and type(item.freshness_status) is str
             and isinstance(item.usable_for_signal, bool)
-            and isinstance(item.reason_codes, tuple)
-            and all(isinstance(code, str) and bool(code) for code in item.reason_codes)
+            and all(bool(code) for code in item.reason_codes)
         )
 
     @staticmethod
     def _valid_delivery(item: Any) -> bool:
         if not isinstance(item, StoredDelivery):
             return False
-        if not all(isinstance(value, str) and bool(value) for value in (item.deduplication_key, item.cooldown_key, item.status)):
+        string_values = (item.deduplication_key, item.cooldown_key, item.status)
+        if not all(type(value) is str for value in string_values):
+            return False
+        if not all(bool(value) for value in string_values):
             return False
         if not isinstance(item.attempts, int) or isinstance(item.attempts, bool) or item.attempts < 1:
             return False
@@ -211,7 +222,7 @@ class OperationalHealthAssessor:
                 continue
             if not item.assessment_id.startswith(f"{SCHEMA_VERSION}:"):
                 continue
-            if not isinstance(item.reason_codes, tuple) or any(not isinstance(code, str) or not code for code in item.reason_codes):
+            if not isinstance(item.reason_codes, tuple) or any(type(code) is not str or not code for code in item.reason_codes):
                 continue
             if cls._parse_time(item.observed_at) is None:
                 continue
@@ -222,7 +233,7 @@ class OperationalHealthAssessor:
 
     @staticmethod
     def _parse_time(value: str | None) -> datetime | None:
-        if not isinstance(value, str) or not value:
+        if type(value) is not str or not value:
             return None
         try:
             parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
