@@ -5,7 +5,7 @@
 - Task ID: `G0-T03`
 - Gate: G0 main required check and minimal branch protection
 - Risk: `D2`
-- Status: `merged_verified`
+- Status: `closed`
 - Candidate generation: `3`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -194,3 +194,15 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
 - Current phase is `merged_verified`. Finalization/D0 and `closed` are not yet
   established; the finalization branch/PR may proceed serially but must not be
   merged automatically or authorize G0-T04/G1.
+
+## Finalization and candidate close record
+
+- Merged-verification record `e4fd7ae620955867ac0c6914aff2c913420c3ba2`
+  passed exact pull-request run `29906677035` on PR #9. That successful exact
+  subject is now the finalization/D0 evidence.
+- The later close record transitions only `merged_verified -> closed` and binds
+  finalization commit/run without changing candidate, acceptance, merged-main,
+  ruleset or capability evidence. Current blockers remain empty.
+- `closed` here is the candidate close status on an open, unmerged finalization
+  PR. The close-record HEAD still requires its own exact PR CI and user merge
+  decision. G0-T04/G1 remain `not_authorized`.
