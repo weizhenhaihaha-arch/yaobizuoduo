@@ -5,7 +5,7 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `authorized`
+- Status: `in_progress`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized the scheduled G0-T02 workflow on 2026-07-22 Asia/Shanghai
