@@ -1021,7 +1021,64 @@ def _maturity_continuity_errors(status: dict[str, Any], parent: dict[str, Any]) 
     return []
 
 
-def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None, parent_sha: str | None = None) -> list[str]:
+def _blocked_reauthorization_errors(
+    status: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+) -> list[str]:
+    """Validate a new-generation authorization without reopening a blocked node."""
+    if root is None or child_sha is None or parent_sha is None:
+        return ["$.active_tasks[0].candidate_generation: repeated authorization requires repository-bound blocked evidence"]
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+    parts = parents_text.split() if ok else []
+    if len(parts) != 3 or parts[1] != parent_sha:
+        return ["$: repeated authorization must be an exact two-parent record rooted at the authoritative close"]
+    blocked_sha = parts[2]
+    blocked = _status_at(root, blocked_sha)
+    schema = _schema_at(root, child_sha)
+    if type(blocked) is not dict or type(schema) is not dict:
+        return ["$: repeated authorization blocked evidence is unreadable"]
+    try:
+        structural = _schema_errors(blocked, schema, schema)
+    except (KeyError, TypeError, ValueError):
+        structural = ["malformed blocked evidence"]
+    if structural:
+        return [f"$: repeated authorization blocked evidence fails schema validation: {item}" for item in structural]
+
+    current_task = status["active_tasks"][0]
+    blocked_task = blocked["active_tasks"][0]
+    expected_generation = current_task["candidate_generation"] - 1
+    identity_matches = (
+        blocked.get("project") == status.get("project")
+        and blocked.get("authoritative_main_ref") == status.get("authoritative_main_ref")
+        and blocked.get("current_gate") == status.get("current_gate")
+        and blocked_task.get("task_id") == current_task.get("task_id")
+        and blocked_task.get("risk") == current_task.get("risk")
+        and blocked_task.get("candidate_generation") == expected_generation
+        and blocked_task.get("state") == "blocked"
+        and blocked_task.get("transition", {}).get("to") == "blocked"
+        and blocked.get("evidence", {}).get("authorization_baseline_sha") == parent_sha
+        and type(blocked.get("blockers")) is list
+        and bool(blocked["blockers"])
+    )
+    errors: list[str] = []
+    if not identity_matches:
+        errors.append("$: repeated authorization must bind the exact prior-generation terminal blocked record")
+    if not _is_ancestor(root, parent_sha, blocked_sha):
+        errors.append("$: repeated authorization blocked record must descend from the authoritative close")
+    if _history_errors(root, blocked_sha, parent_sha, schema):
+        errors.append("$: repeated authorization blocked history must independently validate")
+    return errors
+
+
+def _parent_status_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any] | None,
+    parent_sha: str | None = None,
+    root: Path | None = None,
+    child_sha: str | None = None,
+) -> list[str]:
     if parent is None:
         return ["$: direct first parent has no readable canonical project status"]
     errors: list[str] = []
@@ -1058,8 +1115,13 @@ def _parent_status_errors(status: dict[str, Any], parent: dict[str, Any] | None,
         next_auth = parent.get("next_authorization")
         if type(next_auth) is not dict or not _typed_equal((current_task["task_id"], status["current_gate"]), (next_auth.get("task_id"), next_auth.get("gate"))):
             errors.append("$: inter-task handoff must match the exact prior next authorization")
-        if not _typed_equal(current_task["candidate_generation"], 1):
-            errors.append("$.active_tasks[0].candidate_generation: inter-task handoff must reset generation to one")
+        generation = current_task["candidate_generation"]
+        if _typed_equal(generation, 1):
+            pass
+        elif type(generation) is int and generation >= 2:
+            errors.extend(_blocked_reauthorization_errors(status, parent_sha, root, child_sha))
+        else:
+            errors.append("$.active_tasks[0].candidate_generation: initial authorization must use generation one")
         if parent_sha is None or not _typed_equal(status["evidence"]["authorization_baseline_sha"], parent_sha):
             errors.append("$.evidence.authorization_baseline_sha: inter-task handoff baseline must equal the prior close commit")
         if not _cleared_handoff(status):
@@ -1187,7 +1249,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
                         and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
                     )
             if not inherited_merge_bridge:
-                errors.extend(_parent_status_errors(child, parent, parent_sha))
+                errors.extend(_parent_status_errors(child, parent, parent_sha, root, child_sha))
         return errors
     expected_ledger = {
         "authorization_baseline_sha": BOOTSTRAP_BASELINE,
@@ -1286,7 +1348,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
                     and newer["evidence"]["merged_main"]["commit_sha"] == child_sha
                 )
         if not inherited_merge_bridge:
-            errors.extend(_parent_status_errors(child, parent, parent_sha))
+            errors.extend(_parent_status_errors(child, parent, parent_sha, root, child_sha))
             errors.extend(_schema_authority_continuity_errors(child, parent, parent_sha, root, child_sha))
     return errors
 
@@ -1410,7 +1472,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
         parent_status, parent_schema_errors = _committed_status_errors(root, parent_parts[1], schema, use_current_schema=True)
         errors.extend(parent_schema_errors)
         if not parent_schema_errors and parent_status is not None:
-            errors.extend(_parent_status_errors(status, parent_status, parent_parts[1]))
+            errors.extend(_parent_status_errors(status, parent_status, parent_parts[1], root, head))
             errors.extend(_schema_authority_continuity_errors(status, parent_status, parent_parts[1], root))
     if type(status.get("transition_ledger")) is dict:
         control_path = root / SCHEMA_CONTROL_PATH
