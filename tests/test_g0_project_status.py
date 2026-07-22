@@ -16,6 +16,8 @@ G0_T01_CLOSE_RECORD = "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
 G0_T02_GENERATION1_IMPLEMENTATION = "5f3a6e93b69947b73e21e51c7e0218c0c283f6de"
 G0_T02_GENERATION1_BLOCKED = "925fa94c22dfabc8ccd2dbe99fde74ca0c88a12f"
 G0_T02_GENERATION2_AUTHORIZATION = "f69e6abd379e74d1af1c507a4a9b15395d077f90"
+G0_T02_ACCEPTED_RECORD = "41868a5eff635d9f83dccaba4ad3e6e38433822c"
+G0_T02_FAILED_MAIN = "608800462fbf9f3b97277484fa906a691b8b8b98"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -537,10 +539,131 @@ def clone_canonical_g0_merge(tmp_path: Path) -> Path:
     return repo
 
 
+def clone_g0_t02_failed_main(tmp_path: Path) -> Path:
+    repo = tmp_path / "g0-t02-failed-main"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "--detach", G0_T02_FAILED_MAIN)
+    git(repo, "update-ref", "refs/heads/main", G0_T02_FAILED_MAIN)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T02_FAILED_MAIN)
+    return repo
+
+
+def write_g0_t02_recovery(repo: Path) -> dict:
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    status["active_tasks"][0]["transition"] = {
+        "from": "accepted_pending_merge",
+        "to": "accepted_pending_merge",
+    }
+    status["blockers"] = [VALIDATOR.G0_T02_RECOVERY_BLOCKER]
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    return status
+
+
 def test_canonical_github_two_parent_merge_bridge_is_accepted(tmp_path: Path) -> None:
     repo = clone_canonical_g0_merge(tmp_path)
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo, repo / "schemas" / "project_status.schema.json")
     assert result.returncode == 0, result.stdout
+
+
+def test_g0_t02_exact_608_parent_chain_merge_bridge_is_accepted(tmp_path: Path) -> None:
+    repo = clone_g0_t02_failed_main(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(status, repo, G0_T02_FAILED_MAIN, schema)
+    assert governed == G0_T02_ACCEPTED_RECORD
+    assert errors == []
+    assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
+
+
+@pytest.mark.parametrize("mutation", ["wrong_parent", "wrong_tree", "wrong_status", "wrong_candidate"])
+def test_g0_t02_merge_bridge_rejects_substitution(tmp_path: Path, mutation: str) -> None:
+    repo = clone_g0_t02_failed_main(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    first = git(repo, "rev-parse", f"{G0_T02_FAILED_MAIN}^1")
+    second = git(repo, "rev-parse", f"{G0_T02_FAILED_MAIN}^2")
+    tree = git(repo, "rev-parse", f"{second}^{{tree}}")
+    if mutation == "wrong_parent":
+        first = git(repo, "rev-parse", f"{first}^1")
+    elif mutation == "wrong_tree":
+        tree = git(repo, "rev-parse", f"{first}^{{tree}}")
+    elif mutation == "wrong_status":
+        status["active_tasks"][0]["candidate_generation"] = 4
+    else:
+        status["evidence"]["candidate"]["commit_sha"] = first
+        status["review"]["reviewed_candidate_sha"] = first
+    forged = git(repo, "commit-tree", tree, "-p", first, "-p", second, "-m", f"forged {mutation}")
+    git(repo, "update-ref", "refs/heads/main", forged)
+    git(repo, "update-ref", "refs/remotes/origin/main", forged)
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(status, repo, forged, schema)
+    assert governed is None
+    assert errors
+
+
+def test_exact_failed_main_recovery_record_and_recovery_merge_are_accepted(tmp_path: Path) -> None:
+    repo = clone_g0_t02_failed_main(tmp_path)
+    write_g0_t02_recovery(repo)
+    recovery = commit(repo, "record exact failed-main recovery")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+    (repo / "recovery-note.txt").write_text("bounded recovery follow-up\n", encoding="utf-8")
+    recovery = commit(repo, "preserve recovery state during implementation")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+    recovery_tree = git(repo, "rev-parse", f"{recovery}^{{tree}}")
+    recovery_merge = git(
+        repo,
+        "commit-tree",
+        recovery_tree,
+        "-p",
+        G0_T02_FAILED_MAIN,
+        "-p",
+        recovery,
+        "-m",
+        "merge recovery record",
+    )
+    git(repo, "switch", "--detach", recovery_merge)
+    git(repo, "update-ref", "refs/heads/main", recovery_merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", recovery_merge)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["fake_run", "success_run", "wrong_subject", "non_main"],
+)
+def test_failed_main_recovery_rejects_inexact_trigger(tmp_path: Path, mutation: str) -> None:
+    repo = clone_g0_t02_failed_main(tmp_path)
+    status = write_g0_t02_recovery(repo)
+    if mutation == "fake_run":
+        status["blockers"][0] = status["blockers"][0].replace("29884710636", "29884710637")
+    elif mutation == "success_run":
+        status["blockers"][0] = status["blockers"][0].replace("conclusion=failure", "conclusion=success")
+    elif mutation == "wrong_subject":
+        status["blockers"][0] = status["blockers"][0].replace(G0_T02_FAILED_MAIN, G0_T02_ACCEPTED_RECORD)
+    else:
+        git(repo, "update-ref", "refs/heads/main", G0_T02_ACCEPTED_RECORD)
+        git(repo, "update-ref", "refs/remotes/origin/main", G0_T02_ACCEPTED_RECORD)
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    commit(repo, f"invalid recovery {mutation}")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert "post-merge" in result.stdout or "illegal lifecycle transition" in result.stdout
+
+
+def test_ordinary_accepted_pending_merge_to_returned_remains_rejected() -> None:
+    status = accepted_status()
+    status["active_tasks"][0].update(
+        state="returned",
+        transition={"from": "accepted_pending_merge", "to": "returned"},
+    )
+    assert "$.active_tasks[0].transition: illegal lifecycle transition" in VALIDATOR._semantic_errors(status)
 
 
 def test_canonical_merge_bridge_does_not_depend_on_remote_task_ref(tmp_path: Path) -> None:

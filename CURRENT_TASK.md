@@ -6,6 +6,7 @@
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
 - Status: `accepted_pending_merge`
+- Recovery mode: exact authoritative-main CI failure repair only
 - Candidate generation: `5` detached-HEAD guard repair
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -158,6 +159,27 @@ repair; do not start G0-T03 or G1.
 - The old terminal blocked branch remains fixed at `925fa94`; the capability
   ceiling remains `OFFLINE_EVIDENCE_ACCEPTED`; G0-T03 and G1 remain
   unauthorized. This record is not merge authorization.
+
+## Exact authoritative-main merge recovery
+
+- GitHub merged PR #2 as `608800462fbf9f3b97277484fa906a691b8b8b98`.
+- The merge is a canonical two-parent G0 bridge: first parent
+  `94892d79b8d39ac1726cf657fac0ae76a0e27b37`, second parent accepted record
+  `41868a5eff635d9f83dccaba4ad3e6e38433822c`, and the merge tree/status exactly
+  equal that accepted record. The accepted record directly closes reviewed
+  candidate `35b90f87ab42843925065e6d0dafdc25797702e0`.
+- Authoritative-main `push` run `29884710636` for exact subject `6088004` failed
+  in canonical status validation because the merge bridge was restricted to
+  G0-T01. URL:
+  `https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884710636`.
+- The task remains `accepted_pending_merge`; the exact accepted candidate,
+  successful candidate CI and dual-clear review remain immutable. Closure,
+  merged-main success and finalization are still not established. The sole
+  blocker is the exact failed-main recovery recorded in `PROJECT_STATUS.yaml`.
+- Recovery is limited to generalizing the strict G0 merge bridge and accepting
+  this one repository-bound failed-run transition. Ordinary return, a fake or
+  successful run, a non-main subject, G0-T03, G1, live data and trading remain
+  unauthorized.
 
 ## Generation 4 independent review result: returned
 
