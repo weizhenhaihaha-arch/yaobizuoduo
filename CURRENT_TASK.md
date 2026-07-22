@@ -5,7 +5,7 @@
 - Task ID: `G0-T03`
 - Gate: G0 main required check and minimal branch protection
 - Risk: `D2`
-- Status: `awaiting_review`
+- Status: `accepted_pending_merge`
 - Candidate generation: `3`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -92,3 +92,16 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   readback drift, non-positive IDs, and any rollback method/repository/ID/result
   mismatch.
 - Remote ruleset `19526291` must remain byte-semantically unchanged.
+
+## Generation 3 acceptance
+
+- Accepted exact candidate: `6ca1ace6af66f874eed38f644104f59bbc4009ad`.
+- Exact PR CI: run `29893836848`, event `pull_request`, subject SHA equal to the
+  accepted candidate, stable check `G0 / exact-head`, terminal `success`.
+- Main Codex independently reran canonical status validation, protection
+  evidence validation, focused governance/protection tests, exact PR/run
+  identity, and live ruleset readback.
+- Independent code/security: `APPROVE`; all prior recomputed-digest P1 probes
+  fail closed. Independent architecture/route: `CLEAR`.
+- Remote ruleset `19526291` remained unchanged. This acceptance does not merge
+  PR #6 and grants no G0-T04, G1, deployment, release, or trading authority.
