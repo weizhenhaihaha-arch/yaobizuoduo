@@ -145,8 +145,23 @@ def test_verifier_rejects_divergent_local_main_without_mutation(tmp_path: Path) 
 def test_verifier_rejects_attached_head_before_creating_main(tmp_path: Path) -> None:
     repo, subject, _ = make_repo(tmp_path)
     git(repo, "switch", "-c", "candidate")
-    with pytest.raises(ValueError, match="must be detached before creating local main"):
+    with pytest.raises(ValueError, match="must be detached before handling local main"):
         VERIFIER.verify(repo, environment(subject))
     assert git(repo, "rev-parse", "HEAD") == subject
     assert git(repo, "symbolic-ref", "--short", "HEAD") == "candidate"
     assert not has_ref(repo, "refs/heads/main")
+
+
+@pytest.mark.parametrize("local_main", ["equal", "divergent"])
+def test_verifier_rejects_attached_head_before_existing_main_branch(
+    tmp_path: Path, local_main: str
+) -> None:
+    repo, subject, main_sha = make_repo(tmp_path)
+    expected_main = main_sha if local_main == "equal" else subject
+    git(repo, "update-ref", "refs/heads/main", expected_main)
+    git(repo, "switch", "-c", "candidate")
+    with pytest.raises(ValueError, match="must be detached before handling local main"):
+        VERIFIER.verify(repo, environment(subject))
+    assert git(repo, "rev-parse", "HEAD") == subject
+    assert git(repo, "symbolic-ref", "--short", "HEAD") == "candidate"
+    assert git(repo, "rev-parse", "refs/heads/main") == expected_main

@@ -58,6 +58,17 @@ def git_commit(repo: Path, ref: str) -> str:
 def materialize_authoritative_main(repo: Path) -> str:
     """Create the validator's local main ref without moving the checked-out HEAD."""
     subject_before = git_head(repo)
+    symbolic = subprocess.run(
+        ["git", "symbolic-ref", "-q", "HEAD"],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if symbolic.returncode == 0:
+        fail("exact-subject checkout must be detached before handling local main")
+    if symbolic.returncode != 1:
+        fail("unable to verify detached exact-subject HEAD")
     remote_main = git_commit(repo, "refs/remotes/origin/main")
     existing = subprocess.run(
         ["git", "show-ref", "--verify", "--quiet", "refs/heads/main"],
@@ -76,17 +87,6 @@ def materialize_authoritative_main(repo: Path) -> str:
     if existing.returncode != 1:
         fail("unable to inspect existing local main ref")
 
-    symbolic = subprocess.run(
-        ["git", "symbolic-ref", "-q", "HEAD"],
-        cwd=repo,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    if symbolic.returncode == 0:
-        fail("exact-subject checkout must be detached before creating local main")
-    if symbolic.returncode != 1:
-        fail("unable to verify detached exact-subject HEAD")
     result = subprocess.run(
         ["git", "update-ref", "refs/heads/main", remote_main, "0" * 40],
         cwd=repo,
