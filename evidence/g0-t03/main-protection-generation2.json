@@ -1,0 +1,60 @@
+{
+  "schema_version": "g0-t03-main-protection.v1",
+  "phase": "preflight",
+  "observed_at_utc": "2026-07-22T04:46:04Z",
+  "before": {
+    "repository": "weizhenhaihaha-arch/yaobizuoduo",
+    "visibility": "PUBLIC",
+    "default_branch": "main",
+    "main_head_sha": "09bfbd23d898198fe694a3a94f77663759dd89d8",
+    "rulesets": [],
+    "classic_protection": {"http_status": 404, "protected": false},
+    "required_check_observation": {
+      "context": "G0 / exact-head",
+      "app_slug": "github-actions",
+      "head_sha": "09bfbd23d898198fe694a3a94f77663759dd89d8",
+      "status": "completed",
+      "conclusion": "success",
+      "run_id": "29890931290"
+    }
+  },
+  "before_sha256": "c853932335770382ae0a515a2a0d1c52bfccabe84e060c5ce4b68db7000980de",
+  "desired_ruleset": {
+    "name": "G0-T03 main protection",
+    "target": "branch",
+    "enforcement": "active",
+    "bypass_actors": [],
+    "conditions": {"ref_name": {"include": ["refs/heads/main"], "exclude": []}},
+    "rules": [
+      {"type": "deletion"},
+      {"type": "non_fast_forward"},
+      {
+        "type": "pull_request",
+        "parameters": {
+          "dismiss_stale_reviews_on_push": false,
+          "require_code_owner_review": false,
+          "require_last_push_approval": false,
+          "required_approving_review_count": 0,
+          "required_review_thread_resolution": false
+        }
+      },
+      {
+        "type": "required_status_checks",
+        "parameters": {
+          "do_not_enforce_on_create": false,
+          "required_status_checks": [{"context": "G0 / exact-head"}],
+          "strict_required_status_checks_policy": false
+        }
+      }
+    ]
+  },
+  "readback": null,
+  "after_sha256": null,
+  "rollback": {
+    "method": "DELETE",
+    "endpoint_template": "/repos/weizhenhaihaha-arch/yaobizuoduo/rulesets/{created_rule_id}",
+    "created_rule_id": null,
+    "success_verification": {"rulesets": [], "classic_protection_http_status": 404, "protected": false}
+  },
+  "remote_mutation_performed": false
+}
