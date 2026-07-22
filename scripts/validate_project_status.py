@@ -89,18 +89,8 @@ G0_T03_FINAL_CLOSE_BLOCKER = (
 )
 G0_T03_FINAL_CLOSE_RECEIPT_PATH = "evidence/g0-t03/final-close-recovery-acceptance.json"
 G0_T03_FINAL_CLOSE_RECEIPT_VERSION = "g0-t03-final-close-recovery.v1"
-G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = {
-    "8048455a8d0d827d7f99af67716d111336df7b07": {
-        "repository": "weizhenhaihaha-arch/yaobizuoduo",
-        "event": "pull_request",
-        "subject_sha": "8048455a8d0d827d7f99af67716d111336df7b07",
-        "run_id": "29913039430",
-        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29913039430",
-        "check": "G0 / exact-head",
-        "status": "completed",
-        "conclusion": "success",
-    },
-}
+G0_T03_FINAL_CLOSE_BINDING_PATH = "evidence/g0-t03/final-close-reviewed-run-binding.json"
+G0_T03_FINAL_CLOSE_BINDING_VERSION = "g0-t03-final-close-reviewed-run-binding.v1"
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -2457,12 +2447,153 @@ def _g0_t03_final_close_record_errors(root: Path, schema: dict[str, Any]) -> lis
     return errors
 
 
+def _g0_t03_commit_changed_paths(root: Path, parent: str, child: str) -> set[str] | None:
+    ok, text = _git(
+        root, "diff-tree", "--no-commit-id", "--name-only", "-r", parent, child
+    )
+    return set(text.splitlines()) if ok else None
+
+
+def _g0_t03_final_close_binding_errors(
+    root: Path, binding_record: str, candidate: str
+) -> tuple[dict[str, Any] | None, list[str]]:
+    errors: list[str] = []
+    changed = _g0_t03_commit_changed_paths(root, candidate, binding_record)
+    allowed = {
+        G0_T03_FINAL_CLOSE_BINDING_PATH,
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+    }
+    if (
+        changed is None
+        or G0_T03_FINAL_CLOSE_BINDING_PATH not in changed
+        or not changed.issubset(allowed)
+    ):
+        errors.append("$: G0-T03 run seal B must be binding-only relative to candidate R")
+    ok_candidate_binding, _ = _git(
+        root, "cat-file", "-e", f"{candidate}:{G0_T03_FINAL_CLOSE_BINDING_PATH}"
+    )
+    if ok_candidate_binding:
+        errors.append("$: G0-T03 candidate R must not define its own reviewed-run binding")
+    ok, text = _git(root, "show", f"{binding_record}:{G0_T03_FINAL_CLOSE_BINDING_PATH}")
+    if not ok:
+        return None, errors + ["$: G0-T03 run seal B has no reviewed-run binding"]
+    try:
+        binding = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None, errors + ["$: G0-T03 reviewed-run binding is not canonical JSON"]
+    root_keys = {
+        "schema_version", "project", "task_id", "candidate_generation",
+        "recovery_generation", "candidate_sha", "ci", "history", "review",
+        "ruleset", "payload_sha256",
+    }
+    if type(binding) is not dict or set(binding) != root_keys:
+        return None, errors + ["$: G0-T03 reviewed-run binding has an inexact field set"]
+    ci = binding.get("ci")
+    if type(ci) is not dict or set(ci) != {
+        "repository", "event", "subject_sha", "run_id", "url", "check", "status", "conclusion"
+    }:
+        errors.append("$: G0-T03 reviewed-run binding CI has an inexact field set")
+    history = binding.get("history")
+    if type(history) is not dict or set(history) != {
+        "repair_candidate_sha", "repair_candidate_run_id", "repair_acceptance_sha",
+        "repair_acceptance_run_id", "merged_main_sha", "merged_main_run_id",
+        "finalization_sha", "finalization_run_id", "closed_record_sha",
+        "closed_record_run_id", "blocked_record_sha", "recovery_record_sha",
+    }:
+        errors.append("$: G0-T03 reviewed-run binding history has an inexact field set")
+    if type(binding.get("review")) is not dict or set(binding["review"]) != {
+        "code_security", "architecture"
+    }:
+        errors.append("$: G0-T03 reviewed-run binding review has an inexact field set")
+    if type(binding.get("ruleset")) is not dict or set(binding["ruleset"]) != {
+        "id", "evidence_sha256"
+    }:
+        errors.append("$: G0-T03 reviewed-run binding ruleset has an inexact field set")
+    expected_history = {
+        "repair_candidate_sha": "d259f75cb13a56b7256779ad87115120c005ddec",
+        "repair_candidate_run_id": "29904268309",
+        "repair_acceptance_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+        "repair_acceptance_run_id": "29905690883",
+        "merged_main_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+        "merged_main_run_id": "29906115287",
+        "finalization_sha": G0_T03_FINALIZATION_SHA,
+        "finalization_run_id": G0_T03_FINALIZATION_RUN,
+        "closed_record_sha": G0_T03_CLOSED_RECORD_SHA,
+        "closed_record_run_id": G0_T03_CLOSED_RECORD_RUN,
+        "blocked_record_sha": G0_T03_BLOCKED_SHA,
+        "recovery_record_sha": G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
+    }
+    expected_ruleset = {
+        "id": 19526291,
+        "evidence_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1",
+    }
+    if not _typed_equal(binding.get("schema_version"), G0_T03_FINAL_CLOSE_BINDING_VERSION):
+        errors.append("$: G0-T03 reviewed-run binding schema version mismatch")
+    if not _typed_equal(binding.get("project"), "yaobizuoduo"):
+        errors.append("$: G0-T03 reviewed-run binding project mismatch")
+    if not _typed_equal(binding.get("task_id"), "G0-T03"):
+        errors.append("$: G0-T03 reviewed-run binding task mismatch")
+    if not _typed_equal(binding.get("candidate_generation"), 3) or not _typed_equal(
+        binding.get("recovery_generation"), 3
+    ):
+        errors.append("$: G0-T03 reviewed-run binding generation mismatch")
+    if not _typed_equal(binding.get("candidate_sha"), candidate):
+        errors.append("$: G0-T03 reviewed-run binding candidate mismatch")
+    expected_ci = {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "subject_sha": candidate,
+        "run_id": ci.get("run_id") if type(ci) is dict else None,
+        "url": ci.get("url") if type(ci) is dict else None,
+        "check": "G0 / exact-head",
+        "status": "completed",
+        "conclusion": "success",
+    }
+    if not _typed_equal(ci, expected_ci):
+        errors.append("$: G0-T03 reviewed-run binding has inexact CI identity")
+    run_id = ci.get("run_id") if type(ci) is dict else None
+    url = ci.get("url") if type(ci) is dict else None
+    if type(run_id) is not str or re.fullmatch(r"[1-9][0-9]*", run_id) is None:
+        errors.append("$: G0-T03 reviewed-run binding run ID must be positive decimal")
+    elif url != f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{run_id}":
+        errors.append("$: G0-T03 reviewed-run binding URL does not bind run ID")
+    if not _typed_equal(history, expected_history):
+        errors.append("$: G0-T03 reviewed-run binding history drift")
+    if not _typed_equal(binding.get("review"), {"code_security": "approve", "architecture": "clear"}):
+        errors.append("$: G0-T03 reviewed-run binding review drift")
+    if not _typed_equal(binding.get("ruleset"), expected_ruleset):
+        errors.append("$: G0-T03 reviewed-run binding ruleset drift")
+    if binding.get("payload_sha256") != _payload_digest(binding):
+        errors.append("$: G0-T03 reviewed-run binding digest mismatch")
+    return binding, errors
+
+
 def _g0_t03_final_close_receipt_errors(
-    root: Path, accepted_record: str, candidate: str
+    root: Path, accepted_record: str, binding_record: str, candidate: str,
+    binding: dict[str, Any] | None,
 ) -> list[str]:
+    changed = _g0_t03_commit_changed_paths(root, binding_record, accepted_record)
+    allowed = {
+        G0_T03_FINAL_CLOSE_RECEIPT_PATH,
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+    }
+    errors: list[str] = []
+    if (
+        changed is None
+        or G0_T03_FINAL_CLOSE_RECEIPT_PATH not in changed
+        or not changed.issubset(allowed)
+    ):
+        errors.append("$: G0-T03 acceptance A must be receipt-only relative to run seal B")
+    ok_binding_receipt, _ = _git(
+        root, "cat-file", "-e", f"{binding_record}:{G0_T03_FINAL_CLOSE_RECEIPT_PATH}"
+    )
+    if ok_binding_receipt:
+        errors.append("$: G0-T03 run seal B must not define acceptance receipt")
     ok, text = _git(root, "show", f"{accepted_record}:{G0_T03_FINAL_CLOSE_RECEIPT_PATH}")
     if not ok:
-        return ["$: G0-T03 final-close recovery acceptance receipt is missing"]
+        return errors + ["$: G0-T03 final-close recovery acceptance receipt is missing"]
     try:
         receipt = json.loads(text)
     except (json.JSONDecodeError, TypeError):
@@ -2473,8 +2604,7 @@ def _g0_t03_final_close_receipt_errors(
         "review", "ruleset", "payload_sha256",
     }
     if type(receipt) is not dict or set(receipt) != root_keys:
-        return ["$: G0-T03 final-close recovery receipt has an inexact field set"]
-    errors: list[str] = []
+        return errors + ["$: G0-T03 final-close recovery receipt has an inexact field set"]
     nested_keys = {
         "failed_merge": {"commit_sha", "run_id", "url", "conclusion"},
         "history": {
@@ -2501,14 +2631,21 @@ def _g0_t03_final_close_receipt_errors(
     else:
         run_id = ci["run_id"]
         url = ci["url"]
-    candidate_binding = G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS.get(candidate)
-    if candidate_binding is None:
+    if binding is None:
         errors.append("$: G0-T03 final-close candidate has no immutable reviewed-run binding")
         candidate_binding = {
             "repository": None, "event": None, "subject_sha": None,
             "run_id": None, "url": None, "check": None,
             "status": None, "conclusion": None,
         }
+        binding_history = None
+        binding_review = None
+        binding_ruleset = None
+    else:
+        candidate_binding = binding.get("ci")
+        binding_history = binding.get("history")
+        binding_review = binding.get("review")
+        binding_ruleset = binding.get("ruleset")
     expected = {
         "schema_version": G0_T03_FINAL_CLOSE_RECEIPT_VERSION,
         "project": "yaobizuoduo",
@@ -2521,29 +2658,13 @@ def _g0_t03_final_close_receipt_errors(
             "url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T03_FINAL_CLOSE_MERGE_RUN}",
             "conclusion": "failure",
         },
-        "history": {
-            "repair_candidate_sha": "d259f75cb13a56b7256779ad87115120c005ddec",
-            "repair_candidate_run_id": "29904268309",
-            "repair_acceptance_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
-            "repair_acceptance_run_id": "29905690883",
-            "merged_main_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1",
-            "merged_main_run_id": "29906115287",
-            "finalization_sha": G0_T03_FINALIZATION_SHA,
-            "finalization_run_id": G0_T03_FINALIZATION_RUN,
-            "closed_record_sha": G0_T03_CLOSED_RECORD_SHA,
-            "closed_record_run_id": G0_T03_CLOSED_RECORD_RUN,
-            "blocked_record_sha": G0_T03_BLOCKED_SHA,
-            "recovery_record_sha": G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
-        },
+        "history": binding_history,
         "candidate": {
             "commit_sha": candidate,
             "ci": candidate_binding,
         },
-        "review": {"code_security": "approve", "architecture": "clear"},
-        "ruleset": {
-            "id": 19526291,
-            "evidence_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1",
-        },
+        "review": binding_review,
+        "ruleset": binding_ruleset,
     }
     payload = {key: value for key, value in receipt.items() if key != "payload_sha256"}
     for key, value in expected.items():
@@ -2602,9 +2723,16 @@ def _canonical_g0_t03_final_close_bridge(
             root, "rev-list", "--parents", "-n", "1", governed_parent
         )
         record_parts = record_parents_text.split() if ok_record else []
-        candidate = record_parts[1] if len(record_parts) == 2 else ""
+        binding_record = record_parts[1] if len(record_parts) == 2 else ""
         if len(record_parts) != 2:
-            errors.append("$: G0-T03 final-close recovery second parent must directly accept candidate")
+            errors.append("$: G0-T03 final-close acceptance A must directly consume run seal B")
+        ok_binding, binding_parents_text = _git(
+            root, "rev-list", "--parents", "-n", "1", binding_record
+        )
+        binding_parts = binding_parents_text.split() if ok_binding else []
+        candidate = binding_parts[1] if len(binding_parts) == 2 else ""
+        if len(binding_parts) != 2:
+            errors.append("$: G0-T03 run seal B must directly consume candidate R")
         ok_lineage, lineage_text = _git(
             root, "rev-list", "--first-parent", f"{G0_T03_FINAL_CLOSE_MERGE_SHA}..{candidate}"
         )
@@ -2626,7 +2754,17 @@ def _canonical_g0_t03_final_close_bridge(
                 break
         if not _typed_equal(_status_at(root, governed_parent), status):
             errors.append("$: G0-T03 final-close recovery acceptance status mismatch")
-        errors.extend(_g0_t03_final_close_receipt_errors(root, governed_parent, candidate))
+        if not _typed_equal(_status_at(root, binding_record), status):
+            errors.append("$: G0-T03 final-close run seal status mismatch")
+        binding, binding_errors = _g0_t03_final_close_binding_errors(
+            root, binding_record, candidate
+        )
+        errors.extend(binding_errors)
+        errors.extend(
+            _g0_t03_final_close_receipt_errors(
+                root, governed_parent, binding_record, candidate, binding
+            )
+        )
     if not _typed_equal(_status_at(root, governed_parent), status):
         errors.append("$: canonical G0-T03 final-close bridge status must equal second parent")
     ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")

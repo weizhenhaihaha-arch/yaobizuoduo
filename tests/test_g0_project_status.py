@@ -658,10 +658,11 @@ def make_g0_t03_final_close_recovery(
     repo: Path,
     *,
     receipt_mutation: str | None = None,
+    binding_mutation: str | None = None,
     topology_mutation: str | None = None,
     status_mutation: str | None = None,
     candidate_override: str | None = None,
-) -> tuple[dict, str, str, str]:
+) -> tuple[dict, str, str, str, str]:
     if candidate_override is not None:
         git(repo, "switch", "--detach", candidate_override)
     status = write_g0_t03_final_close_recovery(repo)
@@ -679,7 +680,7 @@ def make_g0_t03_final_close_recovery(
     else:
         candidate = candidate_override
         status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
-    candidate_ci = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS.get(candidate, {
+    candidate_ci = {
         "repository": "weizhenhaihaha-arch/yaobizuoduo",
         "event": "pull_request",
         "subject_sha": candidate,
@@ -688,19 +689,15 @@ def make_g0_t03_final_close_recovery(
         "check": "G0 / exact-head",
         "status": "completed",
         "conclusion": "success",
-    })
-    receipt = {
-        "schema_version": VALIDATOR.G0_T03_FINAL_CLOSE_RECEIPT_VERSION,
+    }
+    binding = {
+        "schema_version": VALIDATOR.G0_T03_FINAL_CLOSE_BINDING_VERSION,
         "project": "yaobizuoduo",
         "task_id": "G0-T03",
         "candidate_generation": 3,
         "recovery_generation": 3,
-        "failed_merge": {
-            "commit_sha": G0_T03_FINAL_CLOSE_MERGE,
-            "run_id": "29909220290",
-            "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29909220290",
-            "conclusion": "failure",
-        },
+        "candidate_sha": candidate,
+        "ci": dict(candidate_ci),
         "history": {
             "repair_candidate_sha": "d259f75cb13a56b7256779ad87115120c005ddec",
             "repair_candidate_run_id": "29904268309",
@@ -715,15 +712,78 @@ def make_g0_t03_final_close_recovery(
             "blocked_record_sha": G0_T03_BLOCKED,
             "recovery_record_sha": G0_T03_RECOVERY_ACCEPTED_RECORD,
         },
-        "candidate": {
-            "commit_sha": candidate,
-            "ci": dict(candidate_ci),
-        },
         "review": {"code_security": "approve", "architecture": "clear"},
         "ruleset": {
             "id": 19526291,
             "evidence_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1",
         },
+    }
+    if binding_mutation == "wrong_candidate":
+        binding["candidate_sha"] = G0_T03_CLOSED_RECORD
+    elif binding_mutation == "wrong_subject":
+        binding["ci"]["subject_sha"] = G0_T03_CLOSED_RECORD
+    elif binding_mutation == "wrong_run":
+        binding["ci"]["run_id"] = "39999999999"
+        binding["ci"]["url"] = "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/39999999999"
+    elif binding_mutation == "wrong_history":
+        binding["history"]["closed_record_sha"] = G0_T03_FINALIZATION
+    elif binding_mutation == "wrong_review":
+        binding["review"]["architecture"] = "watch"
+    elif binding_mutation == "wrong_ruleset":
+        binding["ruleset"]["id"] = 19526292
+    binding["payload_sha256"] = VALIDATOR._payload_digest(binding)
+    if binding_mutation == "wrong_digest":
+        binding["payload_sha256"] = "0" * 64
+    binding_path = repo / VALIDATOR.G0_T03_FINAL_CLOSE_BINDING_PATH
+    binding_path.parent.mkdir(parents=True, exist_ok=True)
+    binding_path.write_text(json.dumps(binding, indent=2) + "\n", encoding="utf-8")
+    if binding_mutation == "extra_file":
+        (repo / "forbidden-binding-change.txt").write_text("not binding only\n", encoding="utf-8")
+    elif binding_mutation == "validator_change":
+        with (repo / "scripts" / "validate_project_status.py").open("a", encoding="utf-8") as handle:
+            handle.write("\n# forbidden B validator change\n")
+    elif binding_mutation == "status_drift":
+        with (repo / "PROJECT_STATUS.yaml").open("a", encoding="utf-8") as handle:
+            handle.write("\n")
+    elif binding_mutation == "receipt_defined":
+        receipt_in_b = repo / VALIDATOR.G0_T03_FINAL_CLOSE_RECEIPT_PATH
+        receipt_in_b.parent.mkdir(parents=True, exist_ok=True)
+        receipt_in_b.write_text("{}\n", encoding="utf-8")
+    binding_record = commit(repo, "seal exact reviewed run for G0-T03 repair candidate")
+    if topology_mutation == "binding_wrong_parent":
+        binding_record = git(
+            repo,
+            "commit-tree",
+            git(repo, "rev-parse", f"{binding_record}^{{tree}}"),
+            "-p",
+            G0_T03_FINAL_CLOSE_MERGE,
+            "-m",
+            "forge run seal parent",
+        )
+        git(repo, "switch", "--detach", binding_record)
+    elif topology_mutation == "acceptance_bypasses_binding":
+        git(repo, "switch", "--detach", candidate)
+    receipt = {
+        "schema_version": VALIDATOR.G0_T03_FINAL_CLOSE_RECEIPT_VERSION,
+        "project": "yaobizuoduo",
+        "task_id": "G0-T03",
+        "candidate_generation": 3,
+        "recovery_generation": 3,
+        "failed_merge": {
+            "commit_sha": G0_T03_FINAL_CLOSE_MERGE,
+            "run_id": "29909220290",
+            "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29909220290",
+            "conclusion": "failure",
+        },
+        "history": {
+            **binding["history"],
+        },
+        "candidate": {
+            "commit_sha": candidate,
+            "ci": dict(candidate_ci),
+        },
+        "review": dict(binding["review"]),
+        "ruleset": dict(binding["ruleset"]),
     }
     if receipt_mutation == "wrong_candidate":
         receipt["candidate"]["commit_sha"] = G0_T03_CLOSED_RECORD
@@ -760,6 +820,17 @@ def make_g0_t03_final_close_recovery(
     receipt_path = repo / VALIDATOR.G0_T03_FINAL_CLOSE_RECEIPT_PATH
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
     receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    if receipt_mutation == "extra_file":
+        (repo / "forbidden-acceptance-change.txt").write_text("not receipt only\n", encoding="utf-8")
+    elif receipt_mutation == "binding_change":
+        with binding_path.open("a", encoding="utf-8") as handle:
+            handle.write("\n")
+    elif receipt_mutation == "validator_change":
+        with (repo / "scripts" / "validate_project_status.py").open("a", encoding="utf-8") as handle:
+            handle.write("\n# forbidden A validator change\n")
+    elif receipt_mutation == "status_drift":
+        with (repo / "PROJECT_STATUS.yaml").open("a", encoding="utf-8") as handle:
+            handle.write("\n")
     accepted_record = commit(repo, "accept exact G0-T03 final-close recovery")
     first = G0_T03_FINAL_CLOSE_MERGE
     second = accepted_record
@@ -767,7 +838,7 @@ def make_g0_t03_final_close_recovery(
     if topology_mutation == "wrong_first":
         first = G0_T03_CLOSED_RECORD
     elif topology_mutation == "wrong_second":
-        second = candidate
+        second = binding_record
     elif topology_mutation == "swapped":
         first, second = second, first
     elif topology_mutation == "wrong_tree":
@@ -779,24 +850,22 @@ def make_g0_t03_final_close_recovery(
     git(repo, "update-ref", "refs/heads/main", merged)
     git(repo, "update-ref", "refs/remotes/origin/main", merged)
     git(repo, "switch", "--detach", merged)
-    return status, candidate, accepted_record, merged
+    return status, candidate, binding_record, accepted_record, merged
 
 
-def test_pr10_candidate_has_exact_immutable_reviewed_run_binding(tmp_path: Path) -> None:
+def test_pr10_direct_acceptance_cannot_self_attest_from_process_binding(tmp_path: Path) -> None:
     repo = clone_g0_t03_failed_final_close(tmp_path)
     candidate = "8048455a8d0d827d7f99af67716d111336df7b07"
-    status, actual_candidate, accepted_record, merged = make_g0_t03_final_close_recovery(
+    status, actual_candidate, _, _, merged = make_g0_t03_final_close_recovery(
         repo, candidate_override=candidate
     )
     assert actual_candidate == candidate
-    binding = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS[candidate]
-    assert binding["run_id"] == "29913039430"
-    assert binding["url"].endswith("/actions/runs/29913039430")
     schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
     governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
         status, repo, merged, schema, require_canonical_main=True
     )
-    assert governed == accepted_record, errors
+    assert governed is None
+    assert errors
 
 
 def make_g0_t03_recovery_closure(
@@ -1149,6 +1218,8 @@ def test_exact_g0_t03_recovery_closure_bridge_is_accepted_before_generic_paths(
         "wrong_second",
         "swapped",
         "wrong_tree",
+        "binding_wrong_parent",
+        "acceptance_bypasses_binding",
         "wrong_candidate",
         "wrong_run",
         "wrong_review",
@@ -1204,36 +1275,27 @@ def test_future_g0_t03_final_close_recovery_merge_and_main_validation_succeed(
     tmp_path: Path,
 ) -> None:
     repo = clone_g0_t03_failed_final_close(tmp_path)
-    status, candidate, accepted_record, merged = make_g0_t03_final_close_recovery(repo)
-    binding = {
-        "repository": "weizhenhaihaha-arch/yaobizuoduo",
-        "event": "pull_request",
-        "subject_sha": candidate,
-        "run_id": "30000000010",
-        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30000000010",
-        "check": "G0 / exact-head",
-        "status": "completed",
-        "conclusion": "success",
-    }
-    original_bindings = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS
-    VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = {candidate: binding}
+    status, candidate, binding_record, accepted_record, merged = (
+        make_g0_t03_final_close_recovery(repo)
+    )
     schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
     assert git(repo, "rev-list", "--parents", "-n", "1", accepted_record).split() == [
         accepted_record,
+        binding_record,
+    ]
+    assert git(repo, "rev-list", "--parents", "-n", "1", binding_record).split() == [
+        binding_record,
         candidate,
     ]
-    try:
-        governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
-            status, repo, merged, schema, require_canonical_main=True
-        )
-        assert governed == accepted_record, errors
-        assert errors == []
-        errors = VALIDATOR.validate(
-            repo / "PROJECT_STATUS.yaml", repo / "schemas" / "project_status.schema.json", repo
-        )
-        assert errors == []
-    finally:
-        VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = original_bindings
+    governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
+        status, repo, merged, schema, require_canonical_main=True
+    )
+    assert governed == accepted_record, errors
+    assert errors == []
+    errors = VALIDATOR.validate(
+        repo / "PROJECT_STATUS.yaml", repo / "schemas" / "project_status.schema.json", repo
+    )
+    assert errors == []
 
 
 @pytest.mark.parametrize(
@@ -1256,6 +1318,21 @@ def test_future_g0_t03_final_close_recovery_merge_and_main_validation_succeed(
         "wrong_review",
         "wrong_ruleset",
         "wrong_digest",
+        "binding_wrong_candidate",
+        "binding_wrong_subject",
+        "binding_wrong_run",
+        "binding_wrong_history",
+        "binding_wrong_review",
+        "binding_wrong_ruleset",
+        "binding_wrong_digest",
+        "binding_extra_file",
+        "binding_validator_change",
+        "binding_status_drift",
+        "binding_receipt_defined",
+        "acceptance_extra_file",
+        "acceptance_binding_change",
+        "acceptance_validator_change",
+        "acceptance_status_drift",
         "ordinary_closed_merge",
     ],
 )
@@ -1270,10 +1347,15 @@ def test_g0_t03_final_close_recovery_rejects_substitution_and_ordinary_closed_me
         "nonexistent_run", "unrelated_run", "wrong_closure_history",
         "wrong_finalization_history", "wrong_blocked_history", "wrong_review",
         "wrong_ruleset", "wrong_digest",
+        "acceptance_extra_file",
     } else None
-    status, candidate, accepted_record, merged = make_g0_t03_final_close_recovery(
+    binding_mutation = mutation.removeprefix("binding_") if mutation.startswith("binding_") else None
+    if mutation.startswith("acceptance_"):
+        receipt = mutation.removeprefix("acceptance_")
+    status, candidate, binding_record, accepted_record, merged = make_g0_t03_final_close_recovery(
         repo,
         receipt_mutation=receipt,
+        binding_mutation=binding_mutation,
         topology_mutation=topology,
         status_mutation=status_mutation,
     )
@@ -1293,35 +1375,19 @@ def test_g0_t03_final_close_recovery_rejects_substitution_and_ordinary_closed_me
         git(repo, "update-ref", "refs/remotes/origin/main", ordinary)
         git(repo, "switch", "--detach", ordinary)
         merged = ordinary
-    original_bindings = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS
-    VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = {
-        candidate: {
-            "repository": "weizhenhaihaha-arch/yaobizuoduo",
-            "event": "pull_request",
-            "subject_sha": candidate,
-            "run_id": "30000000010",
-            "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30000000010",
-            "check": "G0 / exact-head",
-            "status": "completed",
-            "conclusion": "success",
-        }
-    }
     schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
-    try:
-        governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
-            status, repo, merged, schema, require_canonical_main=True
-        )
-        assert governed is None
-        if mutation not in {"wrong_task", "wrong_generation"}:
-            assert errors
-        governed, generic_errors = VALIDATOR._canonical_g0_merge_bridge(
-            status, repo, merged, schema, require_canonical_main=True
-        )
-        assert governed is None
-        if mutation not in {"wrong_task", "wrong_generation"}:
-            assert generic_errors
-    finally:
-        VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = original_bindings
+    governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
+        status, repo, merged, schema, require_canonical_main=True
+    )
+    assert governed is None
+    if mutation not in {"wrong_task", "wrong_generation"}:
+        assert errors
+    governed, generic_errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, merged, schema, require_canonical_main=True
+    )
+    assert governed is None
+    if mutation not in {"wrong_task", "wrong_generation"}:
+        assert generic_errors
 
 
 def test_g0_t03_recovery_closure_can_reach_merged_verified_and_closed_without_third_recovery(

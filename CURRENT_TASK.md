@@ -245,3 +245,27 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
 - Synchronized run/URL/digest replacement, nonexistent runs, unrelated runs,
   subject drift and missing bindings fail closed. Status remains `closed`, the
   exact failed main run remains the sole blocker, and all route limits remain.
+
+## Final-close run-seal topology repair
+
+- PR #10 repair head `26f916821fb72ea42366d3c447d2d6b092132dbf`
+  passed exact pull-request run `29915845730`, but architecture/route returned
+  `BLOCK`: a validator-side map still allowed the same acceptance commit to
+  define and consume a new candidate binding, while a separate binding commit
+  became the candidate under the direct-parent topology.
+- The product owner selected route A for this same G0-T03 slice. This reviewed
+  repair candidate R defines only the future trust model and tests. After R has
+  its own exact successful run and dual-green review, a later run-seal B must
+  directly parent R and may change only the frozen binding artifact plus
+  necessary task/memory history. A later acceptance A must directly parent B
+  and may change only the acceptance receipt plus necessary task/memory history.
+- The bridge therefore verifies `A -> B -> R`. B binds R's exact repository,
+  pull-request subject, run ID/URL, aggregate check and success, plus immutable
+  history, dual-green review and ruleset evidence. A must reproduce that seal
+  and point back to R. Neither B nor A may change validator, tests, project
+  status, phase evidence, the other artifact, or business/runtime files.
+- Real Git-object tests cover the positive three-stage topology and fail closed
+  on synchronous self-attestation, bypassing B, substituted merge/B/R parents,
+  extra B/A paths, status or validator drift, candidate/run/URL/digest drift,
+  and history/review/ruleset drift. This R delivery does not create B or A and
+  does not claim its future CI or review.
