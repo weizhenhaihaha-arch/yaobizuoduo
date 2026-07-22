@@ -5,7 +5,7 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `2` explicit reauthorization
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -113,3 +113,19 @@ record `925fa94c22dfabc8ccd2dbe99fde74ca0c88a12f`; generation 2 starts from the
 last canonical close with that blocked record as the immutable second parent.
 This does not add a `blocked -> in_progress` transition or rewrite blocked
 history.
+
+## Generation 2 review result: returned
+
+- Reviewed exact PR head: `d069c5158c1698f9c496eefe020e153a90d27c1b`.
+- Real Actions run: `29882571168` at
+  `https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29882571168`.
+- Exact-subject verification succeeded for the pull-request head, canonical
+  repository, event, run identity, and read-only checkout.
+- The aggregate check `G0 / exact-head` failed because detached exact-head
+  checkout did not create local `refs/heads/main`; repository-aware validation
+  reported `$.authoritative_main_ref: authoritative main ref does not exist`.
+- Verdict: code/security `REQUEST CHANGES`, architecture/route `WATCH`.
+- Repair is limited to materializing local `refs/heads/main` from fetched
+  `refs/remotes/origin/main` without moving detached `HEAD`, with focused static
+  and behavior regression coverage. Return only this G0-T02 generation for
+  repair; do not start G0-T03 or G1.
