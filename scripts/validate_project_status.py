@@ -89,6 +89,18 @@ G0_T03_FINAL_CLOSE_BLOCKER = (
 )
 G0_T03_FINAL_CLOSE_RECEIPT_PATH = "evidence/g0-t03/final-close-recovery-acceptance.json"
 G0_T03_FINAL_CLOSE_RECEIPT_VERSION = "g0-t03-final-close-recovery.v1"
+G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = {
+    "8048455a8d0d827d7f99af67716d111336df7b07": {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "subject_sha": "8048455a8d0d827d7f99af67716d111336df7b07",
+        "run_id": "29913039430",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29913039430",
+        "check": "G0 / exact-head",
+        "status": "completed",
+        "conclusion": "success",
+    },
+}
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -2489,6 +2501,14 @@ def _g0_t03_final_close_receipt_errors(
     else:
         run_id = ci["run_id"]
         url = ci["url"]
+    candidate_binding = G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS.get(candidate)
+    if candidate_binding is None:
+        errors.append("$: G0-T03 final-close candidate has no immutable reviewed-run binding")
+        candidate_binding = {
+            "repository": None, "event": None, "subject_sha": None,
+            "run_id": None, "url": None, "check": None,
+            "status": None, "conclusion": None,
+        }
     expected = {
         "schema_version": G0_T03_FINAL_CLOSE_RECEIPT_VERSION,
         "project": "yaobizuoduo",
@@ -2517,16 +2537,7 @@ def _g0_t03_final_close_receipt_errors(
         },
         "candidate": {
             "commit_sha": candidate,
-            "ci": {
-                "repository": "weizhenhaihaha-arch/yaobizuoduo",
-                "event": "pull_request",
-                "subject_sha": candidate,
-                "run_id": run_id,
-                "url": url,
-                "check": "G0 / exact-head",
-                "status": "completed",
-                "conclusion": "success",
-            },
+            "ci": candidate_binding,
         },
         "review": {"code_security": "approve", "architecture": "clear"},
         "ruleset": {

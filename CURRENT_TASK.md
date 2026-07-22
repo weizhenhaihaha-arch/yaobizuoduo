@@ -227,3 +227,21 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   history substitution and ordinary closed merges fail closed. Current status
   stays `closed`, this exact failed run remains the sole blocker, and G0-T04/G1,
   live data, deployment, release and trading remain unauthorized.
+
+## Final-close receipt review return
+
+- PR #10 exact candidate `8048455a8d0d827d7f99af67716d111336df7b07`
+  passed exact pull-request run `29913039430`; architecture/route remained
+  `CLEAR`, but code/security returned `REQUEST CHANGES`.
+- The receipt previously defined its own candidate run ID and URL. Synchronously
+  replacing both values and recomputing the payload digest could therefore make
+  a nonexistent or unrelated run pass.
+- This same-slice repair moves candidate/run identity outside the receipt into
+  an immutable reviewed-run binding. The receipt must equal that complete
+  binding; positive integers, URL self-consistency, and digest recomputation are
+  no longer sufficient. The exact PR #10 pair is preserved as the first audited
+  binding, while any later repair candidate must be sealed only after its real
+  exact-head run is known and before a later acceptance record consumes it.
+- Synchronized run/URL/digest replacement, nonexistent runs, unrelated runs,
+  subject drift and missing bindings fail closed. Status remains `closed`, the
+  exact failed main run remains the sole blocker, and all route limits remain.

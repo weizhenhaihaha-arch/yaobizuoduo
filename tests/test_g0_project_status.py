@@ -660,7 +660,10 @@ def make_g0_t03_final_close_recovery(
     receipt_mutation: str | None = None,
     topology_mutation: str | None = None,
     status_mutation: str | None = None,
+    candidate_override: str | None = None,
 ) -> tuple[dict, str, str, str]:
+    if candidate_override is not None:
+        git(repo, "switch", "--detach", candidate_override)
     status = write_g0_t03_final_close_recovery(repo)
     if status_mutation == "wrong_task":
         status["active_tasks"][0]["task_id"] = "G0-T04"
@@ -668,10 +671,24 @@ def make_g0_t03_final_close_recovery(
     elif status_mutation == "wrong_generation":
         status["active_tasks"][0]["candidate_generation"] = 4
         write_status(repo / "PROJECT_STATUS.yaml", status)
-    (repo / "final-close-recovery-note.txt").write_text(
-        "strict non-self-referential final-close recovery\n", encoding="utf-8"
-    )
-    candidate = commit(repo, "repair G0-T03 final-close bridge")
+    if candidate_override is None:
+        (repo / "final-close-recovery-note.txt").write_text(
+            "strict non-self-referential final-close recovery\n", encoding="utf-8"
+        )
+        candidate = commit(repo, "repair G0-T03 final-close bridge")
+    else:
+        candidate = candidate_override
+        status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    candidate_ci = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS.get(candidate, {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "subject_sha": candidate,
+        "run_id": "30000000010",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30000000010",
+        "check": "G0 / exact-head",
+        "status": "completed",
+        "conclusion": "success",
+    })
     receipt = {
         "schema_version": VALIDATOR.G0_T03_FINAL_CLOSE_RECEIPT_VERSION,
         "project": "yaobizuoduo",
@@ -700,16 +717,7 @@ def make_g0_t03_final_close_recovery(
         },
         "candidate": {
             "commit_sha": candidate,
-            "ci": {
-                "repository": "weizhenhaihaha-arch/yaobizuoduo",
-                "event": "pull_request",
-                "subject_sha": candidate,
-                "run_id": "30000000010",
-                "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30000000010",
-                "check": "G0 / exact-head",
-                "status": "completed",
-                "conclusion": "success",
-            },
+            "ci": dict(candidate_ci),
         },
         "review": {"code_security": "approve", "architecture": "clear"},
         "ruleset": {
@@ -721,6 +729,21 @@ def make_g0_t03_final_close_recovery(
         receipt["candidate"]["commit_sha"] = G0_T03_CLOSED_RECORD
     elif receipt_mutation == "wrong_run":
         receipt["candidate"]["ci"]["subject_sha"] = G0_T03_CLOSED_RECORD
+    elif receipt_mutation == "synchronized_run_substitution":
+        receipt["candidate"]["ci"]["run_id"] = "39999999999"
+        receipt["candidate"]["ci"]["url"] = (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/39999999999"
+        )
+    elif receipt_mutation == "nonexistent_run":
+        receipt["candidate"]["ci"]["run_id"] = "999999999999"
+        receipt["candidate"]["ci"]["url"] = (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/999999999999"
+        )
+    elif receipt_mutation == "unrelated_run":
+        receipt["candidate"]["ci"]["run_id"] = "29909220290"
+        receipt["candidate"]["ci"]["url"] = (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29909220290"
+        )
     elif receipt_mutation == "wrong_closure_history":
         receipt["history"]["repair_acceptance_sha"] = G0_T03_RECOVERY_ACCEPTED_RECORD
     elif receipt_mutation == "wrong_finalization_history":
@@ -757,6 +780,23 @@ def make_g0_t03_final_close_recovery(
     git(repo, "update-ref", "refs/remotes/origin/main", merged)
     git(repo, "switch", "--detach", merged)
     return status, candidate, accepted_record, merged
+
+
+def test_pr10_candidate_has_exact_immutable_reviewed_run_binding(tmp_path: Path) -> None:
+    repo = clone_g0_t03_failed_final_close(tmp_path)
+    candidate = "8048455a8d0d827d7f99af67716d111336df7b07"
+    status, actual_candidate, accepted_record, merged = make_g0_t03_final_close_recovery(
+        repo, candidate_override=candidate
+    )
+    assert actual_candidate == candidate
+    binding = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS[candidate]
+    assert binding["run_id"] == "29913039430"
+    assert binding["url"].endswith("/actions/runs/29913039430")
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
+        status, repo, merged, schema, require_canonical_main=True
+    )
+    assert governed == accepted_record, errors
 
 
 def make_g0_t03_recovery_closure(
@@ -1165,18 +1205,35 @@ def test_future_g0_t03_final_close_recovery_merge_and_main_validation_succeed(
 ) -> None:
     repo = clone_g0_t03_failed_final_close(tmp_path)
     status, candidate, accepted_record, merged = make_g0_t03_final_close_recovery(repo)
+    binding = {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "subject_sha": candidate,
+        "run_id": "30000000010",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30000000010",
+        "check": "G0 / exact-head",
+        "status": "completed",
+        "conclusion": "success",
+    }
+    original_bindings = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS
+    VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = {candidate: binding}
     schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
     assert git(repo, "rev-list", "--parents", "-n", "1", accepted_record).split() == [
         accepted_record,
         candidate,
     ]
-    governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
-        status, repo, merged, schema, require_canonical_main=True
-    )
-    assert governed == accepted_record, errors
-    assert errors == []
-    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
-    assert result.returncode == 0, result.stdout
+    try:
+        governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
+            status, repo, merged, schema, require_canonical_main=True
+        )
+        assert governed == accepted_record, errors
+        assert errors == []
+        errors = VALIDATOR.validate(
+            repo / "PROJECT_STATUS.yaml", repo / "schemas" / "project_status.schema.json", repo
+        )
+        assert errors == []
+    finally:
+        VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = original_bindings
 
 
 @pytest.mark.parametrize(
@@ -1190,6 +1247,9 @@ def test_future_g0_t03_final_close_recovery_merge_and_main_validation_succeed(
         "wrong_generation",
         "wrong_candidate",
         "wrong_run",
+        "synchronized_run_substitution",
+        "nonexistent_run",
+        "unrelated_run",
         "wrong_closure_history",
         "wrong_finalization_history",
         "wrong_blocked_history",
@@ -1206,11 +1266,12 @@ def test_g0_t03_final_close_recovery_rejects_substitution_and_ordinary_closed_me
     topology = mutation if mutation in {"wrong_first", "wrong_second", "swapped", "wrong_tree"} else None
     status_mutation = mutation if mutation in {"wrong_task", "wrong_generation"} else None
     receipt = mutation if mutation in {
-        "wrong_candidate", "wrong_run", "wrong_closure_history",
+        "wrong_candidate", "wrong_run", "synchronized_run_substitution",
+        "nonexistent_run", "unrelated_run", "wrong_closure_history",
         "wrong_finalization_history", "wrong_blocked_history", "wrong_review",
         "wrong_ruleset", "wrong_digest",
     } else None
-    status, _, accepted_record, merged = make_g0_t03_final_close_recovery(
+    status, candidate, accepted_record, merged = make_g0_t03_final_close_recovery(
         repo,
         receipt_mutation=receipt,
         topology_mutation=topology,
@@ -1232,19 +1293,35 @@ def test_g0_t03_final_close_recovery_rejects_substitution_and_ordinary_closed_me
         git(repo, "update-ref", "refs/remotes/origin/main", ordinary)
         git(repo, "switch", "--detach", ordinary)
         merged = ordinary
+    original_bindings = VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS
+    VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = {
+        candidate: {
+            "repository": "weizhenhaihaha-arch/yaobizuoduo",
+            "event": "pull_request",
+            "subject_sha": candidate,
+            "run_id": "30000000010",
+            "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30000000010",
+            "check": "G0 / exact-head",
+            "status": "completed",
+            "conclusion": "success",
+        }
+    }
     schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
-    governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
-        status, repo, merged, schema, require_canonical_main=True
-    )
-    assert governed is None
-    if mutation not in {"wrong_task", "wrong_generation"}:
-        assert errors
-    governed, generic_errors = VALIDATOR._canonical_g0_merge_bridge(
-        status, repo, merged, schema, require_canonical_main=True
-    )
-    assert governed is None
-    if mutation not in {"wrong_task", "wrong_generation"}:
-        assert generic_errors
+    try:
+        governed, errors = VALIDATOR._canonical_g0_t03_final_close_bridge(
+            status, repo, merged, schema, require_canonical_main=True
+        )
+        assert governed is None
+        if mutation not in {"wrong_task", "wrong_generation"}:
+            assert errors
+        governed, generic_errors = VALIDATOR._canonical_g0_merge_bridge(
+            status, repo, merged, schema, require_canonical_main=True
+        )
+        assert governed is None
+        if mutation not in {"wrong_task", "wrong_generation"}:
+            assert generic_errors
+    finally:
+        VALIDATOR.G0_T03_FINAL_CLOSE_REVIEWED_RUN_BINDINGS = original_bindings
 
 
 def test_g0_t03_recovery_closure_can_reach_merged_verified_and_closed_without_third_recovery(
