@@ -1443,8 +1443,40 @@ def _is_g0_t02_post_merge_recovery_status(status: dict[str, Any]) -> bool:
                 "architecture": "clear",
                 "reviewed_candidate_sha": "35b90f87ab42843925065e6d0dafdc25797702e0",
             }
+            and status.get("schema_authority") == {
+                "revision": 1,
+                "sha256": "192787ae5ad594bf3fce57af75de8bb9db99c83adac93ad1434fc49d63579e5e",
+                "migration": {
+                    "from_revision": 0,
+                    "from_sha256": SCHEMA_BOOTSTRAP_OLD_DIGEST,
+                    "to_revision": 1,
+                    "to_sha256": "192787ae5ad594bf3fce57af75de8bb9db99c83adac93ad1434fc49d63579e5e",
+                    "authorization_sha": SCHEMA_BOOTSTRAP_SUBJECT,
+                    "compatibility_rule": SCHEMA_COMPATIBILITY_RULE,
+                    "preauthority_history_sha256": SCHEMA_PREAUTHORITY_HISTORY_DIGEST,
+                },
+            }
+            and status.get("transition_ledger") == {
+                "authorization_baseline_sha": BOOTSTRAP_BASELINE,
+                "sealed_through_sha": LEDGER_ANCHOR,
+                "first_parent_chain_sha256": LEDGER_DIGEST,
+            }
+            and status["bootstrap_exception"] is None
+            and status["capability"] == {
+                "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+                "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED",
+            }
+            and status["release"] == {"product_owner_approval": None, "release_manifest": None}
             and status["blockers"] == [G0_T02_RECOVERY_BLOCKER]
             and status["next_authorization"] == {"gate": "G0", "task_id": "G0-T03", "state": "not_authorized"}
+            and status["governed_documents"] == [
+                "AGENTS.md",
+                "DEVELOPMENT_WORKFLOW.md",
+                "AG_WORK_LOOP.md",
+                "DESIGN.md",
+                "CURRENT_TASK.md",
+                "PROJECT_MEMORY.md",
+            ]
         )
     except (KeyError, IndexError, TypeError):
         return False
