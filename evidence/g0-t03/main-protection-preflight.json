@@ -1,0 +1,39 @@
+{
+  "schema_version": "g0-t03-main-protection-preflight.v1",
+  "observed_at_utc": "2026-07-22T04:30:54Z",
+  "snapshot": {
+    "repository": "weizhenhaihaha-arch/yaobizuoduo",
+    "default_branch": "main",
+    "branch_head_sha": "09bfbd23d898198fe694a3a94f77663759dd89d8",
+    "viewer_permission": "ADMIN",
+    "branch": {
+      "protected": false,
+      "required_status_checks": {
+        "enforcement_level": "off",
+        "contexts": [],
+        "checks": []
+      }
+    },
+    "rulesets_read": {
+      "http_status": 403,
+      "error": "feature_unavailable_for_private_repository_on_current_plan"
+    },
+    "classic_protection_read": {
+      "http_status": 403,
+      "error": "feature_unavailable_for_private_repository_on_current_plan"
+    }
+  },
+  "snapshot_sha256": "088abdc35592b6d268e35c97a30a438839f49c566d807dc30ef51ba51066228b",
+  "required_check_context": "G0 / exact-head",
+  "remote_mutation_performed": false,
+  "recovery": {
+    "required": false,
+    "procedure": "no-op; no remote protection setting was mutated",
+    "verification": "read branch main and confirm protected=false at exact head 09bfbd23d898198fe694a3a94f77663759dd89d8"
+  },
+  "blocker": {
+    "kind": "github_plan_feature_unavailable",
+    "message": "GitHub protection APIs require upgrading the private repository plan or making the repository public",
+    "decision_required": "product owner must choose a plan upgrade or a separately reviewed repository-visibility change"
+  }
+}

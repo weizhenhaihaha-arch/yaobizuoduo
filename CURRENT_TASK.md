@@ -5,7 +5,7 @@
 - Task ID: `G0-T03`
 - Gate: G0 main required check and minimal branch protection
 - Risk: `D2`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `1`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
