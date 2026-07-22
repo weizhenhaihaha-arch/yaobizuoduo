@@ -1461,31 +1461,53 @@ def _g0_t02_recovery_parent_errors(
 ) -> list[str] | None:
     if not _is_g0_t02_post_merge_recovery_status(status):
         return None
-    if root is None or child_sha is None or parent_sha != G0_T02_FAILED_MAIN_SHA:
-        return ["$: post-merge CI recovery must directly descend from the exact failed authoritative main subject"]
+    if root is None or child_sha is None or parent_sha is None:
+        return ["$: post-merge CI recovery requires repository-bound parent evidence"]
     errors: list[str] = []
+    parent_is_recovery = _is_g0_t02_post_merge_recovery_status(parent)
+    if parent_is_recovery:
+        ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+        parts = parents_text.split() if ok else []
+        if not _typed_equal(status, parent) or len(parts) != 2 or parts[1] != parent_sha:
+            errors.append("$: post-merge CI recovery follow-up must preserve status on a single-parent lineage")
+        if not _is_ancestor(root, G0_T02_FAILED_MAIN_SHA, parent_sha):
+            errors.append("$: post-merge CI recovery follow-up is not rooted at the exact failed main subject")
+        return errors
+    if parent_sha != G0_T02_FAILED_MAIN_SHA:
+        return ["$: post-merge CI recovery must be rooted at the exact failed authoritative main subject"]
     projected = dict(status)
     projected["active_tasks"] = [dict(status["active_tasks"][0])]
     projected["active_tasks"][0]["transition"] = {"from": "awaiting_review", "to": "accepted_pending_merge"}
     projected["blockers"] = []
     if not _typed_equal(projected, parent):
         errors.append("$: post-merge CI recovery may only add the exact failure record and recovery transition")
-    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
-    parts = parents_text.split() if ok else []
-    if len(parts) != 2 or parts[1] != parent_sha:
-        errors.append("$: post-merge CI recovery record must have the failed main subject as its sole parent")
+    ok_lineage, lineage_text = _git(root, "rev-list", "--first-parent", f"{parent_sha}..{child_sha}")
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    if not lineage or lineage[0] != child_sha:
+        errors.append("$: post-merge CI recovery lineage is unavailable")
+    for index, recovery_sha in enumerate(lineage):
+        ok_recovery_parents, recovery_parents_text = _git(root, "rev-list", "--parents", "-n", "1", recovery_sha)
+        recovery_parts = recovery_parents_text.split() if ok_recovery_parents else []
+        expected_parent = lineage[index + 1] if index + 1 < len(lineage) else parent_sha
+        if (
+            len(recovery_parts) != 2
+            or recovery_parts[1] != expected_parent
+            or not _typed_equal(_status_at(root, recovery_sha), status)
+        ):
+            errors.append("$: post-merge CI recovery must be a status-identical single-parent lineage")
+            break
     if require_failed_main:
         ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
         ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
-        main_matches = ok_main and ok_remote and main_sha == remote_sha == parent_sha
-        if ok_main and ok_remote and main_sha == remote_sha and main_sha != parent_sha:
+        main_matches = ok_main and ok_remote and main_sha == remote_sha == G0_T02_FAILED_MAIN_SHA
+        if ok_main and ok_remote and main_sha == remote_sha and main_sha != G0_T02_FAILED_MAIN_SHA:
             ok_main_parents, main_parents_text = _git(root, "rev-list", "--parents", "-n", "1", main_sha)
             main_parts = main_parents_text.split() if ok_main_parents else []
             ok_main_tree, main_tree = _git(root, "rev-parse", f"{main_sha}^{{tree}}")
             ok_child_tree, child_tree = _git(root, "rev-parse", f"{child_sha}^{{tree}}")
             main_matches = (
                 len(main_parts) == 3
-                and main_parts[1:] == [parent_sha, child_sha]
+                and main_parts[1:] == [G0_T02_FAILED_MAIN_SHA, child_sha]
                 and ok_main_tree
                 and ok_child_tree
                 and main_tree == child_tree

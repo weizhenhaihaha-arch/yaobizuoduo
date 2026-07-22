@@ -610,6 +610,11 @@ def test_exact_failed_main_recovery_record_and_recovery_merge_are_accepted(tmp_p
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 0, result.stdout
 
+    (repo / "recovery-note.txt").write_text("bounded recovery follow-up\n", encoding="utf-8")
+    recovery = commit(repo, "preserve recovery state during implementation")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
     recovery_tree = git(repo, "rev-parse", f"{recovery}^{{tree}}")
     recovery_merge = git(
         repo,
