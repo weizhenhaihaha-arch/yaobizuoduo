@@ -206,3 +206,24 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
 - `closed` here is the candidate close status on an open, unmerged finalization
   PR. The close-record HEAD still requires its own exact PR CI and user merge
   decision. G0-T04/G1 remain `not_authorized`.
+
+## Final-close merge recovery
+
+- User-authorized PR #9 merged as exact main subject
+  `b1544c168cf3acf9e0ce0c1c7e3785041c02e87c`, with ordered parents
+  `[a98dada059c91dc70714119f333d0d03ab1cb9f1,
+  cf15b25533769c7f589dd5dad275627802d9ae7d]` and tree/status equal to the
+  closed second parent.
+- Exact push/main run `29909220290` proved repository, event and subject
+  identity but failed canonical validation because the final-close bridge was
+  not recognized before generic history and repeated-authorization paths.
+- Recovery is restricted to this exact failed merge plus a status-identical
+  single-parent repair lineage. A future two-parent recovery must use `b1544c1`
+  first, directly accept the reviewed repair candidate second, preserve the
+  acceptance tree/status, and include a later non-self-referential receipt
+  binding the complete repair/closure/finalization/closed history, exact PR CI,
+  dual-green review, ruleset `19526291`, and its frozen evidence digest.
+- Parent/order/tree/status/task/generation/candidate/run/review/ruleset/blocked-
+  history substitution and ordinary closed merges fail closed. Current status
+  stays `closed`, this exact failed run remains the sole blocker, and G0-T04/G1,
+  live data, deployment, release and trading remain unauthorized.
