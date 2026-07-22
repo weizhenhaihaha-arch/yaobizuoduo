@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T02",
       "risk": "D2",
-      "state": "authorized",
-      "transition": {"from": "closed", "to": "authorized"},
+      "state": "in_progress",
+      "transition": {"from": "authorized", "to": "in_progress"},
       "candidate_generation": 2
     }
   ],
