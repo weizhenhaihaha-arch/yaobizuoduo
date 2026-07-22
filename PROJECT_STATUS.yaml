@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T02",
       "risk": "D2",
-      "state": "in_progress",
-      "transition": {"from": "authorized", "to": "in_progress"},
+      "state": "blocked",
+      "transition": {"from": "in_progress", "to": "blocked"},
       "candidate_generation": 1
     }
   ],
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "GitHub rejected push of implementation 5f3a6e93b69947b73e21e51c7e0218c0c283f6de because the current OAuth App lacks workflow scope; no remote exact-HEAD run can exist until the repository credential is explicitly reauthorized for workflow-file updates."
+  ],
   "next_authorization": {"gate": "G0", "task_id": "G0-T03", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

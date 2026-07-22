@@ -5,7 +5,7 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `in_progress`
+- Status: `blocked`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: user explicitly authorized the scheduled G0-T02 workflow on 2026-07-22 Asia/Shanghai
@@ -99,3 +99,13 @@ Report task ID, files changed, exact commands/results, implementation SHA,
 delivery/candidate SHA, branch/upstream and PR state, real CI run identities,
 aggregate check name, risks/blockers, worktree state, and memory update. Stop
 after delivery and wait for main and independent review.
+
+## Current blocker
+
+The exact local implementation commit is
+`5f3a6e93b69947b73e21e51c7e0218c0c283f6de`, but GitHub rejected its push
+because the current OAuth App is not authorized with `workflow` scope. No PR or
+real exact-HEAD Actions run exists for that commit. This card must remain
+blocked until the product owner explicitly chooses a credential reauthorization
+path; the developer must not bypass the remote gate or claim local evidence as
+CI.
