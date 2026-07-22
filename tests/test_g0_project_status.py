@@ -13,6 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 G0_T01_CLOSE_RECORD = "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
+G0_T02_CLOSED_MAIN = "09bfbd23d898198fe694a3a94f77663759dd89d8"
 G0_T02_GENERATION1_IMPLEMENTATION = "5f3a6e93b69947b73e21e51c7e0218c0c283f6de"
 G0_T02_GENERATION1_BLOCKED = "925fa94c22dfabc8ccd2dbe99fde74ca0c88a12f"
 G0_T02_GENERATION2_AUTHORIZATION = "f69e6abd379e74d1af1c507a4a9b15395d077f90"
@@ -22,6 +23,11 @@ G0_T02_RECOVERY_MAIN = "c5a488482fffb7183790f36701411d91b2a2bba0"
 G0_T02_FINALIZATION = "0a8048df7197ece027287c3397783f37630ff0e6"
 G0_T02_CLOSED_RECORD = "231d3d0e4756889e8fa3fc5803df6701088556e8"
 G0_T02_FINAL_CLOSE_MERGE = "d0dcc837715ea29c7b08f9ef6a7212894e4098bb"
+G0_T03_FAILED_MAIN = "08d6a3ea8d1898dbe47c7eaf9c82cb7adf1db68f"
+G0_T03_ACCEPTED_RECORD = "85509b6dc1b156d3347b6b21ff952d8e55ac18d3"
+G0_T03_CANDIDATE = "6ca1ace6af66f874eed38f644104f59bbc4009ad"
+G0_T03_AUTHORIZATION = "c1e3ebacefc8839bc6f4c32f3bc2c31cc890d398"
+G0_T03_BLOCKED = "3046d8bb023e169d3b64bfbe7093eee3ec52f722"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -567,6 +573,29 @@ def clone_g0_t02_final_close(tmp_path: Path) -> Path:
     return repo
 
 
+def clone_g0_t03_failed_main(tmp_path: Path) -> Path:
+    repo = tmp_path / "g0-t03-failed-main"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "--detach", G0_T03_FAILED_MAIN)
+    git(repo, "update-ref", "refs/heads/main", G0_T03_FAILED_MAIN)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T03_FAILED_MAIN)
+    return repo
+
+
+def write_g0_t03_recovery(repo: Path) -> dict:
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    status["active_tasks"][0]["transition"] = {
+        "from": "accepted_pending_merge",
+        "to": "accepted_pending_merge",
+    }
+    status["blockers"] = [VALIDATOR.G0_T03_RECOVERY_BLOCKER]
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    return status
+
+
 def write_g0_t02_recovery(repo: Path) -> dict:
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     status["active_tasks"][0]["transition"] = {
@@ -592,6 +621,111 @@ def test_g0_t02_exact_608_parent_chain_merge_bridge_is_accepted(tmp_path: Path) 
     assert governed == G0_T02_ACCEPTED_RECORD
     assert errors == []
     assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
+
+
+def test_exact_g0_t03_merge_bridge_and_detached_checkout_history_are_accepted(tmp_path: Path) -> None:
+    repo = clone_g0_t03_failed_main(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    governed, errors = VALIDATOR._canonical_g0_t03_merge_bridge(status, repo, G0_T03_FAILED_MAIN)
+    assert governed == G0_T03_ACCEPTED_RECORD
+    assert errors == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["wrong_first", "wrong_second", "swapped", "wrong_tree", "wrong_status", "wrong_candidate"],
+)
+def test_g0_t03_merge_bridge_rejects_identity_substitution(tmp_path: Path, mutation: str) -> None:
+    repo = clone_g0_t03_failed_main(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    first, second = G0_T02_CLOSED_MAIN, G0_T03_ACCEPTED_RECORD
+    tree = git(repo, "rev-parse", f"{second}^{{tree}}")
+    if mutation == "wrong_first":
+        first = git(repo, "rev-parse", f"{first}^1")
+    elif mutation == "wrong_second":
+        second = G0_T03_CANDIDATE
+    elif mutation == "swapped":
+        first, second = second, first
+    elif mutation == "wrong_tree":
+        tree = git(repo, "rev-parse", f"{first}^{{tree}}")
+    elif mutation == "wrong_status":
+        status["active_tasks"][0]["candidate_generation"] = 4
+    else:
+        status["evidence"]["candidate"]["commit_sha"] = G0_T03_AUTHORIZATION
+        status["review"]["reviewed_candidate_sha"] = G0_T03_AUTHORIZATION
+    forged = git(repo, "commit-tree", tree, "-p", first, "-p", second, "-m", f"forged {mutation}")
+    git(repo, "update-ref", "refs/heads/main", forged)
+    git(repo, "update-ref", "refs/remotes/origin/main", forged)
+    governed, errors = VALIDATOR._canonical_g0_t03_merge_bridge(status, repo, forged)
+    assert governed is None
+    assert errors or not VALIDATOR._is_g0_t03_accepted_status(status)
+
+
+@pytest.mark.parametrize("mutation", ["wrong_auth_parent", "moved_blocked_ref", "fake_blocked_descendant"])
+def test_g0_t03_merge_bridge_rejects_authorization_and_blocked_forgery(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo = clone_g0_t03_failed_main(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    if mutation == "moved_blocked_ref":
+        git(repo, "update-ref", "refs/remotes/origin/codex/g0-t03-main-protection", G0_T03_CANDIDATE)
+    else:
+        tree = git(repo, "rev-parse", f"{G0_T03_AUTHORIZATION}^{{tree}}")
+        blocked = G0_T03_CANDIDATE if mutation == "wrong_auth_parent" else git(
+            repo, "commit-tree", git(repo, "rev-parse", f"{G0_T03_BLOCKED}^{{tree}}"), "-p", G0_T03_BLOCKED, "-m", "fake blocked descendant"
+        )
+        forged_auth = git(repo, "commit-tree", tree, "-p", G0_T02_CLOSED_MAIN, "-p", blocked, "-m", "forged authorization")
+        original = VALIDATOR.G0_T03_AUTHORIZATION_SHA
+        VALIDATOR.G0_T03_AUTHORIZATION_SHA = forged_auth
+        try:
+            governed, errors = VALIDATOR._canonical_g0_t03_merge_bridge(status, repo, G0_T03_FAILED_MAIN)
+        finally:
+            VALIDATOR.G0_T03_AUTHORIZATION_SHA = original
+        assert governed is None
+        assert errors
+        return
+    governed, errors = VALIDATOR._canonical_g0_t03_merge_bridge(status, repo, G0_T03_FAILED_MAIN)
+    assert governed is None
+    assert errors
+
+
+def test_exact_g0_t03_failed_main_recovery_record_is_accepted(tmp_path: Path) -> None:
+    repo = clone_g0_t03_failed_main(tmp_path)
+    write_g0_t03_recovery(repo)
+    recovery = commit(repo, "record exact G0-T03 failed-main recovery")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+    assert git(repo, "rev-parse", "refs/remotes/origin/codex/g0-t03-main-protection") == G0_T03_BLOCKED
+    assert git(repo, "rev-parse", f"{G0_T03_FAILED_MAIN}^1") == G0_T02_CLOSED_MAIN
+    assert git(repo, "rev-parse", f"{G0_T03_FAILED_MAIN}^2") == G0_T03_ACCEPTED_RECORD
+    assert git(repo, "rev-parse", f"{G0_T03_FAILED_MAIN}^{{tree}}") == git(
+        repo, "rev-parse", f"{G0_T03_ACCEPTED_RECORD}^{{tree}}"
+    )
+    assert git(repo, "merge-base", "--is-ancestor", recovery, "HEAD") == ""
+
+
+@pytest.mark.parametrize("mutation", ["fake_run", "success_run", "wrong_subject", "wrong_task", "wrong_generation"])
+def test_g0_t03_failed_main_recovery_rejects_inexact_trigger(tmp_path: Path, mutation: str) -> None:
+    repo = clone_g0_t03_failed_main(tmp_path)
+    status = write_g0_t03_recovery(repo)
+    if mutation == "fake_run":
+        status["blockers"][0] = status["blockers"][0].replace("29894526319", "29894526320")
+    elif mutation == "success_run":
+        status["blockers"][0] = status["blockers"][0].replace("conclusion=failure", "conclusion=success")
+    elif mutation == "wrong_subject":
+        status["blockers"][0] = status["blockers"][0].replace(G0_T03_FAILED_MAIN, G0_T03_ACCEPTED_RECORD)
+    elif mutation == "wrong_task":
+        status["active_tasks"][0]["task_id"] = "G0-T04"
+        status["next_authorization"]["task_id"] = "G0-T05"
+    else:
+        status["active_tasks"][0]["candidate_generation"] = 4
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    commit(repo, f"invalid G0-T03 recovery {mutation}")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
 
 
 @pytest.mark.parametrize("mutation", ["wrong_parent", "wrong_tree", "wrong_status", "wrong_candidate"])
