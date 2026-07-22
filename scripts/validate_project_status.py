@@ -60,6 +60,17 @@ G0_T03_RECOVERY_BLOCKER = (
     f"ref=refs/heads/main subject_sha={G0_T03_FAILED_MAIN_SHA} run_id={G0_T03_FAILED_MAIN_RUN} "
     f"url={G0_T03_FAILED_MAIN_URL} conclusion=failure"
 )
+G0_T03_RECOVERY_CANDIDATE_SHA = "a0885c16582e75613bb203be3a2ecefb01637d37"
+G0_T03_RECOVERY_CANDIDATE_RUN = "29896682124"
+G0_T03_RECOVERY_ACCEPTED_RECORD_SHA = "0b5279b69b70b70500f22753cb6ae3a542b196c7"
+G0_T03_RECOVERY_MERGE_SHA = "bea5cf840ddf45ec4425796861d8956f682ab564"
+G0_T03_RECOVERY_MERGE_RUN = "29898504840"
+G0_T03_RECOVERY_STATUS_DIGEST = "99e9f5bfdaa17955555e116464ae8f54eb664f7ac4709c22db465ccb0b6543ca"
+G0_T03_RECOVERY_MERGE_BLOCKER = (
+    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push "
+    f"ref=refs/heads/main subject_sha={G0_T03_RECOVERY_MERGE_SHA} run_id={G0_T03_RECOVERY_MERGE_RUN} "
+    "url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29898504840 conclusion=failure"
+)
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -241,6 +252,7 @@ def _semantic_errors(status: dict[str, Any]) -> list[str]:
     recovery_transition = (
         _is_g0_t02_post_merge_recovery_status(status)
         or _is_g0_t03_post_merge_recovery_status(status)
+        or _is_g0_t03_recovery_merge_recovery_status(status)
     )
     if transition["to"] not in TRANSITIONS.get(transition["from"], set()) and not recovery_transition:
         errors.append("$.active_tasks[0].transition: illegal lifecycle transition")
@@ -1135,6 +1147,11 @@ def _parent_status_errors(
     recovery_errors = _g0_t03_recovery_parent_errors(status, parent, parent_sha, root, child_sha)
     if recovery_errors is not None:
         return recovery_errors
+    recovery_errors = _g0_t03_recovery_merge_recovery_parent_errors(
+        status, parent, parent_sha, root, child_sha
+    )
+    if recovery_errors is not None:
+        return recovery_errors
     final_close_repair_errors = _g0_t02_final_close_repair_parent_errors(
         status, parent, parent_sha, root, child_sha
     )
@@ -1489,6 +1506,21 @@ def _is_g0_t03_post_merge_recovery_status(status: dict[str, Any]) -> bool:
         projected["blockers"] = []
         return _is_g0_t03_accepted_status(projected)
     except (KeyError, IndexError, TypeError, ValueError):
+        return False
+
+
+def _is_g0_t03_recovery_merge_recovery_status(status: dict[str, Any]) -> bool:
+    """Match only the second recovery record rooted at the exact PR #7 merge failure."""
+    try:
+        if status["blockers"] != [G0_T03_RECOVERY_BLOCKER, G0_T03_RECOVERY_MERGE_BLOCKER]:
+            return False
+        projected = json.loads(json.dumps(status))
+        projected["blockers"] = [G0_T03_RECOVERY_BLOCKER]
+        return (
+            _is_g0_t03_post_merge_recovery_status(projected)
+            and _canonical_status_digest(projected) == G0_T03_RECOVERY_STATUS_DIGEST
+        )
+    except (KeyError, TypeError, ValueError):
         return False
 
 
@@ -1928,6 +1960,111 @@ def _canonical_g0_t03_merge_bridge(
     return G0_T03_ACCEPTED_RECORD_SHA, []
 
 
+def _canonical_g0_t03_recovery_merge_bridge(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    *,
+    require_canonical_main: bool = True,
+) -> tuple[str | None, list[str]]:
+    """Validate only the exact PR #7 recovery merge before generic merge logic."""
+    if not _is_g0_t03_post_merge_recovery_status(status):
+        return None, []
+    errors: list[str] = []
+    if head != G0_T03_RECOVERY_MERGE_SHA:
+        errors.append("$: canonical G0-T03 recovery merge subject is not the exact published merge")
+    ok_origin, origin_url = _git(root, "remote", "get-url", "origin")
+    if not ok_origin or _github_repository_identity(origin_url) != LEDGER_REPOSITORY:
+        errors.append("$: canonical G0-T03 recovery merge requires the canonical repository")
+    if require_canonical_main:
+        ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+        ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        if not ok_main or not ok_remote or main_sha != remote_sha or main_sha != head:
+            errors.append("$: canonical G0-T03 recovery merge requires exact local/fetched main")
+
+    ok_parents, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    if (parents_text.split() if ok_parents else []) != [
+        G0_T03_RECOVERY_MERGE_SHA,
+        G0_T03_FAILED_MAIN_SHA,
+        G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
+    ]:
+        errors.append("$: canonical G0-T03 recovery merge has substituted or swapped parents")
+    ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+    ok_record_tree, record_tree = _git(
+        root, "rev-parse", f"{G0_T03_RECOVERY_ACCEPTED_RECORD_SHA}^{{tree}}"
+    )
+    if not ok_head_tree or not ok_record_tree or head_tree != record_tree:
+        errors.append("$: canonical G0-T03 recovery merge tree must equal its accepted record")
+    if (
+        not _typed_equal(_status_at(root, head), status)
+        or not _typed_equal(_status_at(root, G0_T03_RECOVERY_ACCEPTED_RECORD_SHA), status)
+    ):
+        errors.append("$: canonical G0-T03 recovery merge status must equal the exact accepted recovery record")
+
+    ok_record_parents, record_parents_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
+    )
+    if (record_parents_text.split() if ok_record_parents else []) != [
+        G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
+        G0_T03_RECOVERY_CANDIDATE_SHA,
+    ]:
+        errors.append("$: canonical G0-T03 recovery accepted record must directly close the exact recovery candidate")
+    if not _typed_equal(_status_at(root, G0_T03_RECOVERY_CANDIDATE_SHA), status):
+        errors.append("$: canonical G0-T03 recovery candidate status identity is invalid")
+    ok_memory, memory_text = _git(
+        root,
+        "show",
+        f"{G0_T03_RECOVERY_ACCEPTED_RECORD_SHA}:PROJECT_MEMORY.md",
+    )
+    required_review = (
+        f"accepted bounded G0-T03 merge-recovery candidate `{G0_T03_RECOVERY_CANDIDATE_SHA}`",
+        f"exact-head run `{G0_T03_RECOVERY_CANDIDATE_RUN}` succeeded",
+        "code/security returned `APPROVE`",
+        "architecture/route returned `CLEAR`",
+    )
+    if not ok_memory or not all(item in memory_text for item in required_review):
+        errors.append("$: canonical G0-T03 recovery acceptance does not bind exact candidate, CI and dual review")
+
+    projected = json.loads(json.dumps(status))
+    projected["active_tasks"][0]["transition"] = {
+        "from": "awaiting_review",
+        "to": "accepted_pending_merge",
+    }
+    projected["blockers"] = []
+    governed, prior_errors = _canonical_g0_t03_merge_bridge(
+        projected,
+        root,
+        G0_T03_FAILED_MAIN_SHA,
+        require_canonical_main=False,
+    )
+    errors.extend(prior_errors)
+    if governed != G0_T03_ACCEPTED_RECORD_SHA:
+        errors.append("$: canonical G0-T03 recovery merge is not rooted in the exact prior failed merge")
+    evidence_path = "evidence/g0-t03/main-protection-generation2.json"
+    evidence_blobs: list[str] = []
+    for sha in (
+        G0_T03_ACCEPTED_RECORD_SHA,
+        G0_T03_RECOVERY_CANDIDATE_SHA,
+        G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
+        head,
+    ):
+        ok_blob, blob = _git(root, "rev-parse", f"{sha}:{evidence_path}")
+        if not ok_blob:
+            errors.append("$: canonical G0-T03 ruleset evidence is missing from recovery topology")
+            break
+        evidence_blobs.append(blob)
+    if evidence_blobs and len(set(evidence_blobs)) != 1:
+        errors.append("$: canonical G0-T03 ruleset evidence changed across recovery topology")
+    if errors:
+        return None, errors
+    return G0_T03_RECOVERY_ACCEPTED_RECORD_SHA, []
+
+
 def _g0_t03_recovery_parent_errors(
     status: dict[str, Any],
     parent: dict[str, Any],
@@ -1972,7 +2109,18 @@ def _g0_t03_recovery_parent_errors(
             break
     ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
     ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
-    if not ok_main or not ok_remote or main_sha != remote_sha or main_sha != G0_T03_FAILED_MAIN_SHA:
+    main_matches = ok_main and ok_remote and main_sha == remote_sha == G0_T03_FAILED_MAIN_SHA
+    if ok_main and ok_remote and main_sha == remote_sha == G0_T03_RECOVERY_MERGE_SHA:
+        recovery_merge_status = _status_at(root, main_sha)
+        if type(recovery_merge_status) is dict:
+            governed_recovery, recovery_merge_errors = _canonical_g0_t03_recovery_merge_bridge(
+                recovery_merge_status,
+                root,
+                main_sha,
+                require_canonical_main=False,
+            )
+            main_matches = governed_recovery is not None and not recovery_merge_errors
+    if not main_matches:
         errors.append("$: G0-T03 post-merge recovery requires the exact failed main on local/fetched main")
     governed, bridge_errors = _canonical_g0_t03_merge_bridge(
         parent, root, parent_sha, require_canonical_main=False
@@ -1980,6 +2128,60 @@ def _g0_t03_recovery_parent_errors(
     errors.extend(bridge_errors)
     if governed is None:
         errors.append("$: G0-T03 post-merge recovery parent is not the canonical failed merge bridge")
+    return errors
+
+
+def _g0_t03_recovery_merge_recovery_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+) -> list[str] | None:
+    if not _is_g0_t03_recovery_merge_recovery_status(status):
+        return None
+    if root is None or child_sha is None or parent_sha is None:
+        return ["$: G0-T03 recovery-merge recovery requires repository-bound parent evidence"]
+    errors: list[str] = []
+    if _is_g0_t03_recovery_merge_recovery_status(parent):
+        ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+        if (
+            not _typed_equal(status, parent)
+            or (parents_text.split() if ok else []) != [child_sha, parent_sha]
+            or not _is_ancestor(root, G0_T03_RECOVERY_MERGE_SHA, parent_sha)
+        ):
+            errors.append("$: G0-T03 recovery-merge follow-up must preserve exact status on a single-parent lineage")
+        return errors
+    if parent_sha != G0_T03_RECOVERY_MERGE_SHA:
+        return ["$: G0-T03 recovery-merge recovery must be rooted at the exact failed recovery merge"]
+    projected = json.loads(json.dumps(status))
+    projected["blockers"] = [G0_T03_RECOVERY_BLOCKER]
+    if not _typed_equal(projected, parent):
+        errors.append("$: G0-T03 recovery-merge recovery may only add the exact second failure record")
+    ok_lineage, lineage_text = _git(root, "rev-list", "--first-parent", f"{parent_sha}..{child_sha}")
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    for index, recovery_sha in enumerate(lineage):
+        ok_parents, recovery_parents_text = _git(root, "rev-list", "--parents", "-n", "1", recovery_sha)
+        expected_parent = lineage[index + 1] if index + 1 < len(lineage) else parent_sha
+        if (
+            (recovery_parents_text.split() if ok_parents else []) != [recovery_sha, expected_parent]
+            or not _typed_equal(_status_at(root, recovery_sha), status)
+        ):
+            errors.append("$: G0-T03 recovery-merge recovery requires a status-identical single-parent lineage")
+            break
+    ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+    ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+    if not ok_main or not ok_remote or main_sha != remote_sha or main_sha != G0_T03_RECOVERY_MERGE_SHA:
+        errors.append("$: G0-T03 recovery-merge recovery requires exact failed recovery merge on local/fetched main")
+    governed, bridge_errors = _canonical_g0_t03_recovery_merge_bridge(
+        parent,
+        root,
+        parent_sha,
+        require_canonical_main=False,
+    )
+    errors.extend(bridge_errors)
+    if governed != G0_T03_RECOVERY_ACCEPTED_RECORD_SHA:
+        errors.append("$: G0-T03 recovery-merge parent is not the exact canonical recovery merge")
     return errors
 
 
@@ -2075,6 +2277,16 @@ def _g0_t02_recovery_parent_errors(
                         require_canonical_main=False,
                     )
                     main_matches = governed_g0_t03 is not None and not g0_t03_errors
+            if not main_matches and main_sha == G0_T03_RECOVERY_MERGE_SHA:
+                recovery_merge_status = _status_at(root, main_sha)
+                if type(recovery_merge_status) is dict:
+                    governed_recovery, recovery_merge_errors = _canonical_g0_t03_recovery_merge_bridge(
+                        recovery_merge_status,
+                        root,
+                        main_sha,
+                        require_canonical_main=False,
+                    )
+                    main_matches = governed_recovery is not None and not recovery_merge_errors
         if not main_matches:
             errors.append("$: post-merge CI recovery requires the exact failed main, recovery merge, or canonical final-close recovery on local/fetched main")
     child_schema = _schema_at(root, child_sha)
@@ -2106,6 +2318,13 @@ def _canonical_g0_merge_bridge(
             root,
             head,
             schema,
+            require_canonical_main=require_canonical_main,
+        )
+    if _is_g0_t03_post_merge_recovery_status(status) and head == G0_T03_RECOVERY_MERGE_SHA:
+        return _canonical_g0_t03_recovery_merge_bridge(
+            status,
+            root,
+            head,
             require_canonical_main=require_canonical_main,
         )
     if _is_g0_t03_accepted_status(status):

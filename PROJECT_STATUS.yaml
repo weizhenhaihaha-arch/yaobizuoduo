@@ -63,7 +63,8 @@
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
   "blockers": [
-    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=08d6a3ea8d1898dbe47c7eaf9c82cb7adf1db68f run_id=29894526319 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29894526319 conclusion=failure"
+    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=08d6a3ea8d1898dbe47c7eaf9c82cb7adf1db68f run_id=29894526319 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29894526319 conclusion=failure",
+    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=bea5cf840ddf45ec4425796861d8956f682ab564 run_id=29898504840 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29898504840 conclusion=failure"
   ],
   "next_authorization": {"gate": "G0", "task_id": "G0-T04", "state": "not_authorized"},
   "governed_documents": [

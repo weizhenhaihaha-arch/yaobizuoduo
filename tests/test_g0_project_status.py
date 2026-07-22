@@ -28,6 +28,9 @@ G0_T03_ACCEPTED_RECORD = "85509b6dc1b156d3347b6b21ff952d8e55ac18d3"
 G0_T03_CANDIDATE = "6ca1ace6af66f874eed38f644104f59bbc4009ad"
 G0_T03_AUTHORIZATION = "c1e3ebacefc8839bc6f4c32f3bc2c31cc890d398"
 G0_T03_BLOCKED = "3046d8bb023e169d3b64bfbe7093eee3ec52f722"
+G0_T03_RECOVERY_CANDIDATE = "a0885c16582e75613bb203be3a2ecefb01637d37"
+G0_T03_RECOVERY_ACCEPTED_RECORD = "0b5279b69b70b70500f22753cb6ae3a542b196c7"
+G0_T03_RECOVERY_MERGE = "bea5cf840ddf45ec4425796861d8956f682ab564"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -585,6 +588,18 @@ def clone_g0_t03_failed_main(tmp_path: Path) -> Path:
     return repo
 
 
+def clone_g0_t03_failed_recovery_merge(tmp_path: Path) -> Path:
+    repo = tmp_path / "g0-t03-failed-recovery-merge"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "--detach", G0_T03_RECOVERY_MERGE)
+    git(repo, "update-ref", "refs/heads/main", G0_T03_RECOVERY_MERGE)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T03_RECOVERY_MERGE)
+    return repo
+
+
 def write_g0_t03_recovery(repo: Path) -> dict:
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     status["active_tasks"][0]["transition"] = {
@@ -592,6 +607,16 @@ def write_g0_t03_recovery(repo: Path) -> dict:
         "to": "accepted_pending_merge",
     }
     status["blockers"] = [VALIDATOR.G0_T03_RECOVERY_BLOCKER]
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    return status
+
+
+def write_g0_t03_recovery_merge_recovery(repo: Path) -> dict:
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    status["blockers"] = [
+        VALIDATOR.G0_T03_RECOVERY_BLOCKER,
+        VALIDATOR.G0_T03_RECOVERY_MERGE_BLOCKER,
+    ]
     write_status(repo / "PROJECT_STATUS.yaml", status)
     return status
 
@@ -726,6 +751,113 @@ def test_g0_t03_failed_main_recovery_rejects_inexact_trigger(tmp_path: Path, mut
     commit(repo, f"invalid G0-T03 recovery {mutation}")
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1
+
+
+def test_exact_g0_t03_recovery_merge_bridge_is_accepted_before_generic_paths(tmp_path: Path) -> None:
+    repo = clone_g0_t03_failed_recovery_merge(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    governed, errors = VALIDATOR._canonical_g0_t03_recovery_merge_bridge(
+        status, repo, G0_T03_RECOVERY_MERGE
+    )
+    assert governed == G0_T03_RECOVERY_ACCEPTED_RECORD
+    assert errors == []
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, G0_T03_RECOVERY_MERGE, schema
+    )
+    assert governed == G0_T03_RECOVERY_ACCEPTED_RECORD
+    assert errors == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["wrong_first", "wrong_second", "swapped", "wrong_tree", "wrong_status", "wrong_task", "wrong_generation", "wrong_sha"],
+)
+def test_g0_t03_recovery_merge_rejects_topology_and_status_substitution(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo = clone_g0_t03_failed_recovery_merge(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    first, second = G0_T03_FAILED_MAIN, G0_T03_RECOVERY_ACCEPTED_RECORD
+    tree = git(repo, "rev-parse", f"{second}^{{tree}}")
+    if mutation == "wrong_first":
+        first = G0_T02_CLOSED_MAIN
+    elif mutation == "wrong_second":
+        second = G0_T03_RECOVERY_CANDIDATE
+    elif mutation == "swapped":
+        first, second = second, first
+    elif mutation == "wrong_tree":
+        tree = git(repo, "rev-parse", f"{first}^{{tree}}")
+    elif mutation == "wrong_status":
+        status["review"]["architecture"] = "watch"
+    elif mutation == "wrong_task":
+        status["active_tasks"][0]["task_id"] = "G0-T04"
+    elif mutation == "wrong_generation":
+        status["active_tasks"][0]["candidate_generation"] = 4
+    elif mutation == "wrong_sha":
+        status["evidence"]["candidate"]["commit_sha"] = G0_T03_RECOVERY_CANDIDATE
+    if mutation in {"wrong_status", "wrong_task", "wrong_generation", "wrong_sha"}:
+        governed, errors = VALIDATOR._canonical_g0_t03_recovery_merge_bridge(
+            status, repo, G0_T03_RECOVERY_MERGE
+        )
+        assert governed is None
+        assert errors == []
+        return
+    forged = git(repo, "commit-tree", tree, "-p", first, "-p", second, "-m", f"forged {mutation}")
+    original = VALIDATOR.G0_T03_RECOVERY_MERGE_SHA
+    VALIDATOR.G0_T03_RECOVERY_MERGE_SHA = forged
+    try:
+        governed, errors = VALIDATOR._canonical_g0_t03_recovery_merge_bridge(status, repo, forged)
+    finally:
+        VALIDATOR.G0_T03_RECOVERY_MERGE_SHA = original
+    assert governed is None
+    assert errors
+
+
+@pytest.mark.parametrize("mutation", ["wrong_run", "success_run", "wrong_subject", "fake_blocked", "ordinary_merge"])
+def test_g0_t03_recovery_merge_recovery_rejects_inexact_evidence(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo = clone_g0_t03_failed_recovery_merge(tmp_path)
+    status = write_g0_t03_recovery_merge_recovery(repo)
+    if mutation == "wrong_run":
+        status["blockers"][1] = status["blockers"][1].replace("29898504840", "29898504841")
+    elif mutation == "success_run":
+        status["blockers"][1] = status["blockers"][1].replace("conclusion=failure", "conclusion=success")
+    elif mutation == "wrong_subject":
+        status["blockers"][1] = status["blockers"][1].replace(
+            G0_T03_RECOVERY_MERGE, G0_T03_RECOVERY_ACCEPTED_RECORD
+        )
+    elif mutation == "fake_blocked":
+        git(repo, "update-ref", "refs/remotes/origin/codex/g0-t03-main-protection", G0_T03_RECOVERY_CANDIDATE)
+    else:
+        tree = git(repo, "rev-parse", f"{G0_T03_RECOVERY_CANDIDATE}^{{tree}}")
+        ordinary = git(
+            repo,
+            "commit-tree",
+            tree,
+            "-p",
+            G0_T03_RECOVERY_MERGE,
+            "-p",
+            G0_T03_RECOVERY_CANDIDATE,
+            "-m",
+            "ordinary cross-state merge",
+        )
+        git(repo, "switch", "--detach", ordinary)
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    commit(repo, f"invalid recovery-merge evidence {mutation}")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+
+
+def test_exact_g0_t03_recovery_merge_failure_record_is_accepted(tmp_path: Path) -> None:
+    repo = clone_g0_t03_failed_recovery_merge(tmp_path)
+    write_g0_t03_recovery_merge_recovery(repo)
+    commit(repo, "record exact G0-T03 recovery-merge failure")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
 
 
 @pytest.mark.parametrize("mutation", ["wrong_parent", "wrong_tree", "wrong_status", "wrong_candidate"])

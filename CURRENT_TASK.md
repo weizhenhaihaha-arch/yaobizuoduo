@@ -122,3 +122,19 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   changes fail closed.
 - Ruleset `19526291` and its evidence remain immutable. Recovery does not merge
   its own PR, modify main, authorize G0-T04/G1, or expand product capability.
+
+## Recovery-merge recovery
+
+- Main and independent review accepted exact recovery candidate
+  `a0885c16582e75613bb203be3a2ecefb01637d37` with exact PR run
+  `29896682124`, code/security `APPROVE`, and architecture/route `CLEAR`.
+- GitHub merged that accepted record `0b5279b69b70b70500f22753cb6ae3a542b196c7`
+  as main subject `bea5cf840ddf45ec4425796861d8956f682ab564`.
+  Its first parent is prior failed main `08d6a3e`, second parent is the accepted
+  recovery record, and its tree/status equal the second parent.
+- Exact push run `29898504840` failed because canonical validation did not yet
+  recognize this recovery-merge bridge before generic merge and repeated-
+  authorization paths. Both failed main runs remain recorded truthfully.
+- This repair is restricted to the exact `bea5cf8` topology and unchanged
+  ruleset evidence. It grants no merge, G0-T04/G1, live-data, deployment,
+  release, or trading authority.
