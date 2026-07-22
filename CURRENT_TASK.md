@@ -5,7 +5,7 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `awaiting_review`
+- Status: `accepted_pending_merge`
 - Candidate generation: `5` detached-HEAD guard repair
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -145,6 +145,19 @@ repair; do not start G0-T03 or G1.
   main or detached HEAD. Add behavior regression coverage. The duplicated
   paragraph in `AG_WORK_LOOP.md` may be removed as a non-blocking cleanup.
 - Return only this G0-T02 generation for repair; do not start G0-T03 or G1.
+
+## Generation 5 independent review result: accepted pending merge
+
+- Reviewed exact PR head: `35b90f87ab42843925065e6d0dafdc25797702e0`.
+- Real strict-success candidate run: `29884205742`.
+- Main verification passed 178 Python tests, 10 frontend tests, TypeScript/Vite
+  build, repository-aware validation, exact repository/run identity and diff
+  checks.
+- Independent code/security verdict: `APPROVE`.
+- Independent architecture/route verdict: `CLEAR`.
+- The old terminal blocked branch remains fixed at `925fa94`; the capability
+  ceiling remains `OFFLINE_EVIDENCE_ACCEPTED`; G0-T03 and G1 remain
+  unauthorized. This record is not merge authorization.
 
 ## Generation 4 independent review result: returned
 
