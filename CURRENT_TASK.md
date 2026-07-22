@@ -276,3 +276,20 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   Python compilation and whitespace checks. The only full-collection error was
   the already-documented local absence of FastAPI for the excluded transport
   module; no transport behavior changed in this repair.
+
+## Route-A binding-only run seal B
+
+- Exact reviewed R is `6a78dd68ace8a2fbc1012cc30e9bae89290f540c`.
+  PR #10 exact pull-request run `29922824757` completed successfully for stable
+  aggregate check `G0 / exact-head`; independent code/security returned
+  `APPROVE` and architecture/route returned `CLEAR`, with zero blockers.
+- This B record directly parents exact R and adds only the frozen reviewed-run
+  binding plus this necessary task/project history. The binding seals the exact
+  repository, event, R subject, run ID/URL, check, completed/success result,
+  immutable recovery history, dual-green review, ruleset `19526291`, frozen
+  ruleset evidence digest, and its own canonical payload digest.
+- B creates no final-close acceptance receipt and makes no validator, test,
+  status, phase-evidence, ruleset, main or product/runtime change. A remains a
+  separate future receipt-only sub-slice requiring its own explicit dispatch.
+  Status stays `closed`, main run `29909220290` remains the sole blocker, and
+  G0-T04 stays `not_authorized`.
