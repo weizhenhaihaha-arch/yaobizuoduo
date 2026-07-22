@@ -30,7 +30,8 @@ protection and does not establish live, Paper, deployment, or release maturity.
    to prove the workflow itself. Full cross-platform product verification stays
    in G1.
 4. Freeze one aggregate check name. G1 may add internal jobs but may not silently
-   rename the aggregate context after it becomes a required check.
+   rename the aggregate context after it becomes a required check. The frozen
+   aggregate job/check name is `G0 / exact-head`.
 5. Use read-only repository permissions, require no secrets, disable checkout
    credential persistence, pin every action to a full immutable commit SHA, and
    support fork pull requests without secrets.

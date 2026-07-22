@@ -12,6 +12,7 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+G0_T01_CLOSE_RECORD = "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -453,6 +454,9 @@ def clone_canonical_g0_merge(tmp_path: Path) -> Path:
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "--detach", G0_T01_CLOSE_RECORD)
+    git(repo, "update-ref", "refs/heads/main", G0_T01_CLOSE_RECORD)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T01_CLOSE_RECORD)
     return repo
 
 

@@ -1,0 +1,32 @@
+name: G0 exact-head CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  exact-head:
+    name: G0 / exact-head
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact event subject
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify exact subject and run identity
+        env:
+          CI_EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+        run: python3 scripts/verify_exact_head_ci.py
+
+      - name: Validate canonical project status
+        run: python3 scripts/validate_project_status.py PROJECT_STATUS.yaml --repo-root .
