@@ -1,0 +1,41 @@
+{
+  "schema_version": "g0-t03-final-close-reviewed-run-binding.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T03",
+  "candidate_generation": 3,
+  "recovery_generation": 3,
+  "candidate_sha": "6a78dd68ace8a2fbc1012cc30e9bae89290f540c",
+  "ci": {
+    "repository": "weizhenhaihaha-arch/yaobizuoduo",
+    "event": "pull_request",
+    "subject_sha": "6a78dd68ace8a2fbc1012cc30e9bae89290f540c",
+    "run_id": "29922824757",
+    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29922824757",
+    "check": "G0 / exact-head",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "history": {
+    "repair_candidate_sha": "d259f75cb13a56b7256779ad87115120c005ddec",
+    "repair_candidate_run_id": "29904268309",
+    "repair_acceptance_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+    "repair_acceptance_run_id": "29905690883",
+    "merged_main_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+    "merged_main_run_id": "29906115287",
+    "finalization_sha": "e4fd7ae620955867ac0c6914aff2c913420c3ba2",
+    "finalization_run_id": "29906677035",
+    "closed_record_sha": "cf15b25533769c7f589dd5dad275627802d9ae7d",
+    "closed_record_run_id": "29907836986",
+    "blocked_record_sha": "3046d8bb023e169d3b64bfbe7093eee3ec52f722",
+    "recovery_record_sha": "0b5279b69b70b70500f22753cb6ae3a542b196c7"
+  },
+  "review": {
+    "code_security": "approve",
+    "architecture": "clear"
+  },
+  "ruleset": {
+    "id": 19526291,
+    "evidence_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+  },
+  "payload_sha256": "3f077b9e21b942eb798e4189ec8e9ef3b53680b3cb7b1c06284ac90b41be6934"
+}

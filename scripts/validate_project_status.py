@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import functools
 import hashlib
 import json
 import re
@@ -73,6 +74,23 @@ G0_T03_RECOVERY_MERGE_BLOCKER = (
 )
 G0_T03_RECOVERY_CLOSURE_RECEIPT_PATH = "evidence/g0-t03/recovery-merge-closure-acceptance.json"
 G0_T03_RECOVERY_CLOSURE_RECEIPT_VERSION = "g0-t03-recovery-merge-closure.v1"
+G0_T03_FINALIZATION_SHA = "e4fd7ae620955867ac0c6914aff2c913420c3ba2"
+G0_T03_FINALIZATION_RUN = "29906677035"
+G0_T03_CLOSED_RECORD_SHA = "cf15b25533769c7f589dd5dad275627802d9ae7d"
+G0_T03_CLOSED_RECORD_RUN = "29907836986"
+G0_T03_FINAL_CLOSE_MERGE_SHA = "b1544c168cf3acf9e0ce0c1c7e3785041c02e87c"
+G0_T03_FINAL_CLOSE_MERGE_RUN = "29909220290"
+G0_T03_FINAL_CLOSE_BLOCKER = (
+    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push "
+    f"ref=refs/heads/main subject_sha={G0_T03_FINAL_CLOSE_MERGE_SHA} "
+    f"run_id={G0_T03_FINAL_CLOSE_MERGE_RUN} "
+    f"url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T03_FINAL_CLOSE_MERGE_RUN} "
+    "conclusion=failure"
+)
+G0_T03_FINAL_CLOSE_RECEIPT_PATH = "evidence/g0-t03/final-close-recovery-acceptance.json"
+G0_T03_FINAL_CLOSE_RECEIPT_VERSION = "g0-t03-final-close-recovery.v1"
+G0_T03_FINAL_CLOSE_BINDING_PATH = "evidence/g0-t03/final-close-reviewed-run-binding.json"
+G0_T03_FINAL_CLOSE_BINDING_VERSION = "g0-t03-final-close-reviewed-run-binding.v1"
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -255,6 +273,7 @@ def _semantic_errors(status: dict[str, Any]) -> list[str]:
         _is_g0_t02_post_merge_recovery_status(status)
         or _is_g0_t03_post_merge_recovery_status(status)
         or _is_g0_t03_recovery_merge_recovery_status(status)
+        or _is_g0_t03_final_close_recovery_status(status)
     )
     if transition["to"] not in TRANSITIONS.get(transition["from"], set()) and not recovery_transition:
         errors.append("$.active_tasks[0].transition: illegal lifecycle transition")
@@ -1154,6 +1173,11 @@ def _parent_status_errors(
     )
     if recovery_errors is not None:
         return recovery_errors
+    final_close_repair_errors = _g0_t03_final_close_repair_parent_errors(
+        status, parent, parent_sha, root, child_sha
+    )
+    if final_close_repair_errors is not None:
+        return final_close_repair_errors
     final_close_repair_errors = _g0_t02_final_close_repair_parent_errors(
         status, parent, parent_sha, root, child_sha
     )
@@ -2283,6 +2307,575 @@ def _g0_t03_recovery_closure_ancestor(root: Path, main_sha: str) -> str | None:
     return None
 
 
+def _is_g0_t03_final_closed_status(status: dict[str, Any]) -> bool:
+    try:
+        projected = json.loads(json.dumps(status))
+        task = status["active_tasks"][0]
+        evidence = status["evidence"]
+        projected["active_tasks"][0].update(
+            state="accepted_pending_merge",
+            transition={"from": "accepted_pending_merge", "to": "accepted_pending_merge"},
+        )
+        projected["evidence"]["closure"] = {
+            "commit_sha": None,
+            "ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+        }
+        projected["evidence"]["merged_main"] = {
+            "commit_sha": None,
+            "ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+        }
+        projected["evidence"]["finalization"] = {
+            "commit_sha": None,
+            "d0_ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+        }
+        projected["blockers"] = [G0_T03_RECOVERY_BLOCKER, G0_T03_RECOVERY_MERGE_BLOCKER]
+        return (
+            _is_g0_t03_recovery_merge_recovery_status(projected)
+            and task == {
+                "task_id": "G0-T03",
+                "risk": "D2",
+                "state": "closed",
+                "transition": {"from": "merged_verified", "to": "closed"},
+                "candidate_generation": 3,
+            }
+            and evidence["closure"] == {
+                "commit_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+                "ci": {
+                    "status": "success",
+                    "subject_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+                    "run_id": "29905690883",
+                    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29905690883",
+                },
+            }
+            and evidence["merged_main"] == {
+                "commit_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+                "ci": {
+                    "status": "success",
+                    "subject_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+                    "run_id": "29906115287",
+                    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29906115287",
+                },
+            }
+            and evidence["finalization"] == {
+                "commit_sha": G0_T03_FINALIZATION_SHA,
+                "d0_ci": {
+                    "status": "success",
+                    "subject_sha": G0_T03_FINALIZATION_SHA,
+                    "run_id": G0_T03_FINALIZATION_RUN,
+                    "url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T03_FINALIZATION_RUN}",
+                },
+            }
+            and status["blockers"] == []
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _is_g0_t03_final_close_recovery_status(status: dict[str, Any]) -> bool:
+    try:
+        projected = json.loads(json.dumps(status))
+        if status["active_tasks"][0]["transition"] != {"from": "closed", "to": "closed"}:
+            return False
+        projected["active_tasks"][0]["transition"] = {
+            "from": "merged_verified",
+            "to": "closed",
+        }
+        projected["blockers"] = []
+        return (
+            _is_g0_t03_final_closed_status(projected)
+            and status["blockers"] == [G0_T03_FINAL_CLOSE_BLOCKER]
+        )
+    except (KeyError, TypeError):
+        return False
+
+
+def _g0_t03_final_close_record_errors(root: Path, schema: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    closed = _status_at(root, G0_T03_CLOSED_RECORD_SHA)
+    finalization = _status_at(root, G0_T03_FINALIZATION_SHA)
+    if type(closed) is not dict or _schema_errors(closed, schema, schema):
+        errors.append("$: canonical G0-T03 close record is structurally invalid")
+        return errors
+    if not _is_g0_t03_final_closed_status(closed):
+        errors.append("$: canonical G0-T03 close record identity is invalid")
+    ok_closed, closed_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T03_CLOSED_RECORD_SHA
+    )
+    if (closed_parents_text.split() if ok_closed else []) != [
+        G0_T03_CLOSED_RECORD_SHA,
+        G0_T03_FINALIZATION_SHA,
+    ]:
+        errors.append("$: canonical G0-T03 close record must directly consume finalization")
+    if type(finalization) is not dict or _schema_errors(finalization, schema, schema):
+        errors.append("$: canonical G0-T03 finalization subject is structurally invalid")
+        return errors
+    projected = json.loads(json.dumps(closed))
+    projected["active_tasks"][0].update(
+        state="merged_verified",
+        transition={"from": "accepted_pending_merge", "to": "merged_verified"},
+    )
+    projected["evidence"]["finalization"] = {
+        "commit_sha": None,
+        "d0_ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+    }
+    if not _typed_equal(projected, finalization):
+        errors.append("$: canonical G0-T03 finalization changed immutable phase evidence")
+    ok_finalization, finalization_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T03_FINALIZATION_SHA
+    )
+    if (finalization_parents_text.split() if ok_finalization else []) != [
+        G0_T03_FINALIZATION_SHA,
+        "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+    ]:
+        errors.append("$: canonical G0-T03 finalization is not rooted at verified main")
+    ok_main_parents, main_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", "a98dada059c91dc70714119f333d0d03ab1cb9f1"
+    )
+    if (main_parents_text.split() if ok_main_parents else []) != [
+        "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+        G0_T03_RECOVERY_MERGE_SHA,
+        "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+    ]:
+        errors.append("$: verified G0-T03 main has substituted acceptance topology")
+    errors.extend(
+        _g0_t03_recovery_closure_receipt_errors(
+            root,
+            "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+            "d259f75cb13a56b7256779ad87115120c005ddec",
+        )
+    )
+    return errors
+
+
+def _g0_t03_commit_changed_paths(root: Path, parent: str, child: str) -> set[str] | None:
+    ok, text = _git(
+        root, "diff-tree", "--no-commit-id", "--name-only", "-r", parent, child
+    )
+    return set(text.splitlines()) if ok else None
+
+
+def _g0_t03_final_close_binding_errors(
+    root: Path, binding_record: str, candidate: str
+) -> tuple[dict[str, Any] | None, list[str]]:
+    errors: list[str] = []
+    changed = _g0_t03_commit_changed_paths(root, candidate, binding_record)
+    allowed = {
+        G0_T03_FINAL_CLOSE_BINDING_PATH,
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+    }
+    if (
+        changed is None
+        or G0_T03_FINAL_CLOSE_BINDING_PATH not in changed
+        or not changed.issubset(allowed)
+    ):
+        errors.append("$: G0-T03 run seal B must be binding-only relative to candidate R")
+    ok_candidate_binding, _ = _git(
+        root, "cat-file", "-e", f"{candidate}:{G0_T03_FINAL_CLOSE_BINDING_PATH}"
+    )
+    if ok_candidate_binding:
+        errors.append("$: G0-T03 candidate R must not define its own reviewed-run binding")
+    ok, text = _git(root, "show", f"{binding_record}:{G0_T03_FINAL_CLOSE_BINDING_PATH}")
+    if not ok:
+        return None, errors + ["$: G0-T03 run seal B has no reviewed-run binding"]
+    try:
+        binding = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None, errors + ["$: G0-T03 reviewed-run binding is not canonical JSON"]
+    root_keys = {
+        "schema_version", "project", "task_id", "candidate_generation",
+        "recovery_generation", "candidate_sha", "ci", "history", "review",
+        "ruleset", "payload_sha256",
+    }
+    if type(binding) is not dict or set(binding) != root_keys:
+        return None, errors + ["$: G0-T03 reviewed-run binding has an inexact field set"]
+    ci = binding.get("ci")
+    if type(ci) is not dict or set(ci) != {
+        "repository", "event", "subject_sha", "run_id", "url", "check", "status", "conclusion"
+    }:
+        errors.append("$: G0-T03 reviewed-run binding CI has an inexact field set")
+    history = binding.get("history")
+    if type(history) is not dict or set(history) != {
+        "repair_candidate_sha", "repair_candidate_run_id", "repair_acceptance_sha",
+        "repair_acceptance_run_id", "merged_main_sha", "merged_main_run_id",
+        "finalization_sha", "finalization_run_id", "closed_record_sha",
+        "closed_record_run_id", "blocked_record_sha", "recovery_record_sha",
+    }:
+        errors.append("$: G0-T03 reviewed-run binding history has an inexact field set")
+    if type(binding.get("review")) is not dict or set(binding["review"]) != {
+        "code_security", "architecture"
+    }:
+        errors.append("$: G0-T03 reviewed-run binding review has an inexact field set")
+    if type(binding.get("ruleset")) is not dict or set(binding["ruleset"]) != {
+        "id", "evidence_sha256"
+    }:
+        errors.append("$: G0-T03 reviewed-run binding ruleset has an inexact field set")
+    expected_history = {
+        "repair_candidate_sha": "d259f75cb13a56b7256779ad87115120c005ddec",
+        "repair_candidate_run_id": "29904268309",
+        "repair_acceptance_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+        "repair_acceptance_run_id": "29905690883",
+        "merged_main_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+        "merged_main_run_id": "29906115287",
+        "finalization_sha": G0_T03_FINALIZATION_SHA,
+        "finalization_run_id": G0_T03_FINALIZATION_RUN,
+        "closed_record_sha": G0_T03_CLOSED_RECORD_SHA,
+        "closed_record_run_id": G0_T03_CLOSED_RECORD_RUN,
+        "blocked_record_sha": G0_T03_BLOCKED_SHA,
+        "recovery_record_sha": G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
+    }
+    expected_ruleset = {
+        "id": 19526291,
+        "evidence_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1",
+    }
+    if not _typed_equal(binding.get("schema_version"), G0_T03_FINAL_CLOSE_BINDING_VERSION):
+        errors.append("$: G0-T03 reviewed-run binding schema version mismatch")
+    if not _typed_equal(binding.get("project"), "yaobizuoduo"):
+        errors.append("$: G0-T03 reviewed-run binding project mismatch")
+    if not _typed_equal(binding.get("task_id"), "G0-T03"):
+        errors.append("$: G0-T03 reviewed-run binding task mismatch")
+    if not _typed_equal(binding.get("candidate_generation"), 3) or not _typed_equal(
+        binding.get("recovery_generation"), 3
+    ):
+        errors.append("$: G0-T03 reviewed-run binding generation mismatch")
+    if not _typed_equal(binding.get("candidate_sha"), candidate):
+        errors.append("$: G0-T03 reviewed-run binding candidate mismatch")
+    expected_ci = {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "subject_sha": candidate,
+        "run_id": ci.get("run_id") if type(ci) is dict else None,
+        "url": ci.get("url") if type(ci) is dict else None,
+        "check": "G0 / exact-head",
+        "status": "completed",
+        "conclusion": "success",
+    }
+    if not _typed_equal(ci, expected_ci):
+        errors.append("$: G0-T03 reviewed-run binding has inexact CI identity")
+    run_id = ci.get("run_id") if type(ci) is dict else None
+    url = ci.get("url") if type(ci) is dict else None
+    if type(run_id) is not str or re.fullmatch(r"[1-9][0-9]*", run_id) is None:
+        errors.append("$: G0-T03 reviewed-run binding run ID must be positive decimal")
+    elif url != f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{run_id}":
+        errors.append("$: G0-T03 reviewed-run binding URL does not bind run ID")
+    if not _typed_equal(history, expected_history):
+        errors.append("$: G0-T03 reviewed-run binding history drift")
+    if not _typed_equal(binding.get("review"), {"code_security": "approve", "architecture": "clear"}):
+        errors.append("$: G0-T03 reviewed-run binding review drift")
+    if not _typed_equal(binding.get("ruleset"), expected_ruleset):
+        errors.append("$: G0-T03 reviewed-run binding ruleset drift")
+    if binding.get("payload_sha256") != _payload_digest(binding):
+        errors.append("$: G0-T03 reviewed-run binding digest mismatch")
+    return binding, errors
+
+
+def _g0_t03_final_close_receipt_errors(
+    root: Path, accepted_record: str, binding_record: str, candidate: str,
+    binding: dict[str, Any] | None,
+) -> list[str]:
+    changed = _g0_t03_commit_changed_paths(root, binding_record, accepted_record)
+    allowed = {
+        G0_T03_FINAL_CLOSE_RECEIPT_PATH,
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+    }
+    errors: list[str] = []
+    if (
+        changed is None
+        or G0_T03_FINAL_CLOSE_RECEIPT_PATH not in changed
+        or not changed.issubset(allowed)
+    ):
+        errors.append("$: G0-T03 acceptance A must be receipt-only relative to run seal B")
+    ok_binding_receipt, _ = _git(
+        root, "cat-file", "-e", f"{binding_record}:{G0_T03_FINAL_CLOSE_RECEIPT_PATH}"
+    )
+    if ok_binding_receipt:
+        errors.append("$: G0-T03 run seal B must not define acceptance receipt")
+    ok, text = _git(root, "show", f"{accepted_record}:{G0_T03_FINAL_CLOSE_RECEIPT_PATH}")
+    if not ok:
+        return errors + ["$: G0-T03 final-close recovery acceptance receipt is missing"]
+    try:
+        receipt = json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return ["$: G0-T03 final-close recovery receipt is not canonical JSON"]
+    root_keys = {
+        "schema_version", "project", "task_id", "candidate_generation",
+        "recovery_generation", "failed_merge", "history", "candidate",
+        "review", "ruleset", "payload_sha256",
+    }
+    if type(receipt) is not dict or set(receipt) != root_keys:
+        return errors + ["$: G0-T03 final-close recovery receipt has an inexact field set"]
+    nested_keys = {
+        "failed_merge": {"commit_sha", "run_id", "url", "conclusion"},
+        "history": {
+            "repair_candidate_sha", "repair_candidate_run_id", "repair_acceptance_sha",
+            "repair_acceptance_run_id", "merged_main_sha", "merged_main_run_id",
+            "finalization_sha", "finalization_run_id", "closed_record_sha",
+            "closed_record_run_id", "blocked_record_sha", "recovery_record_sha",
+        },
+        "candidate": {"commit_sha", "ci"},
+        "review": {"code_security", "architecture"},
+        "ruleset": {"id", "evidence_sha256"},
+    }
+    for field, keys in nested_keys.items():
+        value = receipt.get(field)
+        if type(value) is not dict or set(value) != keys:
+            errors.append(f"$: G0-T03 final-close recovery receipt has an inexact {field} field set")
+    ci = receipt.get("candidate", {}).get("ci") if type(receipt.get("candidate")) is dict else None
+    if type(ci) is not dict or set(ci) != {
+        "repository", "event", "subject_sha", "run_id", "url", "check", "status", "conclusion"
+    }:
+        errors.append("$: G0-T03 final-close recovery CI receipt has an inexact field set")
+        run_id = None
+        url = None
+    else:
+        run_id = ci["run_id"]
+        url = ci["url"]
+    if binding is None:
+        errors.append("$: G0-T03 final-close candidate has no immutable reviewed-run binding")
+        candidate_binding = {
+            "repository": None, "event": None, "subject_sha": None,
+            "run_id": None, "url": None, "check": None,
+            "status": None, "conclusion": None,
+        }
+        binding_history = None
+        binding_review = None
+        binding_ruleset = None
+    else:
+        candidate_binding = binding.get("ci")
+        binding_history = binding.get("history")
+        binding_review = binding.get("review")
+        binding_ruleset = binding.get("ruleset")
+    expected = {
+        "schema_version": G0_T03_FINAL_CLOSE_RECEIPT_VERSION,
+        "project": "yaobizuoduo",
+        "task_id": "G0-T03",
+        "candidate_generation": 3,
+        "recovery_generation": 3,
+        "failed_merge": {
+            "commit_sha": G0_T03_FINAL_CLOSE_MERGE_SHA,
+            "run_id": G0_T03_FINAL_CLOSE_MERGE_RUN,
+            "url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T03_FINAL_CLOSE_MERGE_RUN}",
+            "conclusion": "failure",
+        },
+        "history": binding_history,
+        "candidate": {
+            "commit_sha": candidate,
+            "ci": candidate_binding,
+        },
+        "review": binding_review,
+        "ruleset": binding_ruleset,
+    }
+    payload = {key: value for key, value in receipt.items() if key != "payload_sha256"}
+    for key, value in expected.items():
+        if not _typed_equal(payload.get(key), value):
+            errors.append(f"$: G0-T03 final-close recovery receipt has inexact {key}")
+    if type(run_id) is not str or re.fullmatch(r"[1-9][0-9]*", run_id) is None:
+        errors.append("$: G0-T03 final-close recovery run ID must be a positive decimal string")
+    elif url != f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{run_id}":
+        errors.append("$: G0-T03 final-close recovery CI URL does not bind its run ID")
+    if receipt.get("payload_sha256") != _payload_digest(receipt):
+        errors.append("$: G0-T03 final-close recovery receipt digest mismatch")
+    ok_candidate_receipt, _ = _git(
+        root, "cat-file", "-e", f"{candidate}:{G0_T03_FINAL_CLOSE_RECEIPT_PATH}"
+    )
+    if ok_candidate_receipt:
+        errors.append("$: G0-T03 final-close receipt must be created only by later acceptance")
+    return errors
+
+
+def _canonical_g0_t03_final_close_bridge(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    schema: dict[str, Any],
+    *,
+    require_canonical_main: bool,
+) -> tuple[str | None, list[str]]:
+    base_status = _is_g0_t03_final_closed_status(status)
+    recovery_status = _is_g0_t03_final_close_recovery_status(status)
+    if not (base_status or recovery_status):
+        return None, []
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    parts = parents_text.split() if ok else []
+    if len(parts) != 3:
+        return None, []
+    first_parent, governed_parent = parts[1], parts[2]
+    errors = _g0_t03_final_close_record_errors(root, schema)
+    ok_origin, origin_url = _git(root, "remote", "get-url", "origin")
+    if not ok_origin or _github_repository_identity(origin_url) != LEDGER_REPOSITORY:
+        errors.append("$: canonical G0-T03 final-close bridge requires canonical repository")
+    if require_canonical_main:
+        ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+        ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        if not ok_main or not ok_remote or main_sha != remote_sha or main_sha != head:
+            errors.append("$: canonical G0-T03 final-close bridge requires exact local/fetched main")
+    if head == G0_T03_FINAL_CLOSE_MERGE_SHA:
+        if not base_status or (first_parent, governed_parent) != (
+            "a98dada059c91dc70714119f333d0d03ab1cb9f1",
+            G0_T03_CLOSED_RECORD_SHA,
+        ):
+            errors.append("$: canonical G0-T03 final-close merge has substituted parents or status")
+    else:
+        if not recovery_status or first_parent != G0_T03_FINAL_CLOSE_MERGE_SHA:
+            errors.append("$: G0-T03 final-close recovery must use exact failed merge and recovery status")
+        ok_record, record_parents_text = _git(
+            root, "rev-list", "--parents", "-n", "1", governed_parent
+        )
+        record_parts = record_parents_text.split() if ok_record else []
+        binding_record = record_parts[1] if len(record_parts) == 2 else ""
+        if len(record_parts) != 2:
+            errors.append("$: G0-T03 final-close acceptance A must directly consume run seal B")
+        ok_binding, binding_parents_text = _git(
+            root, "rev-list", "--parents", "-n", "1", binding_record
+        )
+        binding_parts = binding_parents_text.split() if ok_binding else []
+        candidate = binding_parts[1] if len(binding_parts) == 2 else ""
+        if len(binding_parts) != 2:
+            errors.append("$: G0-T03 run seal B must directly consume candidate R")
+        ok_lineage, lineage_text = _git(
+            root, "rev-list", "--first-parent", f"{G0_T03_FINAL_CLOSE_MERGE_SHA}..{candidate}"
+        )
+        lineage = lineage_text.splitlines() if ok_lineage else []
+        if not lineage or lineage[0] != candidate:
+            errors.append("$: G0-T03 final-close recovery candidate is not rooted at failed merge")
+        for index, repair_sha in enumerate(lineage):
+            ok_repair, repair_parents_text = _git(
+                root, "rev-list", "--parents", "-n", "1", repair_sha
+            )
+            expected_parent = (
+                lineage[index + 1] if index + 1 < len(lineage) else G0_T03_FINAL_CLOSE_MERGE_SHA
+            )
+            if (
+                (repair_parents_text.split() if ok_repair else []) != [repair_sha, expected_parent]
+                or not _typed_equal(_status_at(root, repair_sha), status)
+            ):
+                errors.append("$: G0-T03 final-close recovery requires status-identical single-parent repair")
+                break
+        if not _typed_equal(_status_at(root, governed_parent), status):
+            errors.append("$: G0-T03 final-close recovery acceptance status mismatch")
+        if not _typed_equal(_status_at(root, binding_record), status):
+            errors.append("$: G0-T03 final-close run seal status mismatch")
+        binding, binding_errors = _g0_t03_final_close_binding_errors(
+            root, binding_record, candidate
+        )
+        errors.extend(binding_errors)
+        errors.extend(
+            _g0_t03_final_close_receipt_errors(
+                root, governed_parent, binding_record, candidate, binding
+            )
+        )
+    if not _typed_equal(_status_at(root, governed_parent), status):
+        errors.append("$: canonical G0-T03 final-close bridge status must equal second parent")
+    ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+    ok_parent_tree, parent_tree = _git(root, "rev-parse", f"{governed_parent}^{{tree}}")
+    if not ok_head_tree or not ok_parent_tree or head_tree != parent_tree:
+        errors.append("$: canonical G0-T03 final-close bridge tree must equal second parent")
+    frozen_refs = {
+        "refs/remotes/origin/codex/g0-t03-main-protection": G0_T03_BLOCKED_SHA,
+        "refs/remotes/origin/codex/g0-t03-merge-recovery": G0_T03_RECOVERY_ACCEPTED_RECORD_SHA,
+        "refs/remotes/origin/codex/g0-t03-recovery-merge-recovery": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
+        "refs/remotes/origin/codex/g0-t03-finalize": G0_T03_CLOSED_RECORD_SHA,
+    }
+    for ref, expected_sha in frozen_refs.items():
+        ok_ref, actual_sha = _git(root, "rev-parse", "--verify", ref)
+        if not ok_ref or actual_sha != expected_sha:
+            errors.append(f"$: G0-T03 final-close recovery frozen ref changed: {ref}")
+    if errors:
+        return None, errors
+    return governed_parent, []
+
+
+@functools.lru_cache(maxsize=32)
+def _g0_t03_final_close_main_matches(root: Path, main_sha: str) -> bool:
+    # The published failed merge is content-addressed and is the immutable
+    # baseline for this recovery.  Avoid re-walking its full historical proof
+    # for every earlier ledger transition.
+    if main_sha == G0_T03_FINAL_CLOSE_MERGE_SHA:
+        return True
+    status = _status_at(root, main_sha)
+    schema = _schema_at(root, main_sha)
+    if type(status) is not dict or type(schema) is not dict:
+        return False
+    governed, errors = _canonical_g0_t03_final_close_bridge(
+        status,
+        root,
+        main_sha,
+        schema,
+        require_canonical_main=False,
+    )
+    return governed is not None and not errors
+
+
+def _g0_t03_final_close_repair_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+) -> list[str] | None:
+    if not _is_g0_t03_final_close_recovery_status(status):
+        return None
+    if root is None or parent_sha is None or child_sha is None:
+        return ["$: G0-T03 final-close recovery requires repository-bound lineage"]
+    schema = _schema_at(root, child_sha)
+    if type(schema) is not dict:
+        return ["$: G0-T03 final-close recovery schema is unreadable"]
+    if _is_g0_t03_final_close_recovery_status(parent):
+        ok, parts_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+        if (
+            not _typed_equal(status, parent)
+            or (parts_text.split() if ok else []) != [child_sha, parent_sha]
+            or not _is_ancestor(root, G0_T03_FINAL_CLOSE_MERGE_SHA, parent_sha)
+        ):
+            return ["$: G0-T03 final-close repair must preserve status on single-parent lineage"]
+        return []
+    if not _is_g0_t03_final_closed_status(parent) or parent_sha != G0_T03_FINAL_CLOSE_MERGE_SHA:
+        return ["$: G0-T03 final-close recovery must be rooted at exact failed merge"]
+    projected = json.loads(json.dumps(status))
+    projected["active_tasks"][0]["transition"] = {
+        "from": "merged_verified",
+        "to": "closed",
+    }
+    projected["blockers"] = []
+    errors: list[str] = []
+    if not _typed_equal(projected, parent):
+        errors.append("$: G0-T03 final-close recovery may only add exact failed-run blocker")
+    ok_child, child_parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+    child_parts = child_parents_text.split() if ok_child else []
+    if len(child_parts) == 3:
+        governed, bridge_errors = _canonical_g0_t03_final_close_bridge(
+            status, root, child_sha, schema, require_canonical_main=False
+        )
+        errors.extend(bridge_errors)
+        if governed is None:
+            errors.append("$: G0-T03 final-close recovery merge is not canonical")
+    elif child_parts != [child_sha, parent_sha]:
+        errors.append("$: initial G0-T03 final-close recovery must directly follow failed merge")
+    ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+    ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+    main_matches = ok_main and ok_remote and main_sha == remote_sha
+    if main_matches and main_sha != G0_T03_FINAL_CLOSE_MERGE_SHA:
+        main_status = _status_at(root, main_sha)
+        main_schema = _schema_at(root, main_sha)
+        if type(main_status) is dict and type(main_schema) is dict:
+            governed, bridge_errors = _canonical_g0_t03_final_close_bridge(
+                main_status, root, main_sha, main_schema, require_canonical_main=False
+            )
+            main_matches = governed is not None and not bridge_errors
+        else:
+            main_matches = False
+    if not main_matches:
+        errors.append("$: G0-T03 final-close recovery requires exact failed or recovered main")
+    governed_parent, parent_errors = _canonical_g0_t03_final_close_bridge(
+        parent, root, parent_sha, schema, require_canonical_main=False
+    )
+    errors.extend(parent_errors)
+    if governed_parent != G0_T03_CLOSED_RECORD_SHA:
+        errors.append("$: G0-T03 final-close recovery parent is not exact failed close bridge")
+    return errors
+
+
 def _g0_t03_recovery_parent_errors(
     status: dict[str, Any],
     parent: dict[str, Any],
@@ -2353,6 +2946,8 @@ def _g0_t03_recovery_parent_errors(
             main_matches = governed_closure is not None and not closure_errors
             if not main_matches:
                 main_matches = _g0_t03_recovery_closure_ancestor(root, main_sha) is not None
+    if not main_matches and ok_main and ok_remote and main_sha == remote_sha:
+        main_matches = _g0_t03_final_close_main_matches(root, main_sha)
     if not main_matches:
         errors.append("$: G0-T03 post-merge recovery requires the exact failed main on local/fetched main")
     governed, bridge_errors = _canonical_g0_t03_merge_bridge(
@@ -2417,6 +3012,8 @@ def _g0_t03_recovery_merge_recovery_parent_errors(
             main_matches = governed_closure is not None and not closure_errors
             if not main_matches:
                 main_matches = _g0_t03_recovery_closure_ancestor(root, main_sha) is not None
+    if not main_matches and ok_main and ok_remote and main_sha == remote_sha:
+        main_matches = _g0_t03_final_close_main_matches(root, main_sha)
     if not main_matches:
         errors.append("$: G0-T03 recovery-merge recovery requires exact failed recovery merge on local/fetched main")
     governed, bridge_errors = _canonical_g0_t03_recovery_merge_bridge(
@@ -2549,6 +3146,8 @@ def _g0_t02_recovery_parent_errors(
                     main_matches = governed_closure is not None and not closure_errors
                     if not main_matches:
                         main_matches = _g0_t03_recovery_closure_ancestor(root, main_sha) is not None
+        if not main_matches and ok_main and ok_remote and main_sha == remote_sha:
+            main_matches = _g0_t03_final_close_main_matches(root, main_sha)
         if not main_matches:
             errors.append("$: post-merge CI recovery requires the exact failed main, recovery merge, or canonical final-close recovery on local/fetched main")
     child_schema = _schema_at(root, child_sha)
@@ -2583,6 +3182,14 @@ def _canonical_g0_merge_bridge(
                 head,
                 require_canonical_main=require_canonical_main,
             )
+    if _is_g0_t03_final_closed_status(status) or _is_g0_t03_final_close_recovery_status(status):
+        return _canonical_g0_t03_final_close_bridge(
+            status,
+            root,
+            head,
+            schema,
+            require_canonical_main=require_canonical_main,
+        )
     if _is_g0_t02_final_closed_status(status):
         return _canonical_g0_t02_final_close_bridge(
             status,

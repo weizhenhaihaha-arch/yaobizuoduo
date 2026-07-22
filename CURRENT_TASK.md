@@ -206,3 +206,108 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
 - `closed` here is the candidate close status on an open, unmerged finalization
   PR. The close-record HEAD still requires its own exact PR CI and user merge
   decision. G0-T04/G1 remain `not_authorized`.
+
+## Final-close merge recovery
+
+- User-authorized PR #9 merged as exact main subject
+  `b1544c168cf3acf9e0ce0c1c7e3785041c02e87c`, with ordered parents
+  `[a98dada059c91dc70714119f333d0d03ab1cb9f1,
+  cf15b25533769c7f589dd5dad275627802d9ae7d]` and tree/status equal to the
+  closed second parent.
+- Exact push/main run `29909220290` proved repository, event and subject
+  identity but failed canonical validation because the final-close bridge was
+  not recognized before generic history and repeated-authorization paths.
+- Recovery is restricted to this exact failed merge plus a status-identical
+  single-parent repair lineage. A future two-parent recovery must use `b1544c1`
+  first, directly accept the reviewed repair candidate second, preserve the
+  acceptance tree/status, and include a later non-self-referential receipt
+  binding the complete repair/closure/finalization/closed history, exact PR CI,
+  dual-green review, ruleset `19526291`, and its frozen evidence digest.
+- Parent/order/tree/status/task/generation/candidate/run/review/ruleset/blocked-
+  history substitution and ordinary closed merges fail closed. Current status
+  stays `closed`, this exact failed run remains the sole blocker, and G0-T04/G1,
+  live data, deployment, release and trading remain unauthorized.
+
+## Final-close receipt review return
+
+- PR #10 exact candidate `8048455a8d0d827d7f99af67716d111336df7b07`
+  passed exact pull-request run `29913039430`; architecture/route remained
+  `CLEAR`, but code/security returned `REQUEST CHANGES`.
+- The receipt previously defined its own candidate run ID and URL. Synchronously
+  replacing both values and recomputing the payload digest could therefore make
+  a nonexistent or unrelated run pass.
+- This same-slice repair moves candidate/run identity outside the receipt into
+  an immutable reviewed-run binding. The receipt must equal that complete
+  binding; positive integers, URL self-consistency, and digest recomputation are
+  no longer sufficient. The exact PR #10 pair is preserved as the first audited
+  binding, while any later repair candidate must be sealed only after its real
+  exact-head run is known and before a later acceptance record consumes it.
+- Synchronized run/URL/digest replacement, nonexistent runs, unrelated runs,
+  subject drift and missing bindings fail closed. Status remains `closed`, the
+  exact failed main run remains the sole blocker, and all route limits remain.
+
+## Final-close run-seal topology repair
+
+- PR #10 repair head `26f916821fb72ea42366d3c447d2d6b092132dbf`
+  passed exact pull-request run `29915845730`, but architecture/route returned
+  `BLOCK`: a validator-side map still allowed the same acceptance commit to
+  define and consume a new candidate binding, while a separate binding commit
+  became the candidate under the direct-parent topology.
+- The product owner selected route A for this same G0-T03 slice. This reviewed
+  repair candidate R defines only the future trust model and tests. After R has
+  its own exact successful run and dual-green review, a later run-seal B must
+  directly parent R and may change only the frozen binding artifact plus
+  necessary task/memory history. A later acceptance A must directly parent B
+  and may change only the acceptance receipt plus necessary task/memory history.
+- The bridge therefore verifies `A -> B -> R`. B binds R's exact repository,
+  pull-request subject, run ID/URL, aggregate check and success, plus immutable
+  history, dual-green review and ruleset evidence. A must reproduce that seal
+  and point back to R. Neither B nor A may change validator, tests, project
+  status, phase evidence, the other artifact, or business/runtime files.
+- Real Git-object tests cover the positive three-stage topology and fail closed
+  on synchronous self-attestation, bypassing B, substituted merge/B/R parents,
+  extra B/A paths, status or validator drift, candidate/run/URL/digest drift,
+  and history/review/ruleset drift. This R delivery does not create B or A and
+  does not claim its future CI or review.
+- Implementation head `5e0f6b928553abe8a611364d62f6628f38335026`
+  passed 50 focused final-close tests, all 312 non-transport Python tests, 10
+  frontend tests, standalone TypeScript compilation, Vite production build,
+  canonical project-status validation, exact protection-evidence validation,
+  Python compilation and whitespace checks. The only full-collection error was
+  the already-documented local absence of FastAPI for the excluded transport
+  module; no transport behavior changed in this repair.
+
+## Route-A binding-only run seal B
+
+- Exact reviewed R is `6a78dd68ace8a2fbc1012cc30e9bae89290f540c`.
+  PR #10 exact pull-request run `29922824757` completed successfully for stable
+  aggregate check `G0 / exact-head`; independent code/security returned
+  `APPROVE` and architecture/route returned `CLEAR`, with zero blockers.
+- This B record directly parents exact R and adds only the frozen reviewed-run
+  binding plus this necessary task/project history. The binding seals the exact
+  repository, event, R subject, run ID/URL, check, completed/success result,
+  immutable recovery history, dual-green review, ruleset `19526291`, frozen
+  ruleset evidence digest, and its own canonical payload digest.
+- B creates no final-close acceptance receipt and makes no validator, test,
+  status, phase-evidence, ruleset, main or product/runtime change. A remains a
+  separate future receipt-only sub-slice requiring its own explicit dispatch.
+  Status stays `closed`, main run `29909220290` remains the sole blocker, and
+  G0-T04 stays `not_authorized`.
+
+## Route-A receipt-only acceptance A
+
+- Exact binding-only B is `d9c838ca5a6d599b5c55e867e77629e4930f3ea2`.
+  Its exact PR #10 run `29925693993` completed successfully for stable check
+  `G0 / exact-head`; independent code/security returned `APPROVE` and
+  architecture/route returned `CLEAR`, with zero findings. That exact B run is
+  the external gate for creating A and is not duplicated inside receipt schema.
+- A directly parents exact B. Its only artifact is the acceptance receipt,
+  which consumes B's immutable seal and points back to exact R
+  `6a78dd68ace8a2fbc1012cc30e9bae89290f540c`. Accordingly the receipt copies
+  B's sealed R/run `29922824757`, complete history, dual-green R review,
+  ruleset `19526291`, and frozen ruleset evidence digest exactly.
+- A changes only the receipt plus necessary task/project history. It does not
+  alter B's binding, validator, tests, project status, phase evidence, ruleset,
+  main or product/runtime files. It grants no merge authority: status remains
+  `closed`, run `29909220290` remains the sole blocker, and G0-T04 remains
+  `not_authorized`.
