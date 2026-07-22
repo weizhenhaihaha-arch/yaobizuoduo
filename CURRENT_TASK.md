@@ -214,6 +214,27 @@ repair; do not start G0-T03 or G1.
   maturity remains `OFFLINE_EVIDENCE_ACCEPTED`; no live, deployment, release or
   trading readiness is established.
 
+## Exact final-close merge recovery
+
+- GitHub merged PR #4 as `d0dcc837715ea29c7b08f9ef6a7212894e4098bb`.
+  It has exact first parent `c5a488482fffb7183790f36701411d91b2a2bba0`,
+  exact second parent closed record
+  `231d3d0e4756889e8fa3fc5803df6701088556e8`, and a tree/status identical to
+  that second parent.
+- Exact `push/main` run `29888938625` for subject `d0dcc83` established the
+  real event and subject identity, then failed only because direct-first-parent
+  validation expected the first parent's `accepted_pending_merge` state rather
+  than recognizing the bounded final-close bridge.
+- Recovery is restricted to that exact bridge and a status-identical,
+  single-parent repair line followed by one exact two-parent repair merge.
+  Wrong/swapped parents, tree or status substitution, wrong finalization/run,
+  non-main subjects, ordinary closed merges, and forged descendants remain
+  fail closed.
+- `PROJECT_STATUS.yaml` remains the immutable `closed` record: candidate,
+  closure, merged-main, finalization, dual-clear review, capability ceiling and
+  `G0-T03 not_authorized` evidence are unchanged. This repair does not start a
+  new lifecycle transition or authorize G0-T03/G1.
+
 ## Generation 4 independent review result: returned
 
 - Reviewed exact PR head: `66176e228331d77f9404d2976a0227b43ad3d9c4`.

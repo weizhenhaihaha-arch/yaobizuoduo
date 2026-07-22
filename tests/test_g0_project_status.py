@@ -18,6 +18,10 @@ G0_T02_GENERATION1_BLOCKED = "925fa94c22dfabc8ccd2dbe99fde74ca0c88a12f"
 G0_T02_GENERATION2_AUTHORIZATION = "f69e6abd379e74d1af1c507a4a9b15395d077f90"
 G0_T02_ACCEPTED_RECORD = "41868a5eff635d9f83dccaba4ad3e6e38433822c"
 G0_T02_FAILED_MAIN = "608800462fbf9f3b97277484fa906a691b8b8b98"
+G0_T02_RECOVERY_MAIN = "c5a488482fffb7183790f36701411d91b2a2bba0"
+G0_T02_FINALIZATION = "0a8048df7197ece027287c3397783f37630ff0e6"
+G0_T02_CLOSED_RECORD = "231d3d0e4756889e8fa3fc5803df6701088556e8"
+G0_T02_FINAL_CLOSE_MERGE = "d0dcc837715ea29c7b08f9ef6a7212894e4098bb"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -551,6 +555,18 @@ def clone_g0_t02_failed_main(tmp_path: Path) -> Path:
     return repo
 
 
+def clone_g0_t02_final_close(tmp_path: Path) -> Path:
+    repo = tmp_path / "g0-t02-final-close"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "--detach", G0_T02_FINAL_CLOSE_MERGE)
+    git(repo, "update-ref", "refs/heads/main", G0_T02_FINAL_CLOSE_MERGE)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T02_FINAL_CLOSE_MERGE)
+    return repo
+
+
 def write_g0_t02_recovery(repo: Path) -> dict:
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     status["active_tasks"][0]["transition"] = {
@@ -630,6 +646,110 @@ def test_exact_failed_main_recovery_record_and_recovery_merge_are_accepted(tmp_p
     git(repo, "switch", "--detach", recovery_merge)
     git(repo, "update-ref", "refs/heads/main", recovery_merge)
     git(repo, "update-ref", "refs/remotes/origin/main", recovery_merge)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+def test_exact_g0_t02_final_close_bridge_is_accepted(tmp_path: Path) -> None:
+    repo = clone_g0_t02_final_close(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, G0_T02_FINAL_CLOSE_MERGE, schema
+    )
+    assert governed == G0_T02_CLOSED_RECORD
+    assert errors == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize("mutation", ["wrong_first", "wrong_second", "wrong_tree", "swapped", "ordinary_closed", "forged_descendant"])
+def test_g0_t02_final_close_bridge_rejects_parent_tree_and_lineage_substitution(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo = clone_g0_t02_final_close(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    first = G0_T02_RECOVERY_MAIN
+    second = G0_T02_CLOSED_RECORD
+    tree = git(repo, "rev-parse", f"{second}^{{tree}}")
+    if mutation == "wrong_first":
+        first = G0_T02_FAILED_MAIN
+    elif mutation == "wrong_second":
+        second = G0_T02_FINALIZATION
+    elif mutation == "wrong_tree":
+        tree = git(repo, "rev-parse", f"{first}^{{tree}}")
+    elif mutation == "swapped":
+        first, second = second, first
+    else:
+        git(repo, "switch", "--detach", G0_T02_RECOVERY_MAIN if mutation == "forged_descendant" else G0_T02_FINAL_CLOSE_MERGE)
+        (repo / "forged.txt").write_text(f"{mutation}\n", encoding="utf-8")
+        second = commit(repo, mutation)
+        tree = git(repo, "rev-parse", f"{second}^{{tree}}")
+        first = G0_T02_FINALIZATION if mutation == "ordinary_closed" else G0_T02_FINAL_CLOSE_MERGE
+    forged = git(repo, "commit-tree", tree, "-p", first, "-p", second, "-m", f"forged {mutation}")
+    git(repo, "update-ref", "refs/heads/main", forged)
+    git(repo, "update-ref", "refs/remotes/origin/main", forged)
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(status, repo, forged, schema)
+    assert governed is None
+    assert errors
+
+
+@pytest.mark.parametrize("mutation", ["state", "finalization", "run"])
+def test_g0_t02_final_close_status_rejects_identity_substitution(mutation: str) -> None:
+    status = json.loads(git(ROOT, "show", f"{G0_T02_CLOSED_RECORD}:PROJECT_STATUS.yaml"))
+    if mutation == "state":
+        status["active_tasks"][0]["transition"]["from"] = "closed"
+    elif mutation == "finalization":
+        status["evidence"]["finalization"]["commit_sha"] = G0_T02_CLOSED_RECORD
+        status["evidence"]["finalization"]["d0_ci"]["subject_sha"] = G0_T02_CLOSED_RECORD
+    else:
+        status["evidence"]["finalization"]["d0_ci"]["run_id"] = "29888131235"
+        status["evidence"]["finalization"]["d0_ci"]["url"] = (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29888131235"
+        )
+    assert not VALIDATOR._is_g0_t02_final_closed_status(status)
+
+
+def test_g0_t02_final_close_requires_canonical_main(tmp_path: Path) -> None:
+    repo = clone_g0_t02_final_close(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    git(repo, "update-ref", "refs/heads/main", G0_T02_RECOVERY_MAIN)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T02_RECOVERY_MAIN)
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, G0_T02_FINAL_CLOSE_MERGE, schema
+    )
+    assert governed is None
+    assert any("local/fetched main" in error for error in errors)
+
+
+def test_g0_t02_final_close_accepts_only_strict_repair_merge(tmp_path: Path) -> None:
+    repo = clone_g0_t02_final_close(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    (repo / "repair.txt").write_text("bounded repair\n", encoding="utf-8")
+    repair = commit(repo, "bounded final-close repair")
+    tree = git(repo, "rev-parse", f"{repair}^{{tree}}")
+    recovery_merge = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        G0_T02_FINAL_CLOSE_MERGE,
+        "-p",
+        repair,
+        "-m",
+        "merge bounded final-close repair",
+    )
+    git(repo, "switch", "--detach", recovery_merge)
+    git(repo, "update-ref", "refs/heads/main", recovery_merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", recovery_merge)
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, recovery_merge, schema
+    )
+    assert governed == repair
+    assert errors == []
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 0, result.stdout
 

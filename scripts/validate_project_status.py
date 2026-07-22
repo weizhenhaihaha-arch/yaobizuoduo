@@ -34,6 +34,13 @@ G0_GOVERNED_PARENT_SHA = "48904701f31ad12b08d0d224c25bd65003356230"
 G0_T02_FAILED_MAIN_SHA = "608800462fbf9f3b97277484fa906a691b8b8b98"
 G0_T02_FAILED_MAIN_RUN = "29884710636"
 G0_T02_FAILED_MAIN_URL = "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884710636"
+G0_T02_RECOVERY_MAIN_SHA = "c5a488482fffb7183790f36701411d91b2a2bba0"
+G0_T02_CLOSURE_SHA = "41868a5eff635d9f83dccaba4ad3e6e38433822c"
+G0_T02_CLOSURE_RUN = "29884474658"
+G0_T02_FINALIZATION_SHA = "0a8048df7197ece027287c3397783f37630ff0e6"
+G0_T02_FINALIZATION_RUN = "29888131234"
+G0_T02_CLOSED_RECORD_SHA = "231d3d0e4756889e8fa3fc5803df6701088556e8"
+G0_T02_FINAL_CLOSE_MERGE_SHA = "d0dcc837715ea29c7b08f9ef6a7212894e4098bb"
 G0_T02_RECOVERY_BLOCKER = (
     "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push "
     f"ref=refs/heads/main subject_sha={G0_T02_FAILED_MAIN_SHA} run_id={G0_T02_FAILED_MAIN_RUN} "
@@ -1108,6 +1115,11 @@ def _parent_status_errors(
     recovery_errors = _g0_t02_recovery_parent_errors(status, parent, parent_sha, root, child_sha)
     if recovery_errors is not None:
         return recovery_errors
+    final_close_repair_errors = _g0_t02_final_close_repair_parent_errors(
+        status, parent, parent_sha, root, child_sha
+    )
+    if final_close_repair_errors is not None:
+        return final_close_repair_errors
     if _typed_equal(parent, status):
         if current_task["state"] != "in_progress":
             errors.append(f"$: same-status commits are restricted to byte-equivalent in_progress implementation work after {parent_sha[:12] if parent_sha else 'unknown'}")
@@ -1482,6 +1494,255 @@ def _is_g0_t02_post_merge_recovery_status(status: dict[str, Any]) -> bool:
         return False
 
 
+def _is_g0_t02_final_closed_status(status: dict[str, Any]) -> bool:
+    """Match the immutable G0-T02 close record without accepting lookalike descendants."""
+    try:
+        task = status["active_tasks"][0]
+        evidence = status["evidence"]
+        return (
+            status["project"] == "yaobizuoduo"
+            and status["authoritative_main_ref"] == "refs/heads/main"
+            and status["current_gate"] == "G0"
+            and task == {
+                "task_id": "G0-T02",
+                "risk": "D2",
+                "state": "closed",
+                "transition": {"from": "merged_verified", "to": "closed"},
+                "candidate_generation": 5,
+            }
+            and evidence["authorization_baseline_sha"] == "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
+            and evidence["implementation_sha"] == "2ec1a50ad513f81cf3637e82501e4e4d74b5bf1f"
+            and evidence["candidate"] == {
+                "commit_sha": "35b90f87ab42843925065e6d0dafdc25797702e0",
+                "local_verification": {"status": "success", "subject": "delivery_head"},
+                "ci": {
+                    "status": "success",
+                    "subject_sha": "35b90f87ab42843925065e6d0dafdc25797702e0",
+                    "run_id": "29884205742",
+                    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884205742",
+                },
+            }
+            and evidence["closure"] == {
+                "commit_sha": G0_T02_CLOSURE_SHA,
+                "ci": {
+                    "status": "success",
+                    "subject_sha": G0_T02_CLOSURE_SHA,
+                    "run_id": G0_T02_CLOSURE_RUN,
+                    "url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T02_CLOSURE_RUN}",
+                },
+            }
+            and evidence["merged_main"] == {
+                "commit_sha": G0_T02_RECOVERY_MAIN_SHA,
+                "ci": {
+                    "status": "success",
+                    "subject_sha": G0_T02_RECOVERY_MAIN_SHA,
+                    "run_id": "29887948168",
+                    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29887948168",
+                },
+            }
+            and evidence["finalization"] == {
+                "commit_sha": G0_T02_FINALIZATION_SHA,
+                "d0_ci": {
+                    "status": "success",
+                    "subject_sha": G0_T02_FINALIZATION_SHA,
+                    "run_id": G0_T02_FINALIZATION_RUN,
+                    "url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T02_FINALIZATION_RUN}",
+                },
+            }
+            and status["review"] == {
+                "code_security": "approve",
+                "architecture": "clear",
+                "reviewed_candidate_sha": "35b90f87ab42843925065e6d0dafdc25797702e0",
+            }
+            and status.get("schema_authority") == {
+                "revision": 1,
+                "sha256": "192787ae5ad594bf3fce57af75de8bb9db99c83adac93ad1434fc49d63579e5e",
+                "migration": {
+                    "from_revision": 0,
+                    "from_sha256": SCHEMA_BOOTSTRAP_OLD_DIGEST,
+                    "to_revision": 1,
+                    "to_sha256": "192787ae5ad594bf3fce57af75de8bb9db99c83adac93ad1434fc49d63579e5e",
+                    "authorization_sha": SCHEMA_BOOTSTRAP_SUBJECT,
+                    "compatibility_rule": SCHEMA_COMPATIBILITY_RULE,
+                    "preauthority_history_sha256": SCHEMA_PREAUTHORITY_HISTORY_DIGEST,
+                },
+            }
+            and status.get("transition_ledger") == {
+                "authorization_baseline_sha": BOOTSTRAP_BASELINE,
+                "sealed_through_sha": LEDGER_ANCHOR,
+                "first_parent_chain_sha256": LEDGER_DIGEST,
+            }
+            and status["bootstrap_exception"] is None
+            and status["capability"] == {
+                "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+                "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED",
+            }
+            and status["release"] == {"product_owner_approval": None, "release_manifest": None}
+            and status["blockers"] == []
+            and status["next_authorization"] == {
+                "gate": "G0", "task_id": "G0-T03", "state": "not_authorized"
+            }
+            and status["governed_documents"] == [
+                "AGENTS.md", "DEVELOPMENT_WORKFLOW.md", "AG_WORK_LOOP.md", "DESIGN.md",
+                "CURRENT_TASK.md", "PROJECT_MEMORY.md",
+            ]
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _g0_t02_final_close_record_errors(root: Path, schema: dict[str, Any]) -> list[str]:
+    """Verify the close record directly consumes the exact successful finalization subject."""
+    errors: list[str] = []
+    closed, closed_errors = _committed_status_errors(
+        root, G0_T02_CLOSED_RECORD_SHA, schema, use_current_schema=True
+    )
+    finalization, finalization_errors = _committed_status_errors(
+        root, G0_T02_FINALIZATION_SHA, schema, use_current_schema=True
+    )
+    errors.extend(closed_errors)
+    errors.extend(finalization_errors)
+    if closed is None or not _is_g0_t02_final_closed_status(closed):
+        errors.append("$: canonical G0-T02 final-close record identity is invalid")
+    ok_closed, closed_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T02_CLOSED_RECORD_SHA
+    )
+    closed_parts = closed_parents_text.split() if ok_closed else []
+    if closed_parts != [G0_T02_CLOSED_RECORD_SHA, G0_T02_FINALIZATION_SHA]:
+        errors.append("$: canonical G0-T02 close record must directly consume the exact finalization subject")
+    if finalization is None or closed is None:
+        return errors
+    projected = dict(closed)
+    projected["active_tasks"] = [dict(closed["active_tasks"][0])]
+    projected["active_tasks"][0].update(
+        state="merged_verified",
+        transition={"from": "accepted_pending_merge", "to": "merged_verified"},
+    )
+    projected["evidence"] = dict(closed["evidence"])
+    projected["evidence"]["finalization"] = {
+        "commit_sha": None,
+        "d0_ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+    }
+    if not _typed_equal(projected, finalization):
+        errors.append("$: canonical G0-T02 finalization subject changed immutable phase evidence")
+    ok_finalization, finalization_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T02_FINALIZATION_SHA
+    )
+    if (finalization_parents_text.split() if ok_finalization else []) != [
+        G0_T02_FINALIZATION_SHA, G0_T02_RECOVERY_MAIN_SHA
+    ]:
+        errors.append("$: canonical G0-T02 finalization subject is not rooted at the verified recovery main")
+    return errors
+
+
+def _g0_t02_final_close_repair_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+) -> list[str] | None:
+    """Allow only a status-identical, single-parent repair line rooted at the failed close merge."""
+    if not (_is_g0_t02_final_closed_status(status) and _is_g0_t02_final_closed_status(parent)):
+        return None
+    if root is None or parent_sha is None or child_sha is None:
+        return ["$: G0-T02 final-close repair requires repository-bound lineage"]
+    ok, lineage_text = _git(
+        root, "rev-list", "--first-parent", f"{G0_T02_FINAL_CLOSE_MERGE_SHA}..{child_sha}"
+    )
+    lineage = lineage_text.splitlines() if ok else []
+    errors: list[str] = []
+    if not lineage or lineage[0] != child_sha:
+        errors.append("$: G0-T02 final-close repair is not rooted at the exact failed close merge")
+        return errors
+    for index, repair_sha in enumerate(lineage):
+        ok_parents, parents_text = _git(root, "rev-list", "--parents", "-n", "1", repair_sha)
+        parts = parents_text.split() if ok_parents else []
+        expected_parent = lineage[index + 1] if index + 1 < len(lineage) else G0_T02_FINAL_CLOSE_MERGE_SHA
+        if (
+            parts != [repair_sha, expected_parent]
+            or not _typed_equal(_status_at(root, repair_sha), status)
+        ):
+            errors.append("$: G0-T02 final-close repair must be a status-identical single-parent lineage")
+            break
+    return errors
+
+
+def _canonical_g0_t02_final_close_bridge(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    schema: dict[str, Any],
+    *,
+    require_canonical_main: bool,
+) -> tuple[str | None, list[str]]:
+    """Recognize only the exact final-close merge or its exact repair merge."""
+    if not _is_g0_t02_final_closed_status(status):
+        return None, []
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    parts = parents_text.split() if ok else []
+    if len(parts) != 3:
+        return None, []
+    first_parent, governed_parent = parts[1], parts[2]
+    errors = _g0_t02_final_close_record_errors(root, schema)
+    ok_origin, origin_url = _git(root, "remote", "get-url", "origin")
+    if not ok_origin or _github_repository_identity(origin_url) != LEDGER_REPOSITORY:
+        errors.append("$: canonical G0-T02 final-close bridge requires the canonical repository")
+    if require_canonical_main:
+        ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+        ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        if not ok_main or not ok_remote or main_sha != remote_sha or main_sha != head:
+            errors.append("$: canonical G0-T02 final-close bridge requires exact local/fetched main")
+
+    if head == G0_T02_FINAL_CLOSE_MERGE_SHA:
+        if (first_parent, governed_parent) != (
+            G0_T02_RECOVERY_MAIN_SHA, G0_T02_CLOSED_RECORD_SHA
+        ):
+            errors.append("$: canonical G0-T02 final-close bridge has substituted or swapped parents")
+    else:
+        if first_parent != G0_T02_FINAL_CLOSE_MERGE_SHA:
+            errors.append("$: G0-T02 final-close recovery merge must use the exact failed close as first parent")
+        ok_lineage, lineage_text = _git(
+            root,
+            "rev-list",
+            "--first-parent",
+            f"{G0_T02_FINAL_CLOSE_MERGE_SHA}..{governed_parent}",
+        )
+        lineage = lineage_text.splitlines() if ok_lineage else []
+        if not lineage or lineage[0] != governed_parent:
+            errors.append("$: G0-T02 final-close recovery second parent is not a strict repair lineage")
+        for index, repair_sha in enumerate(lineage):
+            ok_parents, repair_parents_text = _git(
+                root, "rev-list", "--parents", "-n", "1", repair_sha
+            )
+            repair_parts = repair_parents_text.split() if ok_parents else []
+            expected_parent = (
+                lineage[index + 1]
+                if index + 1 < len(lineage)
+                else G0_T02_FINAL_CLOSE_MERGE_SHA
+            )
+            if (
+                repair_parts != [repair_sha, expected_parent]
+                or not _typed_equal(_status_at(root, repair_sha), status)
+            ):
+                errors.append("$: G0-T02 final-close recovery requires a status-identical single-parent repair lineage")
+                break
+
+    governed_status, governed_errors = _committed_status_errors(
+        root, governed_parent, schema, use_current_schema=True
+    )
+    errors.extend(governed_errors)
+    if governed_status is None or not _typed_equal(governed_status, status):
+        errors.append("$: canonical G0-T02 final-close bridge status must equal its second parent")
+    ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+    ok_parent_tree, parent_tree = _git(root, "rev-parse", f"{governed_parent}^{{tree}}")
+    if not ok_head_tree or not ok_parent_tree or head_tree != parent_tree:
+        errors.append("$: canonical G0-T02 final-close bridge tree must equal its second parent")
+    if errors:
+        return None, errors
+    return governed_parent, []
+
+
 def _g0_t02_recovery_parent_errors(
     status: dict[str, Any],
     parent: dict[str, Any],
@@ -1548,8 +1809,24 @@ def _g0_t02_recovery_parent_errors(
                 and _typed_equal(_status_at(root, recovery_head), status)
                 and _typed_equal(_status_at(root, main_sha), status)
             )
+            if not main_matches:
+                final_close_status = _status_at(root, main_sha)
+                final_close_schema = _schema_at(root, main_sha)
+                if (
+                    type(final_close_status) is dict
+                    and type(final_close_schema) is dict
+                    and _is_ancestor(root, child_sha, G0_T02_RECOVERY_MAIN_SHA)
+                ):
+                    governed_close, close_errors = _canonical_g0_t02_final_close_bridge(
+                        final_close_status,
+                        root,
+                        main_sha,
+                        final_close_schema,
+                        require_canonical_main=False,
+                    )
+                    main_matches = governed_close is not None and not close_errors
         if not main_matches:
-            errors.append("$: post-merge CI recovery requires the exact failed main or its exact recovery merge on local/fetched main")
+            errors.append("$: post-merge CI recovery requires the exact failed main, recovery merge, or canonical final-close recovery on local/fetched main")
     child_schema = _schema_at(root, child_sha)
     if child_schema is None:
         errors.append("$: post-merge CI recovery schema is unreadable")
@@ -1573,6 +1850,14 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
+    if _is_g0_t02_final_closed_status(status):
+        return _canonical_g0_t02_final_close_bridge(
+            status,
+            root,
+            head,
+            schema,
+            require_canonical_main=require_canonical_main,
+        )
     if task["state"] != "accepted_pending_merge" or not task["task_id"].startswith("G0-"):
         return None, []
     ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
