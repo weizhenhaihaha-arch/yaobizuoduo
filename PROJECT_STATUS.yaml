@@ -23,53 +23,47 @@
   "current_gate": "G0",
   "active_tasks": [
     {
-      "task_id": "G0-T01",
-      "risk": "D0",
-      "state": "closed",
-      "transition": {"from": "merged_verified", "to": "closed"},
-      "candidate_generation": 11
+      "task_id": "G0-T02",
+      "risk": "D2",
+      "state": "authorized",
+      "transition": {"from": "closed", "to": "authorized"},
+      "candidate_generation": 1
     }
   ],
   "evidence": {
-    "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
-    "implementation_sha": "7b8183e347efb1e0b0c5434c9a6705580d9ff487",
+    "authorization_baseline_sha": "94892d79b8d39ac1726cf657fac0ae76a0e27b37",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "3affc891143c35d64746e27d7ae017a23cb3cfc0",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
-      "commit_sha": "48904701f31ad12b08d0d224c25bd65003356230",
+      "commit_sha": null,
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "merged_main": {
-      "commit_sha": "0297ca8f1b68a202114aa7a4eac3435367ffb952",
+      "commit_sha": null,
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "finalization": {
-      "commit_sha": "1a16a1df8efb4f3ee687509e6adbd9276bf0e7b6",
+      "commit_sha": null,
       "d0_ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     }
   },
   "review": {
-    "code_security": "approve",
-    "architecture": "clear",
-    "reviewed_candidate_sha": "3affc891143c35d64746e27d7ae017a23cb3cfc0"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
-  "bootstrap_exception": {
-    "exception_id": "G0-T01-NO-CI-BOOTSTRAP-20260721",
-    "task_id": "G0-T01",
-    "authorization_baseline_sha": "7aadae13efd45023d19bf8a280f7680667c930fa",
-    "status": "consumed",
-    "uses": 1
-  },
+  "bootstrap_exception": null,
   "capability": {
     "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
   "blockers": [],
-  "next_authorization": {"gate": "G0", "task_id": "G0-T02", "state": "not_authorized"},
+  "next_authorization": {"gate": "G0", "task_id": "G0-T03", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
