@@ -12,6 +12,9 @@ import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+G0_T01_CLOSE_RECORD = "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
+G0_T02_GENERATION1_IMPLEMENTATION = "5f3a6e93b69947b73e21e51c7e0218c0c283f6de"
+G0_T02_GENERATION1_BLOCKED = "925fa94c22dfabc8ccd2dbe99fde74ca0c88a12f"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -426,6 +429,78 @@ def handoff_status(status: dict, close_record: str, gate: str, task_id: str, mat
     return result
 
 
+def make_blocked_reauthorization_repo(tmp_path: Path) -> tuple[Path, dict, str, str, str]:
+    repo, closed, close_record = make_closed_repo(tmp_path, gate="G1")
+    git(repo, "switch", "-c", "generation-1", close_record)
+    (repo / "schemas").mkdir(exist_ok=True)
+    (repo / "schemas" / "project_status.schema.json").write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
+    generation1 = handoff_status(closed, close_record, "G1", "G1-T02", "OFFLINE_EVIDENCE_ACCEPTED")
+    generation1["next_authorization"]["task_id"] = "G1-T03"
+    write_governed(repo, generation1)
+    commit(repo, "authorize generation 1")
+    generation1["active_tasks"][0].update(state="in_progress", transition={"from": "authorized", "to": "in_progress"})
+    write_governed(repo, generation1)
+    commit(repo, "start generation 1")
+    generation1["active_tasks"][0].update(state="blocked", transition={"from": "in_progress", "to": "blocked"})
+    generation1["blockers"] = ["external authorization unavailable"]
+    write_governed(repo, generation1)
+    blocked = commit(repo, "block generation 1")
+
+    git(repo, "switch", "-c", "generation-2", close_record)
+    git(repo, "merge", "--no-ff", "--no-commit", blocked)
+    generation2 = handoff_status(closed, close_record, "G1", "G1-T02", "OFFLINE_EVIDENCE_ACCEPTED")
+    generation2["active_tasks"][0]["candidate_generation"] = 2
+    generation2["next_authorization"]["task_id"] = "G1-T03"
+    write_governed(repo, generation2)
+    authorized = commit(repo, "authorize generation 2 from terminal block")
+    return repo, generation2, close_record, blocked, authorized
+
+
+def test_blocked_reauthorization_requires_exact_two_parent_generation_record(tmp_path: Path) -> None:
+    repo, _, close_record, blocked, authorized = make_blocked_reauthorization_repo(tmp_path)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+    assert git(repo, "rev-list", "--parents", "-n", "1", authorized).split() == [authorized, close_record, blocked]
+    assert git(repo, "rev-parse", "generation-1") == blocked
+    assert VALIDATOR.TRANSITIONS["blocked"] == set()
+
+
+@pytest.mark.parametrize("mutation", ["missing", "wrong", "swapped"])
+def test_blocked_reauthorization_rejects_parent_substitution(tmp_path: Path, mutation: str) -> None:
+    repo, generation2, close_record, blocked, authorized = make_blocked_reauthorization_repo(tmp_path)
+    tree = git(repo, "rev-parse", f"{authorized}^{{tree}}")
+    if mutation == "missing":
+        forged = git(repo, "commit-tree", tree, "-p", close_record, "-m", "missing blocked parent")
+    elif mutation == "wrong":
+        wrong = git(repo, "rev-parse", f"{blocked}^1")
+        forged = git(repo, "commit-tree", tree, "-p", close_record, "-p", wrong, "-m", "wrong blocked parent")
+    else:
+        forged = git(repo, "commit-tree", tree, "-p", blocked, "-p", close_record, "-m", "swapped parents")
+    git(repo, "update-ref", "refs/heads/generation-2", forged)
+    write_governed(repo, generation2)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
+    assert any(
+        message in result.stdout
+        for message in (
+            "repeated authorization must be an exact two-parent record",
+            "repeated authorization must bind the exact prior-generation terminal blocked record",
+            "transition.from: must equal direct first parent state",
+        )
+    )
+
+
+def test_g0_t02_reauthorization_preserves_generation1_core_implementation() -> None:
+    paths = [
+        ".github/workflows/g0-exact-head.yml",
+        "scripts/verify_exact_head_ci.py",
+        "tests/test_g0_exact_head_ci.py",
+    ]
+    for path in paths:
+        assert git(ROOT, "rev-parse", f"{G0_T02_GENERATION1_IMPLEMENTATION}:{path}") == git(ROOT, "hash-object", path)
+    assert git(ROOT, "rev-parse", "origin/codex/g0-t02-minimal-ci") == G0_T02_GENERATION1_BLOCKED
+
+
 def test_repository_exact_head_and_returned_candidate_identity(tmp_path: Path) -> None:
     repo, status, _, _, candidate = make_delivery_repo(tmp_path)
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
@@ -453,6 +528,9 @@ def clone_canonical_g0_merge(tmp_path: Path) -> Path:
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "--detach", G0_T01_CLOSE_RECORD)
+    git(repo, "update-ref", "refs/heads/main", G0_T01_CLOSE_RECORD)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T01_CLOSE_RECORD)
     return repo
 
 
