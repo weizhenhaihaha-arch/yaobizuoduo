@@ -59,8 +59,36 @@ def materialize_authoritative_main(repo: Path) -> str:
     """Create the validator's local main ref without moving the checked-out HEAD."""
     subject_before = git_head(repo)
     remote_main = git_commit(repo, "refs/remotes/origin/main")
+    existing = subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", "refs/heads/main"],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if existing.returncode == 0:
+        local_main = git_commit(repo, "refs/heads/main")
+        if local_main != remote_main:
+            fail("existing local main diverges from fetched origin/main")
+        if git_head(repo) != subject_before:
+            fail("checking authoritative main moved the checked-out HEAD")
+        return remote_main
+    if existing.returncode != 1:
+        fail("unable to inspect existing local main ref")
+
+    symbolic = subprocess.run(
+        ["git", "symbolic-ref", "-q", "HEAD"],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if symbolic.returncode == 0:
+        fail("exact-subject checkout must be detached before creating local main")
+    if symbolic.returncode != 1:
+        fail("unable to verify detached exact-subject HEAD")
     result = subprocess.run(
-        ["git", "update-ref", "refs/heads/main", remote_main],
+        ["git", "update-ref", "refs/heads/main", remote_main, "0" * 40],
         cwd=repo,
         text=True,
         capture_output=True,
@@ -69,7 +97,7 @@ def materialize_authoritative_main(repo: Path) -> str:
     if result.returncode != 0:
         fail("unable to materialize authoritative local main ref")
     if git_head(repo) != subject_before:
-        fail("materializing authoritative main moved the checked-out HEAD")
+        fail("creating authoritative main moved the checked-out HEAD")
     if git_commit(repo, "refs/heads/main") != remote_main:
         fail("local main does not equal fetched origin/main")
     return remote_main

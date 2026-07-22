@@ -33,12 +33,6 @@ accepted_pending_merge -> merged_verified -> closed
 `closed -> authorized`，必须清空 blocker、证据、审核与 CI。这样保留阻塞历史，
 也不新增 `blocked` 出边或改写旧分支。
 
-`blocked` 保持终态，不能直接恢复为 `in_progress`。产品负责人明确选择重试时，
-必须从同一张卡之前的 authoritative close 建立新 generation 的两父授权记录：
-第一父是该 close，第二父是上一 generation 的精确 blocked 记录；新记录只能是
-`closed -> authorized`，必须清空 blocker、证据、审核与 CI。这样保留阻塞历史，
-也不新增 `blocked` 出边或改写旧分支。
-
 ## 3. 派发与交付
 
 任务卡必须固定：任务号、G 门禁、D 风险、基线、允许/禁止范围、验收命令和

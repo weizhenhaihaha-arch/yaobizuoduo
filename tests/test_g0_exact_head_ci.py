@@ -22,6 +22,12 @@ def git(repo: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
+def has_ref(repo: Path, ref: str) -> bool:
+    return subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", ref], cwd=repo, check=False
+    ).returncode == 0
+
+
 def make_repo(tmp_path: Path) -> tuple[Path, str, str]:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -38,6 +44,7 @@ def make_repo(tmp_path: Path) -> tuple[Path, str, str]:
     subject = git(repo, "rev-parse", "HEAD")
     git(repo, "update-ref", "refs/remotes/origin/main", main_sha)
     git(repo, "switch", "--detach", subject)
+    git(repo, "update-ref", "-d", "refs/heads/main")
     return repo, subject, main_sha
 
 
@@ -114,3 +121,32 @@ def test_verifier_rejects_missing_remote_main_without_moving_head(tmp_path: Path
     with pytest.raises(ValueError, match="refs/remotes/origin/main is not an available full commit"):
         VERIFIER.verify(repo, environment(subject))
     assert git(repo, "rev-parse", "HEAD") == subject
+    assert not has_ref(repo, "refs/heads/main")
+
+
+def test_verifier_accepts_existing_equal_local_main_without_mutation(tmp_path: Path) -> None:
+    repo, subject, main_sha = make_repo(tmp_path)
+    git(repo, "update-ref", "refs/heads/main", main_sha)
+    evidence = VERIFIER.verify(repo, environment(subject))
+    assert evidence["authoritative_main_sha"] == main_sha
+    assert git(repo, "rev-parse", "HEAD") == subject
+    assert git(repo, "rev-parse", "refs/heads/main") == main_sha
+
+
+def test_verifier_rejects_divergent_local_main_without_mutation(tmp_path: Path) -> None:
+    repo, subject, _ = make_repo(tmp_path)
+    git(repo, "update-ref", "refs/heads/main", subject)
+    with pytest.raises(ValueError, match="existing local main diverges from fetched origin/main"):
+        VERIFIER.verify(repo, environment(subject))
+    assert git(repo, "rev-parse", "HEAD") == subject
+    assert git(repo, "rev-parse", "refs/heads/main") == subject
+
+
+def test_verifier_rejects_attached_head_before_creating_main(tmp_path: Path) -> None:
+    repo, subject, _ = make_repo(tmp_path)
+    git(repo, "switch", "-c", "candidate")
+    with pytest.raises(ValueError, match="must be detached before creating local main"):
+        VERIFIER.verify(repo, environment(subject))
+    assert git(repo, "rev-parse", "HEAD") == subject
+    assert git(repo, "symbolic-ref", "--short", "HEAD") == "candidate"
+    assert not has_ref(repo, "refs/heads/main")
