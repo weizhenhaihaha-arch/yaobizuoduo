@@ -621,6 +621,88 @@ def write_g0_t03_recovery_merge_recovery(repo: Path) -> dict:
     return status
 
 
+def make_g0_t03_recovery_closure(
+    repo: Path,
+    *,
+    receipt_mutation: str | None = None,
+    topology_mutation: str | None = None,
+) -> tuple[dict, str, str, str]:
+    status = write_g0_t03_recovery_merge_recovery(repo)
+    (repo / "recovery-closure-note.txt").write_text(
+        "strict non-self-referential recovery closure\n", encoding="utf-8"
+    )
+    candidate = commit(repo, "repair G0-T03 recovery closure bridge")
+    receipt = {
+        "schema_version": VALIDATOR.G0_T03_RECOVERY_CLOSURE_RECEIPT_VERSION,
+        "project": "yaobizuoduo",
+        "task_id": "G0-T03",
+        "candidate_generation": 3,
+        "recovery_generation": 2,
+        "prior_rejected_candidate_sha": "05597ef837031bb6a4aeb6eefb21aa4cecd7ff30",
+        "prior_rejected_run_id": "29900351726",
+        "prior_review": {"code_security": "request_changes", "architecture": "block"},
+        "candidate": {
+            "commit_sha": candidate,
+            "ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "pull_request",
+                "subject_sha": candidate,
+                "run_id": "29999999999",
+                "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29999999999",
+                "check": "G0 / exact-head",
+                "status": "completed",
+                "conclusion": "success",
+            },
+        },
+        "review": {"code_security": "approve", "architecture": "clear"},
+        "ruleset": {
+            "id": 19526291,
+            "evidence_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1",
+        },
+    }
+    if receipt_mutation == "wrong_candidate":
+        receipt["candidate"]["commit_sha"] = G0_T03_RECOVERY_CANDIDATE
+    elif receipt_mutation == "wrong_run":
+        receipt["candidate"]["ci"]["subject_sha"] = G0_T03_RECOVERY_CANDIDATE
+    elif receipt_mutation == "wrong_review":
+        receipt["review"]["architecture"] = "watch"
+    elif receipt_mutation == "wrong_ruleset":
+        receipt["ruleset"]["id"] = 19526292
+    receipt["payload_sha256"] = VALIDATOR._payload_digest(receipt)
+    if receipt_mutation == "wrong_digest":
+        receipt["payload_sha256"] = "0" * 64
+    receipt_path = repo / VALIDATOR.G0_T03_RECOVERY_CLOSURE_RECEIPT_PATH
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    accepted_record = commit(repo, "accept exact G0-T03 recovery closure candidate")
+    first = G0_T03_RECOVERY_MERGE
+    second = accepted_record
+    tree = git(repo, "rev-parse", f"{accepted_record}^{{tree}}")
+    if topology_mutation == "wrong_first":
+        first = G0_T03_FAILED_MAIN
+    elif topology_mutation == "wrong_second":
+        second = candidate
+    elif topology_mutation == "swapped":
+        first, second = second, first
+    elif topology_mutation == "wrong_tree":
+        tree = git(repo, "rev-parse", f"{candidate}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        first,
+        "-p",
+        second,
+        "-m",
+        "merge exact G0-T03 recovery closure",
+    )
+    git(repo, "update-ref", "refs/heads/main", merged)
+    git(repo, "update-ref", "refs/remotes/origin/main", merged)
+    git(repo, "switch", "--detach", merged)
+    return status, candidate, accepted_record, merged
+
+
 def write_g0_t02_recovery(repo: Path) -> dict:
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     status["active_tasks"][0]["transition"] = {
@@ -856,6 +938,110 @@ def test_exact_g0_t03_recovery_merge_failure_record_is_accepted(tmp_path: Path) 
     repo = clone_g0_t03_failed_recovery_merge(tmp_path)
     write_g0_t03_recovery_merge_recovery(repo)
     commit(repo, "record exact G0-T03 recovery-merge failure")
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+def test_exact_g0_t03_recovery_closure_bridge_is_accepted_before_generic_paths(
+    tmp_path: Path,
+) -> None:
+    repo = clone_g0_t03_failed_recovery_merge(tmp_path)
+    status, candidate, accepted_record, merged = make_g0_t03_recovery_closure(repo)
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    assert git(repo, "rev-list", "--parents", "-n", "1", accepted_record).split() == [
+        accepted_record,
+        candidate,
+    ]
+    governed, errors = VALIDATOR._canonical_g0_t03_recovery_closure_bridge(
+        status, repo, merged
+    )
+    assert governed == accepted_record
+    assert errors == []
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(status, repo, merged, schema)
+    assert governed == accepted_record
+    assert errors == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "wrong_first",
+        "wrong_second",
+        "swapped",
+        "wrong_tree",
+        "wrong_candidate",
+        "wrong_run",
+        "wrong_review",
+        "wrong_ruleset",
+        "wrong_digest",
+    ],
+)
+def test_g0_t03_recovery_closure_bridge_rejects_identity_substitution(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo = clone_g0_t03_failed_recovery_merge(tmp_path)
+    topology = mutation if mutation in {"wrong_first", "wrong_second", "swapped", "wrong_tree"} else None
+    receipt = None if topology else mutation
+    status, _, _, merged = make_g0_t03_recovery_closure(
+        repo,
+        receipt_mutation=receipt,
+        topology_mutation=topology,
+    )
+    governed, errors = VALIDATOR._canonical_g0_t03_recovery_closure_bridge(
+        status, repo, merged
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t03_recovery_closure_can_reach_merged_verified_and_closed_without_third_recovery(
+    tmp_path: Path,
+) -> None:
+    repo = clone_g0_t03_failed_recovery_merge(tmp_path)
+    status, _, accepted_record, merged = make_g0_t03_recovery_closure(repo)
+
+    def exact_ci(subject: str, run_id: str) -> dict:
+        return {
+            "status": "success",
+            "subject_sha": subject,
+            "run_id": run_id,
+            "url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{run_id}",
+        }
+
+    status["active_tasks"][0].update(
+        state="merged_verified",
+        transition={"from": "accepted_pending_merge", "to": "merged_verified"},
+    )
+    status["evidence"]["closure"].update(
+        commit_sha=accepted_record,
+        ci=exact_ci(accepted_record, "30000000001"),
+    )
+    status["evidence"]["merged_main"].update(
+        commit_sha=merged,
+        ci=exact_ci(merged, "30000000002"),
+    )
+    status["blockers"] = []
+    write_governed(repo, status)
+    finalization = commit(repo, "finalize verified G0-T03 recovery closure")
+    git(repo, "update-ref", "refs/heads/main", finalization)
+    git(repo, "update-ref", "refs/remotes/origin/main", finalization)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+    status["active_tasks"][0].update(
+        state="closed",
+        transition={"from": "merged_verified", "to": "closed"},
+    )
+    status["evidence"]["finalization"].update(
+        commit_sha=finalization,
+        d0_ci=exact_ci(finalization, "30000000003"),
+    )
+    write_governed(repo, status)
+    close_record = commit(repo, "close G0-T03 after exact recovery merge verification")
+    git(repo, "update-ref", "refs/heads/main", close_record)
+    git(repo, "update-ref", "refs/remotes/origin/main", close_record)
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 0, result.stdout
 

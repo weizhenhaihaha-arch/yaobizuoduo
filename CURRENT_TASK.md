@@ -138,3 +138,24 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
 - This repair is restricted to the exact `bea5cf8` topology and unchanged
   ruleset evidence. It grants no merge, G0-T04/G1, live-data, deployment,
   release, or trading authority.
+
+## Recovery-merge recovery review return and bounded closure repair
+
+- PR #8 candidate `05597ef837031bb6a4aeb6eefb21aa4cecd7ff30` passed exact
+  pull-request run `29900351726`, but independent code/security returned
+  `REQUEST CHANGES` and architecture/route returned `BLOCK`: a future merge of
+  first parent `bea5cf8` and the accepted repair record would still fall through
+  the generic merge path and fail canonical validation.
+- The current repair remains on the same branch and PR. It must preserve both
+  exact failed-main blockers until authoritative-main CI succeeds and may not
+  modify ruleset `19526291`, old blocked/recovery refs, main, or any later card.
+- A future recovery closure is accepted only when first parent is exact
+  `bea5cf840ddf45ec4425796861d8956f682ab564`, second parent directly accepts a
+  new single-parent repair candidate, merge tree/status equal that acceptance
+  record, and a later non-self-referential receipt binds exact PR CI,
+  code/security `APPROVE`, architecture `CLEAR`, the prior rejected candidate
+  and unchanged ruleset evidence digest.
+- Parent, order, tree, candidate, run, review, ruleset, digest, blocker, task or
+  generation substitution must fail closed. The accepted topology must also
+  support the ordinary post-merge sequence: strict main success, blocker clear,
+  `merged_verified`, finalization D0, and `closed`, without a third recovery PR.
