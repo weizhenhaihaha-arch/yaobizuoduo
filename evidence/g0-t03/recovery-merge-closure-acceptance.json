@@ -1,0 +1,35 @@
+{
+  "schema_version": "g0-t03-recovery-merge-closure.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T03",
+  "candidate_generation": 3,
+  "recovery_generation": 2,
+  "prior_rejected_candidate_sha": "05597ef837031bb6a4aeb6eefb21aa4cecd7ff30",
+  "prior_rejected_run_id": "29900351726",
+  "prior_review": {
+    "code_security": "request_changes",
+    "architecture": "block"
+  },
+  "candidate": {
+    "commit_sha": "d259f75cb13a56b7256779ad87115120c005ddec",
+    "ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "pull_request",
+      "subject_sha": "d259f75cb13a56b7256779ad87115120c005ddec",
+      "run_id": "29904268309",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29904268309",
+      "check": "G0 / exact-head",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  },
+  "review": {
+    "code_security": "approve",
+    "architecture": "clear"
+  },
+  "ruleset": {
+    "id": 19526291,
+    "evidence_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+  },
+  "payload_sha256": "e5b3755a2191cab82d14f7da7b04872032dc05036a4bff2d8ce54c4c382057aa"
+}

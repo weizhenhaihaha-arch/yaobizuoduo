@@ -159,3 +159,19 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   generation substitution must fail closed. The accepted topology must also
   support the ordinary post-merge sequence: strict main success, blocker clear,
   `merged_verified`, finalization D0, and `closed`, without a third recovery PR.
+
+## Recovery closure repair acceptance record
+
+- Main review passed the exact future-closure focus and canonical/protection
+  validators for candidate `d259f75cb13a56b7256779ad87115120c005ddec`.
+- Exact pull-request run `29904268309` completed with `success` for stable check
+  `G0 / exact-head`; independent code/security returned `APPROVE` and
+  architecture/route returned `CLEAR` for that same candidate.
+- The later acceptance receipt records those exact identities, the prior
+  rejected `05597ef`/run `29900351726` negative result, ruleset `19526291`, and
+  frozen evidence digest. The receipt did not exist in the reviewed candidate,
+  so it cannot self-attest.
+- `PROJECT_STATUS.yaml` remains byte-identical at `accepted_pending_merge` with
+  both failed authoritative-main runs retained as blockers. This record proves
+  only candidate acceptance; it does not claim merge or main CI success and
+  grants no G0-T04/G1 or wider authority.
