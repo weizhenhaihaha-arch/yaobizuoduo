@@ -13,6 +13,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 G0_T01_CLOSE_RECORD = "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
+G0_T02_CLOSED_MAIN = "09bfbd23d898198fe694a3a94f77663759dd89d8"
 G0_T02_GENERATION1_IMPLEMENTATION = "5f3a6e93b69947b73e21e51c7e0218c0c283f6de"
 G0_T02_GENERATION1_BLOCKED = "925fa94c22dfabc8ccd2dbe99fde74ca0c88a12f"
 G0_T02_GENERATION2_AUTHORIZATION = "f69e6abd379e74d1af1c507a4a9b15395d077f90"
@@ -640,7 +641,7 @@ def test_exact_g0_t03_merge_bridge_and_detached_checkout_history_are_accepted(tm
 def test_g0_t03_merge_bridge_rejects_identity_substitution(tmp_path: Path, mutation: str) -> None:
     repo = clone_g0_t03_failed_main(tmp_path)
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
-    first, second = G0_T01_CLOSE_RECORD, G0_T03_ACCEPTED_RECORD
+    first, second = G0_T02_CLOSED_MAIN, G0_T03_ACCEPTED_RECORD
     tree = git(repo, "rev-parse", f"{second}^{{tree}}")
     if mutation == "wrong_first":
         first = git(repo, "rev-parse", f"{first}^1")
@@ -676,7 +677,7 @@ def test_g0_t03_merge_bridge_rejects_authorization_and_blocked_forgery(
         blocked = G0_T03_CANDIDATE if mutation == "wrong_auth_parent" else git(
             repo, "commit-tree", git(repo, "rev-parse", f"{G0_T03_BLOCKED}^{{tree}}"), "-p", G0_T03_BLOCKED, "-m", "fake blocked descendant"
         )
-        forged_auth = git(repo, "commit-tree", tree, "-p", G0_T01_CLOSE_RECORD, "-p", blocked, "-m", "forged authorization")
+        forged_auth = git(repo, "commit-tree", tree, "-p", G0_T02_CLOSED_MAIN, "-p", blocked, "-m", "forged authorization")
         original = VALIDATOR.G0_T03_AUTHORIZATION_SHA
         VALIDATOR.G0_T03_AUTHORIZATION_SHA = forged_auth
         try:
@@ -698,7 +699,7 @@ def test_exact_g0_t03_failed_main_recovery_record_is_accepted(tmp_path: Path) ->
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 0, result.stdout
     assert git(repo, "rev-parse", "refs/remotes/origin/codex/g0-t03-main-protection") == G0_T03_BLOCKED
-    assert git(repo, "rev-parse", f"{G0_T03_FAILED_MAIN}^1") == G0_T01_CLOSE_RECORD
+    assert git(repo, "rev-parse", f"{G0_T03_FAILED_MAIN}^1") == G0_T02_CLOSED_MAIN
     assert git(repo, "rev-parse", f"{G0_T03_FAILED_MAIN}^2") == G0_T03_ACCEPTED_RECORD
     assert git(repo, "rev-parse", f"{G0_T03_FAILED_MAIN}^{{tree}}") == git(
         repo, "rev-parse", f"{G0_T03_ACCEPTED_RECORD}^{{tree}}"
