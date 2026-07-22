@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T02",
       "risk": "D2",
-      "state": "accepted_pending_merge",
-      "transition": {"from": "accepted_pending_merge", "to": "accepted_pending_merge"},
+      "state": "closed",
+      "transition": {"from": "merged_verified", "to": "closed"},
       "candidate_generation": 5
     }
   ],
@@ -39,16 +39,16 @@
       "ci": {"status": "success", "subject_sha": "35b90f87ab42843925065e6d0dafdc25797702e0", "run_id": "29884205742", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884205742"}
     },
     "closure": {
-      "commit_sha": null,
-      "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "41868a5eff635d9f83dccaba4ad3e6e38433822c",
+      "ci": {"status": "success", "subject_sha": "41868a5eff635d9f83dccaba4ad3e6e38433822c", "run_id": "29884474658", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884474658"}
     },
     "merged_main": {
-      "commit_sha": null,
-      "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "c5a488482fffb7183790f36701411d91b2a2bba0",
+      "ci": {"status": "success", "subject_sha": "c5a488482fffb7183790f36701411d91b2a2bba0", "run_id": "29887948168", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29887948168"}
     },
     "finalization": {
-      "commit_sha": null,
-      "d0_ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "0a8048df7197ece027287c3397783f37630ff0e6",
+      "d0_ci": {"status": "success", "subject_sha": "0a8048df7197ece027287c3397783f37630ff0e6", "run_id": "29888131234", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29888131234"}
     }
   },
   "review": {
@@ -62,9 +62,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [
-    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=608800462fbf9f3b97277484fa906a691b8b8b98 run_id=29884710636 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884710636 conclusion=failure"
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G0", "task_id": "G0-T03", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

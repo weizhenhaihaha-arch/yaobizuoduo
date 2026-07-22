@@ -5,8 +5,8 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `accepted_pending_merge`
-- Recovery mode: exact authoritative-main CI failure repair only
+- Status: `closed`
+- Finalization mode: completed exact non-self-referential G0-T02 closure
 - Candidate generation: `5` detached-HEAD guard repair
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -180,6 +180,39 @@ repair; do not start G0-T03 or G1.
   this one repository-bound failed-run transition. Ordinary return, a fake or
   successful run, a non-main subject, G0-T03, G1, live data and trading remain
   unauthorized.
+
+## Recovery merge verified; finalization subject pending CI
+
+- PR #3 recovery merged as exact authoritative-main commit
+  `c5a488482fffb7183790f36701411d91b2a2bba0`; first parent is failed merge
+  `608800462fbf9f3b97277484fa906a691b8b8b98`, second parent is recovery
+  acceptance `d501ba25f7fa6945be3f0c4eb415074ad20a51e4`, and its tree equals the
+  second parent.
+- Closure evidence is accepted record
+  `41868a5eff635d9f83dccaba4ad3e6e38433822c` with strict-success exact PR run
+  `29884474658`.
+- Merged-main evidence is `c5a488482fffb7183790f36701411d91b2a2bba0`
+  with strict-success exact `push/main` run `29887948168`.
+- The recovery blocker is resolved and cleared. Candidate
+  `35b90f87ab42843925065e6d0dafdc25797702e0`, candidate run `29884205742`,
+  code/security `APPROVE` and architecture `CLEAR` remain unchanged.
+- This record is the `merged_verified` finalization subject. Its own PR run must
+  succeed before a later `closed` record may bind it as finalization evidence.
+  G0-T03 and G1 remain `not_authorized`.
+
+## Finalization verified and task closed
+
+- Exact `merged_verified` finalization subject:
+  `0a8048df7197ece027287c3397783f37630ff0e6`.
+- Its strict-success pull-request run is `29888131234` at
+  `https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29888131234`;
+  aggregate check `G0 / exact-head` completed successfully.
+- This later record transitions `merged_verified -> closed` and binds that
+  immutable subject/run as finalization evidence. Candidate, closure,
+  merged-main and all CI identities remain unchanged.
+- Closing G0-T02 does not authorize or dispatch G0-T03 or G1. The capability
+  maturity remains `OFFLINE_EVIDENCE_ACCEPTED`; no live, deployment, release or
+  trading readiness is established.
 
 ## Generation 4 independent review result: returned
 
