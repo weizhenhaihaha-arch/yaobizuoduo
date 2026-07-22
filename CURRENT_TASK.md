@@ -5,7 +5,7 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `2` explicit reauthorization
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
