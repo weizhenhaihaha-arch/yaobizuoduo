@@ -105,3 +105,20 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   fail closed. Independent architecture/route: `CLEAR`.
 - Remote ruleset `19526291` remained unchanged. This acceptance does not merge
   PR #6 and grants no G0-T04, G1, deployment, release, or trading authority.
+
+## Generation 3 merge recovery
+
+- GitHub merged PR #6 as exact main subject
+  `08d6a3ea8d1898dbe47c7eaf9c82cb7adf1db68f`, with first parent closed main
+  `09bfbd23d898198fe694a3a94f77663759dd89d8`, second parent accepted record
+  `85509b6dc1b156d3347b6b21ff952d8e55ac18d3`, and tree equal to that record.
+- Exact push run `29894526319` proved repository, event, ref and subject identity,
+  but canonical validation failed on the historical G0-T02 recovery shape and
+  merged-topology validation of the generation-2 blocked authorization.
+- The authorized recovery recognizes only this exact merge, the exact accepted
+  candidate/review/CI record, exact two-parent authorization `c1e3eba` and
+  terminal blocked record `3046d8b`. Parent substitution, order exchange, tree
+  drift, fake blocked descendants, other tasks/generations and failure-evidence
+  changes fail closed.
+- Ruleset `19526291` and its evidence remain immutable. Recovery does not merge
+  its own PR, modify main, authorize G0-T04/G1, or expand product capability.
