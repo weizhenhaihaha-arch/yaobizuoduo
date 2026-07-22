@@ -91,6 +91,14 @@ G0_T03_FINAL_CLOSE_RECEIPT_PATH = "evidence/g0-t03/final-close-recovery-acceptan
 G0_T03_FINAL_CLOSE_RECEIPT_VERSION = "g0-t03-final-close-recovery.v1"
 G0_T03_FINAL_CLOSE_BINDING_PATH = "evidence/g0-t03/final-close-reviewed-run-binding.json"
 G0_T03_FINAL_CLOSE_BINDING_VERSION = "g0-t03-final-close-reviewed-run-binding.v1"
+G0_T03_RECOVERED_MAIN_SHA = "02e05d1f2d68a9a1c89fda9c8636e2263fc48053"
+G0_T03_RECOVERED_MAIN_RUN = "29929973216"
+G0_T03_PLANNING_HANDOFF_SHA = "e1d251c35bbfc128990be4f9e3d1b851a3146f12"
+G0_T03_PLANNING_HANDOFF_FIRST_PARENT = G0_T03_RECOVERED_MAIN_SHA
+G0_T03_PLANNING_HANDOFF_SECOND_PARENT = "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b"
+G0_T03_PLANNING_HANDOFF_TREE = "5f0fbfe0f5ec19a6a8c2c7b59f5c07ab5d3f91bc"
+G0_T03_PLANNING_HANDOFF_PR_RUN = "29932171250"
+G0_T03_PLANNING_HANDOFF_MAIN_RUN = "29933844415"
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -2786,6 +2794,208 @@ def _canonical_g0_t03_final_close_bridge(
     return governed_parent, []
 
 
+def _g0_t03_planning_handoff_fact_errors() -> list[str]:
+    facts = {
+        "recovered_main": {
+            "commit_sha": G0_T03_RECOVERED_MAIN_SHA,
+            "run_id": G0_T03_RECOVERED_MAIN_RUN,
+            "event": "push",
+            "conclusion": "success",
+        },
+        "planning_pr": {
+            "number": 11,
+            "head_sha": G0_T03_PLANNING_HANDOFF_SECOND_PARENT,
+            "run_id": G0_T03_PLANNING_HANDOFF_PR_RUN,
+            "event": "pull_request",
+            "check": "G0 / exact-head",
+            "conclusion": "success",
+            "code_security": "approve",
+            "architecture": "clear",
+        },
+        "failed_main": {
+            "commit_sha": G0_T03_PLANNING_HANDOFF_SHA,
+            "run_id": G0_T03_PLANNING_HANDOFF_MAIN_RUN,
+            "event": "push",
+            "conclusion": "failure",
+        },
+    }
+    expected = {
+        "recovered_main": {
+            "commit_sha": "02e05d1f2d68a9a1c89fda9c8636e2263fc48053",
+            "run_id": "29929973216",
+            "event": "push",
+            "conclusion": "success",
+        },
+        "planning_pr": {
+            "number": 11,
+            "head_sha": "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b",
+            "run_id": "29932171250",
+            "event": "pull_request",
+            "check": "G0 / exact-head",
+            "conclusion": "success",
+            "code_security": "approve",
+            "architecture": "clear",
+        },
+        "failed_main": {
+            "commit_sha": "e1d251c35bbfc128990be4f9e3d1b851a3146f12",
+            "run_id": "29933844415",
+            "event": "push",
+            "conclusion": "failure",
+        },
+    }
+    return [] if _typed_equal(facts, expected) else [
+        "$: G0-T03 planning handoff has drifted CI, review, or main identity"
+    ]
+
+
+def _canonical_g0_t03_planning_handoff_bridge(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    *,
+    require_canonical_main: bool,
+) -> tuple[str | None, list[str]]:
+    """Recognize only the published planning merge or its bounded repair merge."""
+    if not _is_g0_t03_final_close_recovery_status(status):
+        return None, []
+    ok_head, head_parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    head_parts = head_parents_text.split() if ok_head else []
+    related = head == G0_T03_PLANNING_HANDOFF_SHA or (
+        len(head_parts) == 3 and G0_T03_PLANNING_HANDOFF_SHA in head_parts[1:]
+    )
+    if not related:
+        return None, []
+    errors = _g0_t03_planning_handoff_fact_errors()
+    ok_origin, origin_url = _git(root, "remote", "get-url", "origin")
+    if not ok_origin or _github_repository_identity(origin_url) != LEDGER_REPOSITORY:
+        errors.append("$: canonical G0-T03 planning handoff requires canonical repository")
+    if require_canonical_main:
+        ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+        ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        if not ok_main or not ok_remote or main_sha != remote_sha or main_sha != head:
+            errors.append("$: canonical G0-T03 planning handoff requires exact local/fetched main")
+
+    ok_published, published_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T03_PLANNING_HANDOFF_SHA
+    )
+    published_parts = published_parents_text.split() if ok_published else []
+    if published_parts != [
+        G0_T03_PLANNING_HANDOFF_SHA,
+        G0_T03_PLANNING_HANDOFF_FIRST_PARENT,
+        G0_T03_PLANNING_HANDOFF_SECOND_PARENT,
+    ]:
+        errors.append("$: G0-T03 planning handoff has substituted or swapped published parents")
+    ok_published_tree, published_tree = _git(
+        root, "rev-parse", f"{G0_T03_PLANNING_HANDOFF_SHA}^{{tree}}"
+    )
+    ok_planning_tree, planning_tree = _git(
+        root, "rev-parse", f"{G0_T03_PLANNING_HANDOFF_SECOND_PARENT}^{{tree}}"
+    )
+    if (
+        not ok_published_tree
+        or not ok_planning_tree
+        or published_tree != G0_T03_PLANNING_HANDOFF_TREE
+        or published_tree != planning_tree
+    ):
+        errors.append("$: G0-T03 planning handoff has substituted published tree")
+    if not (
+        _typed_equal(_status_at(root, G0_T03_PLANNING_HANDOFF_SHA), status)
+        and _typed_equal(_status_at(root, G0_T03_PLANNING_HANDOFF_FIRST_PARENT), status)
+        and _typed_equal(_status_at(root, G0_T03_PLANNING_HANDOFF_SECOND_PARENT), status)
+    ):
+        errors.append("$: G0-T03 planning handoff must preserve exact closed status")
+    planning_paths = _g0_t03_commit_changed_paths(
+        root, G0_T03_PLANNING_HANDOFF_FIRST_PARENT, G0_T03_PLANNING_HANDOFF_SECOND_PARENT
+    )
+    if planning_paths != {"docs/NEXT_WORKFLOW.md", "PROJECT_MEMORY.md"}:
+        errors.append("$: G0-T03 planning handoff PR must be planning-only")
+    ok_planning_parent, planning_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T03_PLANNING_HANDOFF_SECOND_PARENT
+    )
+    if (planning_parents_text.split() if ok_planning_parent else []) != [
+        G0_T03_PLANNING_HANDOFF_SECOND_PARENT,
+        G0_T03_PLANNING_HANDOFF_FIRST_PARENT,
+    ]:
+        errors.append("$: G0-T03 planning handoff PR head must directly follow recovered main")
+    recovered_status = _status_at(root, G0_T03_RECOVERED_MAIN_SHA)
+    recovered_schema = _schema_at(root, G0_T03_RECOVERED_MAIN_SHA)
+    if type(recovered_status) is not dict or type(recovered_schema) is not dict:
+        errors.append("$: G0-T03 recovered-main status or schema is unreadable")
+    else:
+        recovered_governed, recovered_errors = _canonical_g0_t03_final_close_bridge(
+            recovered_status,
+            root,
+            G0_T03_RECOVERED_MAIN_SHA,
+            recovered_schema,
+            require_canonical_main=False,
+        )
+        errors.extend(recovered_errors)
+        if recovered_governed != "ddd69c2c8174837e12d186fd12252ccb6f13b24e":
+            errors.append("$: G0-T03 planning handoff is not rooted at exact recovered R-B-A main")
+
+    if head == G0_T03_PLANNING_HANDOFF_SHA:
+        governed_parent = G0_T03_PLANNING_HANDOFF_SECOND_PARENT
+    else:
+        if len(head_parts) != 3 or head_parts[1] != G0_T03_PLANNING_HANDOFF_SHA:
+            errors.append("$: G0-T03 planning-handoff recovery must use failed main as first parent")
+        governed_parent = head_parts[2] if len(head_parts) == 3 else ""
+        ok_lineage, lineage_text = _git(
+            root,
+            "rev-list",
+            "--first-parent",
+            f"{G0_T03_PLANNING_HANDOFF_SHA}..{governed_parent}",
+        )
+        lineage = lineage_text.splitlines() if ok_lineage else []
+        if not lineage or lineage[0] != governed_parent:
+            errors.append("$: G0-T03 planning-handoff recovery lineage is unavailable")
+        for index, repair_sha in enumerate(lineage):
+            ok_repair, repair_parents_text = _git(
+                root, "rev-list", "--parents", "-n", "1", repair_sha
+            )
+            expected_parent = (
+                lineage[index + 1]
+                if index + 1 < len(lineage)
+                else G0_T03_PLANNING_HANDOFF_SHA
+            )
+            if (
+                (repair_parents_text.split() if ok_repair else [])
+                != [repair_sha, expected_parent]
+                or not _typed_equal(_status_at(root, repair_sha), status)
+            ):
+                errors.append(
+                    "$: G0-T03 planning-handoff recovery requires status-identical single-parent repair"
+                )
+                break
+        repair_paths = _g0_t03_commit_changed_paths(
+            root, G0_T03_PLANNING_HANDOFF_SHA, governed_parent
+        )
+        allowed_repair_paths = {
+            "scripts/validate_project_status.py",
+            "tests/test_g0_project_status.py",
+            "CURRENT_TASK.md",
+            "PROJECT_MEMORY.md",
+        }
+        required_repair_paths = {
+            "scripts/validate_project_status.py",
+            "tests/test_g0_project_status.py",
+        }
+        if (
+            repair_paths is None
+            or not required_repair_paths.issubset(repair_paths)
+            or not repair_paths.issubset(allowed_repair_paths)
+        ):
+            errors.append("$: G0-T03 planning-handoff recovery has out-of-scope changes")
+        if not _typed_equal(_status_at(root, governed_parent), status):
+            errors.append("$: G0-T03 planning-handoff recovery must preserve second-parent status")
+        ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+        ok_parent_tree, parent_tree = _git(root, "rev-parse", f"{governed_parent}^{{tree}}")
+        if not ok_head_tree or not ok_parent_tree or head_tree != parent_tree:
+            errors.append("$: G0-T03 planning-handoff recovery tree must equal second parent")
+    if errors:
+        return None, errors
+    return governed_parent, []
+
+
 @functools.lru_cache(maxsize=32)
 def _g0_t03_final_close_main_matches(root: Path, main_sha: str) -> bool:
     # The published failed merge is content-addressed and is the immutable
@@ -2797,6 +3007,14 @@ def _g0_t03_final_close_main_matches(root: Path, main_sha: str) -> bool:
     schema = _schema_at(root, main_sha)
     if type(status) is not dict or type(schema) is not dict:
         return False
+    planning_governed, planning_errors = _canonical_g0_t03_planning_handoff_bridge(
+        status,
+        root,
+        main_sha,
+        require_canonical_main=False,
+    )
+    if planning_governed is not None or planning_errors:
+        return planning_governed is not None and not planning_errors
     governed, errors = _canonical_g0_t03_final_close_bridge(
         status,
         root,
@@ -2859,9 +3077,16 @@ def _g0_t03_final_close_repair_parent_errors(
         main_status = _status_at(root, main_sha)
         main_schema = _schema_at(root, main_sha)
         if type(main_status) is dict and type(main_schema) is dict:
-            governed, bridge_errors = _canonical_g0_t03_final_close_bridge(
-                main_status, root, main_sha, main_schema, require_canonical_main=False
+            governed, bridge_errors = _canonical_g0_t03_planning_handoff_bridge(
+                main_status,
+                root,
+                main_sha,
+                require_canonical_main=False,
             )
+            if governed is None and not bridge_errors:
+                governed, bridge_errors = _canonical_g0_t03_final_close_bridge(
+                    main_status, root, main_sha, main_schema, require_canonical_main=False
+                )
             main_matches = governed is not None and not bridge_errors
         else:
             main_matches = False
@@ -3173,6 +3398,14 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
+    planning_governed, planning_errors = _canonical_g0_t03_planning_handoff_bridge(
+        status,
+        root,
+        head,
+        require_canonical_main=require_canonical_main,
+    )
+    if planning_governed is not None or planning_errors:
+        return planning_governed, planning_errors
     if _is_g0_t03_recovery_merge_recovery_status(status):
         ok_parents, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
         if len(parents_text.split() if ok_parents else []) == 3:

@@ -311,3 +311,29 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   main or product/runtime files. It grants no merge authority: status remains
   `closed`, run `29909220290` remains the sole blocker, and G0-T04 remains
   `not_authorized`.
+
+## Planning-handoff merge recovery
+
+- PR #10 recovery merged as exact main
+  `02e05d1f2d68a9a1c89fda9c8636e2263fc48053` and push run `29929973216`
+  succeeded. The separately reviewed planning-only PR #11 head
+  `b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b` passed exact pull-request run
+  `29932171250`, code/security `APPROVE`, and architecture/route `CLEAR`.
+- PR #11 merged as exact main `e1d251c35bbfc128990be4f9e3d1b851a3146f12`
+  with ordered parents `[02e05d1f..., b8f04c9...]` and tree
+  `5f0fbfe0f5ec19a6a8c2c7b59f5c07ab5d3f91bc`, equal to its planning head.
+  Push run `29933844415` proved the exact main subject and failed only because
+  the validator interpreted this status-identical planning merge as another
+  final-close R/B/A bridge.
+- This bounded repair recognizes only that exact published planning merge and
+  a future two-parent recovery whose first parent is exact `e1d251c`, whose
+  second parent is a status-identical single-parent repair lineage, whose tree
+  equals that second parent, and whose aggregate changes are limited to the
+  validator, its governance tests, and necessary task/project memory.
+- Parent swaps, SHA/tree/run/status/generation drift, out-of-scope changes, and
+  ordinary documentation merges fail closed. The exact recovered R/B/A main
+  and its successful run remain bound; ruleset `19526291` is unchanged.
+- `PROJECT_STATUS.yaml` remains byte-identical at `closed`, historical main run
+  `29909220290` remains the sole blocker, and G0-T04 remains `not_authorized`.
+  This repair grants no status reconciliation, live data, credentials, orders,
+  trading, deployment, release, or local-preview authority.
