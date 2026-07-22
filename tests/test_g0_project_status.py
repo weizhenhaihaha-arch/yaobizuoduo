@@ -36,6 +36,9 @@ G0_T03_MERGED_MAIN = "a98dada059c91dc70714119f333d0d03ab1cb9f1"
 G0_T03_FINALIZATION = "e4fd7ae620955867ac0c6914aff2c913420c3ba2"
 G0_T03_CLOSED_RECORD = "cf15b25533769c7f589dd5dad275627802d9ae7d"
 G0_T03_FINAL_CLOSE_MERGE = "b1544c168cf3acf9e0ce0c1c7e3785041c02e87c"
+G0_T03_RECOVERED_MAIN = "02e05d1f2d68a9a1c89fda9c8636e2263fc48053"
+G0_T03_PLANNING_HANDOFF = "e1d251c35bbfc128990be4f9e3d1b851a3146f12"
+G0_T03_PLANNING_HEAD = "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -623,6 +626,75 @@ def clone_g0_t03_failed_final_close(tmp_path: Path) -> Path:
     for ref, sha in frozen.items():
         git(repo, "update-ref", ref, sha)
     return repo
+
+
+def clone_g0_t03_planning_handoff(tmp_path: Path) -> Path:
+    repo = tmp_path / "g0-t03-planning-handoff"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "--detach", G0_T03_PLANNING_HANDOFF)
+    git(repo, "update-ref", "refs/heads/main", G0_T03_PLANNING_HANDOFF)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T03_PLANNING_HANDOFF)
+    frozen = {
+        "refs/remotes/origin/codex/g0-t03-main-protection": G0_T03_BLOCKED,
+        "refs/remotes/origin/codex/g0-t03-merge-recovery": G0_T03_RECOVERY_ACCEPTED_RECORD,
+        "refs/remotes/origin/codex/g0-t03-recovery-merge-recovery": G0_T03_RECOVERY_CLOSURE,
+        "refs/remotes/origin/codex/g0-t03-finalize": G0_T03_CLOSED_RECORD,
+    }
+    for ref, sha in frozen.items():
+        git(repo, "update-ref", ref, sha)
+    return repo
+
+
+def make_g0_t03_planning_handoff_recovery(
+    repo: Path,
+    mutation: str | None = None,
+) -> tuple[dict, str, str]:
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    git(repo, "switch", "-c", "planning-repair", G0_T03_PLANNING_HANDOFF)
+    if mutation == "ordinary_docs":
+        with (repo / "PROJECT_MEMORY.md").open("a", encoding="utf-8") as handle:
+            handle.write("\n- ordinary docs-only merge\n")
+    else:
+        with (repo / "scripts" / "validate_project_status.py").open("a", encoding="utf-8") as handle:
+            handle.write("\n# bounded planning-handoff bridge repair\n")
+        with (repo / "tests" / "test_g0_project_status.py").open("a", encoding="utf-8") as handle:
+            handle.write("\n# bounded planning-handoff bridge regression\n")
+    if mutation == "status_drift":
+        status["review"]["architecture"] = "watch"
+        write_status(repo / "PROJECT_STATUS.yaml", status)
+    elif mutation == "generation_drift":
+        status["active_tasks"][0]["candidate_generation"] += 1
+        write_status(repo / "PROJECT_STATUS.yaml", status)
+    repair = commit(repo, "repair exact planning-handoff bridge")
+    first = G0_T03_PLANNING_HANDOFF
+    second = repair
+    tree = git(repo, "rev-parse", f"{repair}^{{tree}}")
+    if mutation == "wrong_first":
+        first = G0_T03_RECOVERED_MAIN
+    elif mutation == "wrong_second":
+        second = G0_T03_PLANNING_HEAD
+    elif mutation == "swapped":
+        first, second = second, first
+    elif mutation == "wrong_tree":
+        tree = git(repo, "rev-parse", f"{G0_T03_PLANNING_HANDOFF}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        first,
+        "-p",
+        second,
+        "-m",
+        "merge bounded planning-handoff repair",
+    )
+    git(repo, "update-ref", "refs/heads/main", merged)
+    git(repo, "update-ref", "refs/remotes/origin/main", merged)
+    git(repo, "switch", "--detach", merged)
+    return status, repair, merged
 
 
 def write_g0_t03_recovery(repo: Path) -> dict:
@@ -1267,6 +1339,100 @@ def test_exact_g0_t03_final_close_failure_record_is_accepted(tmp_path: Path) -> 
     commit(repo, "record exact G0-T03 final-close failure")
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 0, result.stdout
+
+
+def test_exact_g0_t03_planning_handoff_merge_is_accepted_before_r_b_a_paths(
+    tmp_path: Path,
+) -> None:
+    repo = clone_g0_t03_planning_handoff(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    governed, errors = VALIDATOR._canonical_g0_t03_planning_handoff_bridge(
+        status, repo, G0_T03_PLANNING_HANDOFF, require_canonical_main=True
+    )
+    assert governed == G0_T03_PLANNING_HEAD, errors
+    assert errors == []
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, G0_T03_PLANNING_HANDOFF, schema
+    )
+    assert governed == G0_T03_PLANNING_HEAD, errors
+    assert errors == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+def test_future_g0_t03_planning_handoff_two_parent_recovery_is_accepted(
+    tmp_path: Path,
+) -> None:
+    repo = clone_g0_t03_planning_handoff(tmp_path)
+    status, repair, merged = make_g0_t03_planning_handoff_recovery(repo)
+    schema = json.loads((repo / "schemas" / "project_status.schema.json").read_text(encoding="utf-8"))
+    assert git(repo, "rev-list", "--parents", "-n", "1", merged).split() == [
+        merged,
+        G0_T03_PLANNING_HANDOFF,
+        repair,
+    ]
+    governed, errors = VALIDATOR._canonical_g0_t03_planning_handoff_bridge(
+        status, repo, merged, require_canonical_main=True
+    )
+    assert governed == repair, errors
+    assert errors == []
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(status, repo, merged, schema)
+    assert governed == repair, errors
+    assert errors == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "wrong_first",
+        "wrong_second",
+        "swapped",
+        "wrong_tree",
+        "status_drift",
+        "generation_drift",
+        "ordinary_docs",
+    ],
+)
+def test_g0_t03_planning_handoff_recovery_rejects_topology_status_and_scope_drift(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    repo = clone_g0_t03_planning_handoff(tmp_path)
+    status, _, merged = make_g0_t03_planning_handoff_recovery(repo, mutation)
+    governed, errors = VALIDATOR._canonical_g0_t03_planning_handoff_bridge(
+        status, repo, merged, require_canonical_main=True
+    )
+    assert governed is None
+    if mutation not in {"status_drift", "generation_drift", "wrong_first"}:
+        assert errors
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("G0_T03_PLANNING_HANDOFF_PR_RUN", "29932171251"),
+        ("G0_T03_PLANNING_HANDOFF_MAIN_RUN", "29933844416"),
+        ("G0_T03_RECOVERED_MAIN_RUN", "29929973217"),
+        ("G0_T03_PLANNING_HANDOFF_SECOND_PARENT", G0_T03_CLOSED_RECORD),
+    ],
+)
+def test_g0_t03_planning_handoff_rejects_ci_review_and_sha_fact_drift(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: str,
+) -> None:
+    repo = clone_g0_t03_planning_handoff(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    monkeypatch.setattr(VALIDATOR, field, value)
+    governed, errors = VALIDATOR._canonical_g0_t03_planning_handoff_bridge(
+        status, repo, G0_T03_PLANNING_HANDOFF, require_canonical_main=True
+    )
+    assert governed is None
+    assert errors
 
 
 def test_future_g0_t03_final_close_recovery_merge_and_main_validation_succeed(
