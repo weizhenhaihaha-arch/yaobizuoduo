@@ -25,17 +25,17 @@
     {
       "task_id": "G0-T03",
       "risk": "D2",
-      "state": "in_progress",
-      "transition": {"from": "returned", "to": "in_progress"},
+      "state": "awaiting_review",
+      "transition": {"from": "in_progress", "to": "awaiting_review"},
       "candidate_generation": 3
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "09bfbd23d898198fe694a3a94f77663759dd89d8",
-    "implementation_sha": null,
+    "implementation_sha": "a247cd33e5e31dc4889fa611192c9a8f7c043b04",
     "candidate": {
       "commit_sha": null,
-      "local_verification": {"status": "pending", "subject": "delivery_head"},
+      "local_verification": {"status": "success", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
