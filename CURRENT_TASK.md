@@ -5,7 +5,7 @@
 - Task ID: `G0-T03`
 - Gate: G0 main required check and minimal branch protection
 - Risk: `D2`
-- Status: `accepted_pending_merge`
+- Status: `merged_verified`
 - Candidate generation: `3`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -175,3 +175,22 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   both failed authoritative-main runs retained as blockers. This record proves
   only candidate acceptance; it does not claim merge or main CI success and
   grants no G0-T04/G1 or wider authority.
+
+## Recovery closure merged verification
+
+- User-authorized PR #8 merge is exact authoritative main
+  `a98dada059c91dc70714119f333d0d03ab1cb9f1`, ordered parents
+  `[bea5cf840ddf45ec4425796861d8956f682ab564,
+  3263cf207cecac1e3fb019df2fbd6c2a6435d5bd]`, with tree equal to the
+  accepted record.
+- Exact push/main run `29906115287` completed successfully for subject
+  `a98dada`, after acceptance-head run `29905690883` succeeded for record
+  `3263cf2`. The receipt in that record preserves the separately reviewed
+  repair candidate `d259f75`/run `29904268309` and both independent green
+  conclusions.
+- Only after the authoritative-main success were failed runs `29894526319` and
+  `29898504840` cleared from current blockers. They remain immutable history in
+  this task card, project memory, and Git history.
+- Current phase is `merged_verified`. Finalization/D0 and `closed` are not yet
+  established; the finalization branch/PR may proceed serially but must not be
+  merged automatically or authorize G0-T04/G1.
