@@ -41,6 +41,40 @@ def git_head(repo: Path) -> str:
     return result.stdout.strip()
 
 
+def git_commit(repo: Path, ref: str) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{ref}^{{commit}}"],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    value = result.stdout.strip()
+    if result.returncode != 0 or SHA_PATTERN.fullmatch(value) is None:
+        fail(f"{ref} is not an available full commit")
+    return value
+
+
+def materialize_authoritative_main(repo: Path) -> str:
+    """Create the validator's local main ref without moving the checked-out HEAD."""
+    subject_before = git_head(repo)
+    remote_main = git_commit(repo, "refs/remotes/origin/main")
+    result = subprocess.run(
+        ["git", "update-ref", "refs/heads/main", remote_main],
+        cwd=repo,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        fail("unable to materialize authoritative local main ref")
+    if git_head(repo) != subject_before:
+        fail("materializing authoritative main moved the checked-out HEAD")
+    if git_commit(repo, "refs/heads/main") != remote_main:
+        fail("local main does not equal fetched origin/main")
+    return remote_main
+
+
 def verify(repo: Path, environ: dict[str, str]) -> dict[str, str]:
     event = exact_env(environ, "GITHUB_EVENT_NAME")
     expected_sha = exact_env(environ, "CI_EXPECTED_SHA")
@@ -74,9 +108,12 @@ def verify(repo: Path, environ: dict[str, str]) -> dict[str, str]:
     if actual_sha != expected_sha:
         fail("checked-out HEAD does not equal the exact event subject")
 
+    authoritative_main_sha = materialize_authoritative_main(repo)
+
     run_url = f"{server_url}/{repository}/actions/runs/{run_id}"
     return {
         "event": event,
+        "authoritative_main_sha": authoritative_main_sha,
         "repository": repository,
         "run_id": run_id,
         "run_url": run_url,

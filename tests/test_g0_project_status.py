@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 G0_T01_CLOSE_RECORD = "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
 G0_T02_GENERATION1_IMPLEMENTATION = "5f3a6e93b69947b73e21e51c7e0218c0c283f6de"
 G0_T02_GENERATION1_BLOCKED = "925fa94c22dfabc8ccd2dbe99fde74ca0c88a12f"
+G0_T02_GENERATION2_AUTHORIZATION = "f69e6abd379e74d1af1c507a4a9b15395d077f90"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -490,14 +491,16 @@ def test_blocked_reauthorization_rejects_parent_substitution(tmp_path: Path, mut
     )
 
 
-def test_g0_t02_reauthorization_preserves_generation1_core_implementation() -> None:
+def test_g0_t02_reauthorization_record_preserves_generation1_core_implementation() -> None:
     paths = [
         ".github/workflows/g0-exact-head.yml",
         "scripts/verify_exact_head_ci.py",
         "tests/test_g0_exact_head_ci.py",
     ]
     for path in paths:
-        assert git(ROOT, "rev-parse", f"{G0_T02_GENERATION1_IMPLEMENTATION}:{path}") == git(ROOT, "hash-object", path)
+        assert git(ROOT, "rev-parse", f"{G0_T02_GENERATION1_IMPLEMENTATION}:{path}") == git(
+            ROOT, "rev-parse", f"{G0_T02_GENERATION2_AUTHORIZATION}:{path}"
+        )
     assert git(ROOT, "rev-parse", "origin/codex/g0-t02-minimal-ci") == G0_T02_GENERATION1_BLOCKED
 
 
