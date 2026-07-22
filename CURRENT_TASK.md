@@ -5,7 +5,8 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `accepted_pending_merge` recovery after exact authoritative-main CI failure
+- Status: `accepted_pending_merge`
+- Recovery mode: exact authoritative-main CI failure repair only
 - Candidate generation: `5` detached-HEAD guard repair
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
