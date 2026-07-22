@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T02",
       "risk": "D2",
-      "state": "awaiting_review",
-      "transition": {"from": "in_progress", "to": "awaiting_review"},
+      "state": "returned",
+      "transition": {"from": "awaiting_review", "to": "returned"},
       "candidate_generation": 4
     }
   ],
@@ -34,7 +34,7 @@
     "authorization_baseline_sha": "94892d79b8d39ac1726cf657fac0ae76a0e27b37",
     "implementation_sha": "f32a1f06025d43acd2967f13306ba52a897bc69d",
     "candidate": {
-      "commit_sha": null,
+      "commit_sha": "66176e228331d77f9404d2976a0227b43ad3d9c4",
       "local_verification": {"status": "success", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "request_changes",
+    "architecture": "clear",
+    "reviewed_candidate_sha": "66176e228331d77f9404d2976a0227b43ad3d9c4"
   },
   "bootstrap_exception": null,
   "capability": {

@@ -5,7 +5,7 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `4` local-main safety repair
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -144,4 +144,18 @@ repair; do not start G0-T03 or G1.
   equal to fetched origin/main, and otherwise fail closed without moving local
   main or detached HEAD. Add behavior regression coverage. The duplicated
   paragraph in `AG_WORK_LOOP.md` may be removed as a non-blocking cleanup.
+- Return only this G0-T02 generation for repair; do not start G0-T03 or G1.
+
+## Generation 4 independent review result: returned
+
+- Reviewed exact PR head: `66176e228331d77f9404d2976a0227b43ad3d9c4`.
+- Real strict-success Actions run: `29883755366`.
+- Main verification passed 176 Python tests, 10 frontend tests, TypeScript/Vite
+  build, repository-aware validation and exact repository/run checks.
+- Architecture/route verdict: `CLEAR`.
+- Code/security verdict: `REQUEST CHANGES`. The helper returns early when an
+  existing local main already equals origin/main, before confirming that HEAD
+  is detached. An attached candidate branch can therefore bypass the intended
+  fail-closed guard. Move detached-HEAD verification before every local-main
+  branch and add attached plus existing-equal/divergent preservation tests.
 - Return only this G0-T02 generation for repair; do not start G0-T03 or G1.
