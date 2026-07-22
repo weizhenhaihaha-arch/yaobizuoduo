@@ -269,3 +269,10 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   extra B/A paths, status or validator drift, candidate/run/URL/digest drift,
   and history/review/ruleset drift. This R delivery does not create B or A and
   does not claim its future CI or review.
+- Implementation head `5e0f6b928553abe8a611364d62f6628f38335026`
+  passed 50 focused final-close tests, all 312 non-transport Python tests, 10
+  frontend tests, standalone TypeScript compilation, Vite production build,
+  canonical project-status validation, exact protection-evidence validation,
+  Python compilation and whitespace checks. The only full-collection error was
+  the already-documented local absence of FastAPI for the excluded transport
+  module; no transport behavior changed in this repair.
