@@ -5,7 +5,7 @@
 - Task ID: `G0-T03`
 - Gate: G0 main required check and minimal branch protection
 - Risk: `D2`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `2`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -69,3 +69,15 @@ the exact before, after, readback, and rollback identities.
 Report both authorization parents, task ID/generation, exact branch/HEAD,
 before/after digests, rule ID/name/target/readback, rollback procedure, files,
 commands/results, PR/run, tests, blockers, worktree state, and memory update.
+
+## Generation 2 review result: returned
+
+- Reviewed exact PR head: `090db8c80f9f792d86e9550e2eeb5ad1b1de91df`.
+- Exact successful run: `29892661541`.
+- Architecture/route: `CLEAR`; remote ruleset `19526291` is correct and immutable
+  for this repair.
+- Code/security: `REQUEST CHANGES`. The local evidence validator trusts
+  recomputed digests for attacker-controlled snapshots, permits incomplete or
+  unknown structures, and can accept simultaneous desired/readback drift.
+- Repair is limited to strict local evidence schema, semantics, rollback binding,
+  and adversarial tests. No remote ruleset mutation is allowed.
