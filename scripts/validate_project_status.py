@@ -31,6 +31,14 @@ SCHEMA_CONTROL_VERSION = "schema-migration-control.v1"
 SCHEMA_CONTROL_PURPOSE = "project-status-schema-migration"
 SCHEMA_CONTROL_BOOTSTRAP_PARENT = "3128dd4a5c767d1a8b292a68c3418299e9d89ac3"
 G0_GOVERNED_PARENT_SHA = "48904701f31ad12b08d0d224c25bd65003356230"
+G0_T02_FAILED_MAIN_SHA = "608800462fbf9f3b97277484fa906a691b8b8b98"
+G0_T02_FAILED_MAIN_RUN = "29884710636"
+G0_T02_FAILED_MAIN_URL = "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884710636"
+G0_T02_RECOVERY_BLOCKER = (
+    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push "
+    f"ref=refs/heads/main subject_sha={G0_T02_FAILED_MAIN_SHA} run_id={G0_T02_FAILED_MAIN_RUN} "
+    f"url={G0_T02_FAILED_MAIN_URL} conclusion=failure"
+)
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -209,7 +217,8 @@ def _semantic_errors(status: dict[str, Any]) -> list[str]:
         errors.append("$.active_tasks[0].task_id: task gate must match current_gate")
     if transition["to"] != state:
         errors.append("$.active_tasks[0].transition.to: must equal current task state")
-    if transition["to"] not in TRANSITIONS.get(transition["from"], set()):
+    recovery_transition = _is_g0_t02_post_merge_recovery_status(status)
+    if transition["to"] not in TRANSITIONS.get(transition["from"], set()) and not recovery_transition:
         errors.append("$.active_tasks[0].transition: illegal lifecycle transition")
 
     evidence = status["evidence"]
@@ -1096,6 +1105,9 @@ def _parent_status_errors(
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
+    recovery_errors = _g0_t02_recovery_parent_errors(status, parent, parent_sha, root, child_sha)
+    if recovery_errors is not None:
+        return recovery_errors
     if _typed_equal(parent, status):
         if current_task["state"] != "in_progress":
             errors.append(f"$: same-status commits are restricted to byte-equivalent in_progress implementation work after {parent_sha[:12] if parent_sha else 'unknown'}")
@@ -1241,7 +1253,12 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
             if not child_valid or not parent_valid:
                 continue
             inherited_merge_bridge = False
-            if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
+            governed_parent, bridge_errors = _canonical_g0_merge_bridge(
+                child, root, child_sha, current_schema, require_canonical_main=False
+            )
+            if governed_parent == parent_sha and not bridge_errors:
+                inherited_merge_bridge = True
+            if not inherited_merge_bridge and child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
                 _, newer, newer_valid = statuses[index - 1]
                 if newer_valid:
                     inherited_merge_bridge = (
@@ -1340,7 +1357,12 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
         if not child_valid or not parent_valid:
             continue
         inherited_merge_bridge = False
-        if child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
+        governed_parent, bridge_errors = _canonical_g0_merge_bridge(
+            child, root, child_sha, current_schema, require_canonical_main=False
+        )
+        if governed_parent == parent_sha and not bridge_errors:
+            inherited_merge_bridge = True
+        if not inherited_merge_bridge and child == parent and child["active_tasks"][0]["state"] == "accepted_pending_merge" and index > 0:
             _, newer, newer_valid = statuses[index - 1]
             if newer_valid:
                 inherited_merge_bridge = (
@@ -1376,6 +1398,112 @@ def _subject_status_matches(status: dict[str, Any], subject: dict[str, Any] | No
         return False
 
 
+def _is_g0_t02_post_merge_recovery_status(status: dict[str, Any]) -> bool:
+    """Recognize the one authorized failed-main recovery without widening ordinary transitions."""
+    try:
+        task = status["active_tasks"][0]
+        evidence = status["evidence"]
+        return (
+            status["project"] == "yaobizuoduo"
+            and status["authoritative_main_ref"] == "refs/heads/main"
+            and status["current_gate"] == "G0"
+            and task == {
+                "task_id": "G0-T02",
+                "risk": "D2",
+                "state": "accepted_pending_merge",
+                "transition": {"from": "accepted_pending_merge", "to": "accepted_pending_merge"},
+                "candidate_generation": 5,
+            }
+            and evidence["authorization_baseline_sha"] == "94892d79b8d39ac1726cf657fac0ae76a0e27b37"
+            and evidence["implementation_sha"] == "2ec1a50ad513f81cf3637e82501e4e4d74b5bf1f"
+            and evidence["candidate"] == {
+                "commit_sha": "35b90f87ab42843925065e6d0dafdc25797702e0",
+                "local_verification": {"status": "success", "subject": "delivery_head"},
+                "ci": {
+                    "status": "success",
+                    "subject_sha": "35b90f87ab42843925065e6d0dafdc25797702e0",
+                    "run_id": "29884205742",
+                    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29884205742",
+                },
+            }
+            and evidence["closure"] == {
+                "commit_sha": None,
+                "ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+            }
+            and evidence["merged_main"] == {
+                "commit_sha": None,
+                "ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+            }
+            and evidence["finalization"] == {
+                "commit_sha": None,
+                "d0_ci": {"status": "not_established", "subject_sha": None, "run_id": None, "url": None},
+            }
+            and status["review"] == {
+                "code_security": "approve",
+                "architecture": "clear",
+                "reviewed_candidate_sha": "35b90f87ab42843925065e6d0dafdc25797702e0",
+            }
+            and status["blockers"] == [G0_T02_RECOVERY_BLOCKER]
+            and status["next_authorization"] == {"gate": "G0", "task_id": "G0-T03", "state": "not_authorized"}
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _g0_t02_recovery_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+    *,
+    require_failed_main: bool = True,
+) -> list[str] | None:
+    if not _is_g0_t02_post_merge_recovery_status(status):
+        return None
+    if root is None or child_sha is None or parent_sha != G0_T02_FAILED_MAIN_SHA:
+        return ["$: post-merge CI recovery must directly descend from the exact failed authoritative main subject"]
+    errors: list[str] = []
+    projected = dict(status)
+    projected["active_tasks"] = [dict(status["active_tasks"][0])]
+    projected["active_tasks"][0]["transition"] = {"from": "awaiting_review", "to": "accepted_pending_merge"}
+    projected["blockers"] = []
+    if not _typed_equal(projected, parent):
+        errors.append("$: post-merge CI recovery may only add the exact failure record and recovery transition")
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+    parts = parents_text.split() if ok else []
+    if len(parts) != 2 or parts[1] != parent_sha:
+        errors.append("$: post-merge CI recovery record must have the failed main subject as its sole parent")
+    if require_failed_main:
+        ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+        ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        main_matches = ok_main and ok_remote and main_sha == remote_sha == parent_sha
+        if ok_main and ok_remote and main_sha == remote_sha and main_sha != parent_sha:
+            ok_main_parents, main_parents_text = _git(root, "rev-list", "--parents", "-n", "1", main_sha)
+            main_parts = main_parents_text.split() if ok_main_parents else []
+            ok_main_tree, main_tree = _git(root, "rev-parse", f"{main_sha}^{{tree}}")
+            ok_child_tree, child_tree = _git(root, "rev-parse", f"{child_sha}^{{tree}}")
+            main_matches = (
+                len(main_parts) == 3
+                and main_parts[1:] == [parent_sha, child_sha]
+                and ok_main_tree
+                and ok_child_tree
+                and main_tree == child_tree
+                and _typed_equal(_status_at(root, main_sha), status)
+            )
+        if not main_matches:
+            errors.append("$: post-merge CI recovery requires the exact failed main or its exact recovery merge on local/fetched main")
+    child_schema = _schema_at(root, child_sha)
+    if child_schema is None:
+        errors.append("$: post-merge CI recovery schema is unreadable")
+    else:
+        governed, bridge_errors = _canonical_g0_merge_bridge(parent, root, parent_sha, child_schema, require_canonical_main=False)
+        errors.extend(bridge_errors)
+        if governed is None:
+            errors.append("$: post-merge CI recovery parent is not the canonical failed G0 merge bridge")
+    return errors
+
+
 def _canonical_g0_merge_bridge(
     status: dict[str, Any],
     root: Path,
@@ -1388,7 +1516,7 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
-    if task["state"] != "accepted_pending_merge" or task["task_id"] != BOOTSTRAP_TASK:
+    if task["state"] != "accepted_pending_merge" or not task["task_id"].startswith("G0-"):
         return None, []
     ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
     parts = parents_text.split() if ok else []
@@ -1410,10 +1538,12 @@ def _canonical_g0_merge_bridge(
         errors.append("$: canonical G0 merge bridge requires exact local/fetched main in the canonical repository")
     elif not require_canonical_main and (not ok_origin or _github_repository_identity(origin_url) != LEDGER_REPOSITORY):
         errors.append("$: canonical G0 merge bridge requires the canonical repository")
-    if not _typed_equal(first_parent, status["evidence"]["authorization_baseline_sha"]):
+    recovery_bridge = _is_g0_t02_post_merge_recovery_status(status)
+    expected_first_parent = G0_T02_FAILED_MAIN_SHA if recovery_bridge else status["evidence"]["authorization_baseline_sha"]
+    if not _typed_equal(first_parent, expected_first_parent):
         errors.append("$: canonical G0 merge bridge first parent is not the authoritative prior main")
-    if not _typed_equal(governed_parent, G0_GOVERNED_PARENT_SHA):
-        errors.append("$: canonical G0 merge bridge second parent is not the immutable governed task head")
+    if task["task_id"] == BOOTSTRAP_TASK and not _typed_equal(governed_parent, G0_GOVERNED_PARENT_SHA):
+        errors.append("$: canonical G0-T01 merge bridge second parent is not the immutable governed task head")
     governed_status, governed_errors = _committed_status_errors(root, governed_parent, schema, use_current_schema=True)
     errors.extend(governed_errors)
     if governed_status is None or not _typed_equal(status, governed_status):
@@ -1422,16 +1552,33 @@ def _canonical_g0_merge_bridge(
     ok_parent_tree, parent_tree = _git(root, "rev-parse", f"{governed_parent}^{{tree}}")
     if not ok_head_tree or not ok_parent_tree or not _typed_equal(head_tree, parent_tree):
         errors.append("$: canonical G0 merge bridge tree must exactly equal its governed second parent")
-    candidate = status["evidence"]["candidate"]["commit_sha"]
     ok_governed_parents, governed_parents_text = _git(root, "rev-list", "--parents", "-n", "1", governed_parent)
     governed_parts = governed_parents_text.split() if ok_governed_parents else []
-    if type(candidate) is not str or len(governed_parts) != 2 or not _typed_equal(governed_parts[1], candidate):
-        errors.append("$: canonical G0 merge bridge second parent must directly close the exact reviewed candidate")
+    if recovery_bridge:
+        failed_status, failed_errors = _committed_status_errors(root, G0_T02_FAILED_MAIN_SHA, schema, use_current_schema=True)
+        errors.extend(failed_errors)
+        recovery_errors = (
+            _g0_t02_recovery_parent_errors(
+                status,
+                failed_status,
+                G0_T02_FAILED_MAIN_SHA,
+                root,
+                governed_parent,
+                require_failed_main=False,
+            )
+            if failed_status is not None
+            else ["$: post-merge CI recovery failed-main status is unreadable"]
+        )
+        errors.extend(recovery_errors or [])
     else:
-        candidate_status, candidate_errors = _committed_status_errors(root, candidate, schema, use_current_schema=True)
-        errors.extend(candidate_errors)
-        if candidate_errors or not _subject_status_matches(status, candidate_status, "awaiting_review"):
-            errors.append("$: canonical G0 merge bridge candidate identity is invalid")
+        candidate = status["evidence"]["candidate"]["commit_sha"]
+        if type(candidate) is not str or len(governed_parts) != 2 or not _typed_equal(governed_parts[1], candidate):
+            errors.append("$: canonical G0 merge bridge second parent must directly close the exact reviewed candidate")
+        else:
+            candidate_status, candidate_errors = _committed_status_errors(root, candidate, schema, use_current_schema=True)
+            errors.extend(candidate_errors)
+            if candidate_errors or not _subject_status_matches(status, candidate_status, "awaiting_review"):
+                errors.append("$: canonical G0 merge bridge candidate identity is invalid")
     if errors:
         return None, errors
     return governed_parent, []
