@@ -122,3 +122,56 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   changes fail closed.
 - Ruleset `19526291` and its evidence remain immutable. Recovery does not merge
   its own PR, modify main, authorize G0-T04/G1, or expand product capability.
+
+## Recovery-merge recovery
+
+- Main and independent review accepted exact recovery candidate
+  `a0885c16582e75613bb203be3a2ecefb01637d37` with exact PR run
+  `29896682124`, code/security `APPROVE`, and architecture/route `CLEAR`.
+- GitHub merged that accepted record `0b5279b69b70b70500f22753cb6ae3a542b196c7`
+  as main subject `bea5cf840ddf45ec4425796861d8956f682ab564`.
+  Its first parent is prior failed main `08d6a3e`, second parent is the accepted
+  recovery record, and its tree/status equal the second parent.
+- Exact push run `29898504840` failed because canonical validation did not yet
+  recognize this recovery-merge bridge before generic merge and repeated-
+  authorization paths. Both failed main runs remain recorded truthfully.
+- This repair is restricted to the exact `bea5cf8` topology and unchanged
+  ruleset evidence. It grants no merge, G0-T04/G1, live-data, deployment,
+  release, or trading authority.
+
+## Recovery-merge recovery review return and bounded closure repair
+
+- PR #8 candidate `05597ef837031bb6a4aeb6eefb21aa4cecd7ff30` passed exact
+  pull-request run `29900351726`, but independent code/security returned
+  `REQUEST CHANGES` and architecture/route returned `BLOCK`: a future merge of
+  first parent `bea5cf8` and the accepted repair record would still fall through
+  the generic merge path and fail canonical validation.
+- The current repair remains on the same branch and PR. It must preserve both
+  exact failed-main blockers until authoritative-main CI succeeds and may not
+  modify ruleset `19526291`, old blocked/recovery refs, main, or any later card.
+- A future recovery closure is accepted only when first parent is exact
+  `bea5cf840ddf45ec4425796861d8956f682ab564`, second parent directly accepts a
+  new single-parent repair candidate, merge tree/status equal that acceptance
+  record, and a later non-self-referential receipt binds exact PR CI,
+  code/security `APPROVE`, architecture `CLEAR`, the prior rejected candidate
+  and unchanged ruleset evidence digest.
+- Parent, order, tree, candidate, run, review, ruleset, digest, blocker, task or
+  generation substitution must fail closed. The accepted topology must also
+  support the ordinary post-merge sequence: strict main success, blocker clear,
+  `merged_verified`, finalization D0, and `closed`, without a third recovery PR.
+
+## Recovery closure repair acceptance record
+
+- Main review passed the exact future-closure focus and canonical/protection
+  validators for candidate `d259f75cb13a56b7256779ad87115120c005ddec`.
+- Exact pull-request run `29904268309` completed with `success` for stable check
+  `G0 / exact-head`; independent code/security returned `APPROVE` and
+  architecture/route returned `CLEAR` for that same candidate.
+- The later acceptance receipt records those exact identities, the prior
+  rejected `05597ef`/run `29900351726` negative result, ruleset `19526291`, and
+  frozen evidence digest. The receipt did not exist in the reviewed candidate,
+  so it cannot self-attest.
+- `PROJECT_STATUS.yaml` remains byte-identical at `accepted_pending_merge` with
+  both failed authoritative-main runs retained as blockers. This record proves
+  only candidate acceptance; it does not claim merge or main CI success and
+  grants no G0-T04/G1 or wider authority.
