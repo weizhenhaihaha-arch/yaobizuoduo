@@ -5,7 +5,7 @@
 - Task ID: `G0-T02`
 - Gate: G0 governance baseline and minimal remote CI
 - Risk: `D2`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `3` focused CI repair
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -128,4 +128,20 @@ history.
 - Repair is limited to materializing local `refs/heads/main` from fetched
   `refs/remotes/origin/main` without moving detached `HEAD`, with focused static
   and behavior regression coverage. Return only this G0-T02 generation for
-  repair; do not start G0-T03 or G1.
+repair; do not start G0-T03 or G1.
+
+## Generation 3 independent review result: returned
+
+- Reviewed exact PR head: `62d7dc485b0d068b83a50d565d869f613248626b`.
+- Real strict-success Actions run: `29882992116` at
+  `https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29882992116`.
+- Main verification passed 173 Python tests, 10 frontend tests, TypeScript/Vite
+  build, repository-aware validation, exact remote identity, and diff checks.
+- Architecture/route verdict: `CLEAR`.
+- Code/security verdict: `REQUEST CHANGES`. `materialize_authoritative_main`
+  unconditionally overwrites an existing divergent local `refs/heads/main`.
+  Repair must create local main only when absent, accept it only when already
+  equal to fetched origin/main, and otherwise fail closed without moving local
+  main or detached HEAD. Add behavior regression coverage. The duplicated
+  paragraph in `AG_WORK_LOOP.md` may be removed as a non-blocking cleanup.
+- Return only this G0-T02 generation for repair; do not start G0-T03 or G1.
