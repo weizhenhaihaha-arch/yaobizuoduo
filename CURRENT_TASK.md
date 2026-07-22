@@ -293,3 +293,21 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   separate future receipt-only sub-slice requiring its own explicit dispatch.
   Status stays `closed`, main run `29909220290` remains the sole blocker, and
   G0-T04 stays `not_authorized`.
+
+## Route-A receipt-only acceptance A
+
+- Exact binding-only B is `d9c838ca5a6d599b5c55e867e77629e4930f3ea2`.
+  Its exact PR #10 run `29925693993` completed successfully for stable check
+  `G0 / exact-head`; independent code/security returned `APPROVE` and
+  architecture/route returned `CLEAR`, with zero findings. That exact B run is
+  the external gate for creating A and is not duplicated inside receipt schema.
+- A directly parents exact B. Its only artifact is the acceptance receipt,
+  which consumes B's immutable seal and points back to exact R
+  `6a78dd68ace8a2fbc1012cc30e9bae89290f540c`. Accordingly the receipt copies
+  B's sealed R/run `29922824757`, complete history, dual-green R review,
+  ruleset `19526291`, and frozen ruleset evidence digest exactly.
+- A changes only the receipt plus necessary task/project history. It does not
+  alter B's binding, validator, tests, project status, phase evidence, ruleset,
+  main or product/runtime files. It grants no merge authority: status remains
+  `closed`, run `29909220290` remains the sole blocker, and G0-T04 remains
+  `not_authorized`.
