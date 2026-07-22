@@ -25,18 +25,18 @@
     {
       "task_id": "G0-T03",
       "risk": "D2",
-      "state": "returned",
-      "transition": {"from": "awaiting_review", "to": "returned"},
-      "candidate_generation": 2
+      "state": "in_progress",
+      "transition": {"from": "returned", "to": "in_progress"},
+      "candidate_generation": 3
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "09bfbd23d898198fe694a3a94f77663759dd89d8",
-    "implementation_sha": "e5a066b95b8cc221911cebdfbf52a3695120d130",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "090db8c80f9f792d86e9550e2eeb5ad1b1de91df",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
-      "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
+      "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
       "commit_sha": null,
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "request_changes",
-    "architecture": "clear",
-    "reviewed_candidate_sha": "090db8c80f9f792d86e9550e2eeb5ad1b1de91df"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
   "bootstrap_exception": null,
   "capability": {

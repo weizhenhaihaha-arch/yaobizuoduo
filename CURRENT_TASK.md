@@ -5,8 +5,8 @@
 - Task ID: `G0-T03`
 - Gate: G0 main required check and minimal branch protection
 - Risk: `D2`
-- Status: `returned`
-- Candidate generation: `2`
+- Status: `in_progress`
+- Candidate generation: `3`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
 - Authorization: product owner explicitly authorized public-repository recovery on 2026-07-22 Asia/Shanghai
@@ -81,3 +81,14 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   unknown structures, and can accept simultaneous desired/readback drift.
 - Repair is limited to strict local evidence schema, semantics, rollback binding,
   and adversarial tests. No remote ruleset mutation is allowed.
+
+## Generation 3 repair scope
+
+- `returned -> in_progress` atomically cleared generation 2 implementation,
+  candidate, CI and reviewer identities.
+- Freeze every evidence object and nested parameter to an exact field set and
+  value; a recomputed digest never substitutes for semantic truth.
+- Reject incomplete values, unknown fields/parameters, simultaneous desired and
+  readback drift, non-positive IDs, and any rollback method/repository/ID/result
+  mismatch.
+- Remote ruleset `19526291` must remain byte-semantically unchanged.
