@@ -54,9 +54,23 @@ def test_approval_or_check_name_drift_fails_closed() -> None:
 
 def test_applied_readback_and_rollback_must_bind_same_rule() -> None:
     document = load()
-    document["phase"] = "applied"
-    document["readback"] = {"id": 7, **copy.deepcopy(document["desired_ruleset"])}
+    document["readback"]["id"] = 7
     document["after_sha256"] = MODULE.digest(document["readback"])
     document["rollback"]["created_rule_id"] = 8
-    document["remote_mutation_performed"] = True
     assert "rollback does not bind the created rule ID" in MODULE.validate(document)
+
+
+def test_server_default_drift_or_unknown_parameter_fails_closed() -> None:
+    document = load()
+    pull = next(rule for rule in document["readback"]["rules"] if rule["type"] == "pull_request")
+    pull["parameters"]["allowed_merge_methods"] = ["merge"]
+    document["after_sha256"] = MODULE.digest(document["readback"])
+    assert "readback differs from the frozen ruleset" in MODULE.validate(document)
+
+
+def test_exact_head_workflow_is_fork_safe_and_secret_free() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "g0-exact-head.yml").read_text(encoding="utf-8")
+    assert "pull_request:" in workflow
+    assert "secrets." not in workflow
+    assert "persist-credentials: false" in workflow
+    assert "contents: read" in workflow

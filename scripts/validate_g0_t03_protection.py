@@ -21,6 +21,42 @@ def strict_check_success(context: object, conclusion: object) -> bool:
     return type(context) is str and context == EXACT_CONTEXT and type(conclusion) is str and conclusion in ALLOWED_CONCLUSIONS
 
 
+def semantic_rules(rules: object) -> list[dict[str, Any]] | None:
+    if type(rules) is not list or any(type(rule) is not dict for rule in rules):
+        return None
+    result: list[dict[str, Any]] = []
+    for rule in rules:
+        item = {"type": rule.get("type")}
+        parameters = rule.get("parameters")
+        if rule.get("type") == "pull_request" and type(parameters) is dict:
+            allowed_extras = {"required_reviewers": [], "allowed_merge_methods": ["merge", "squash", "rebase"]}
+            for key, value in parameters.items():
+                if key not in {
+                    "dismiss_stale_reviews_on_push",
+                    "require_code_owner_review",
+                    "require_last_push_approval",
+                    "required_approving_review_count",
+                    "required_review_thread_resolution",
+                    *allowed_extras,
+                }:
+                    return None
+                if key in allowed_extras and value != allowed_extras[key]:
+                    return None
+            item["parameters"] = {key: parameters.get(key) for key in (
+                "dismiss_stale_reviews_on_push",
+                "require_code_owner_review",
+                "require_last_push_approval",
+                "required_approving_review_count",
+                "required_review_thread_resolution",
+            )}
+        elif rule.get("type") == "required_status_checks" and type(parameters) is dict:
+            item["parameters"] = parameters
+        elif parameters is not None:
+            return None
+        result.append(item)
+    return result
+
+
 def validate(document: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     before = document.get("before")
@@ -55,7 +91,12 @@ def validate(document: dict[str, Any]) -> list[str]:
     elif phase == "applied":
         if type(readback) is not dict or digest(readback) != document.get("after_sha256"):
             errors.append("readback digest mismatch")
-        elif any(readback.get(key) != desired.get(key) for key in ("name", "target", "enforcement", "bypass_actors", "conditions", "rules")):
+        elif (
+            any(readback.get(key) != desired.get(key) for key in ("name", "target", "enforcement", "bypass_actors", "conditions"))
+            or semantic_rules(readback.get("rules")) != semantic_rules(desired.get("rules"))
+            or readback.get("source_type") != "Repository"
+            or readback.get("source") != before.get("repository")
+        ):
             errors.append("readback differs from the frozen ruleset")
         if type(rollback) is not dict or type(rollback.get("created_rule_id")) is not int or rollback["created_rule_id"] != readback.get("id"):
             errors.append("rollback does not bind the created rule ID")
