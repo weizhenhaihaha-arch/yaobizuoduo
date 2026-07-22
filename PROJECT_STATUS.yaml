@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T03",
       "risk": "D2",
-      "state": "in_progress",
-      "transition": {"from": "authorized", "to": "in_progress"},
+      "state": "blocked",
+      "transition": {"from": "in_progress", "to": "blocked"},
       "candidate_generation": 1
     }
   ],
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "G0-T03: GitHub returned HTTP 403 for both rulesets and classic branch protection because this private repository's current plan does not support the feature; no remote protection mutation was performed"
+  ],
   "next_authorization": {"gate": "G0", "task_id": "G0-T04", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

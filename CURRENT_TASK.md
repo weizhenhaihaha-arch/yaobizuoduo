@@ -5,7 +5,7 @@
 - Task ID: `G0-T03`
 - Gate: G0 main required check and minimal branch protection
 - Risk: `D2`
-- Status: `in_progress`
+- Status: `blocked`
 - Candidate generation: `1`
 - Executor: one bounded developer AG
 - Reviewer: main Codex plus independent code/security and architecture lanes
@@ -83,3 +83,17 @@ Report task ID, exact branch/HEAD, remote preflight and readback identities,
 before/after digests, recovery procedure, files, commands/results, PR/run, tests,
 blockers, worktree state, and memory update. A blocked report must identify the
 exact remote response and confirm that no remote protection mutation occurred.
+
+## Current blocker
+
+- Read-only `GET /repos/weizhenhaihaha-arch/yaobizuoduo/rulesets` returned
+  HTTP 403: upgrade GitHub Pro or make the private repository public.
+- Read-only `GET /repos/weizhenhaihaha-arch/yaobizuoduo/branches/main/protection`
+  returned the same HTTP 403 plan boundary.
+- The ordinary branch endpoint reports `protected=false`, required-check
+  enforcement `off`, and no contexts/checks at exact main
+  `09bfbd23d898198fe694a3a94f77663759dd89d8`.
+- No protection mutation was attempted, so recovery is a verified no-op.
+- Continuing requires a product-owner decision to upgrade the GitHub plan or a
+  separately reviewed repository-visibility change. This terminal blocked
+  record cannot authorize G1 or another card.
