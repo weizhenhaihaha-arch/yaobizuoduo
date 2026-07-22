@@ -1218,8 +1218,6 @@ def test_exact_g0_t03_recovery_closure_bridge_is_accepted_before_generic_paths(
         "wrong_second",
         "swapped",
         "wrong_tree",
-        "binding_wrong_parent",
-        "acceptance_bypasses_binding",
         "wrong_candidate",
         "wrong_run",
         "wrong_review",
@@ -1305,6 +1303,8 @@ def test_future_g0_t03_final_close_recovery_merge_and_main_validation_succeed(
         "wrong_second",
         "swapped",
         "wrong_tree",
+        "binding_wrong_parent",
+        "acceptance_bypasses_binding",
         "wrong_task",
         "wrong_generation",
         "wrong_candidate",
@@ -1340,7 +1340,10 @@ def test_g0_t03_final_close_recovery_rejects_substitution_and_ordinary_closed_me
     tmp_path: Path, mutation: str
 ) -> None:
     repo = clone_g0_t03_failed_final_close(tmp_path)
-    topology = mutation if mutation in {"wrong_first", "wrong_second", "swapped", "wrong_tree"} else None
+    topology = mutation if mutation in {
+        "wrong_first", "wrong_second", "swapped", "wrong_tree",
+        "binding_wrong_parent", "acceptance_bypasses_binding",
+    } else None
     status_mutation = mutation if mutation in {"wrong_task", "wrong_generation"} else None
     receipt = mutation if mutation in {
         "wrong_candidate", "wrong_run", "synchronized_run_substitution",
