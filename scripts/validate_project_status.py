@@ -1504,13 +1504,16 @@ def _g0_t02_recovery_parent_errors(
             ok_main_parents, main_parents_text = _git(root, "rev-list", "--parents", "-n", "1", main_sha)
             main_parts = main_parents_text.split() if ok_main_parents else []
             ok_main_tree, main_tree = _git(root, "rev-parse", f"{main_sha}^{{tree}}")
-            ok_child_tree, child_tree = _git(root, "rev-parse", f"{child_sha}^{{tree}}")
+            recovery_head = main_parts[2] if len(main_parts) == 3 else ""
+            ok_recovery_tree, recovery_tree = _git(root, "rev-parse", f"{recovery_head}^{{tree}}")
             main_matches = (
                 len(main_parts) == 3
-                and main_parts[1:] == [G0_T02_FAILED_MAIN_SHA, child_sha]
+                and main_parts[1] == G0_T02_FAILED_MAIN_SHA
+                and _is_ancestor(root, child_sha, recovery_head)
                 and ok_main_tree
-                and ok_child_tree
-                and main_tree == child_tree
+                and ok_recovery_tree
+                and main_tree == recovery_tree
+                and _typed_equal(_status_at(root, recovery_head), status)
                 and _typed_equal(_status_at(root, main_sha), status)
             )
         if not main_matches:
