@@ -46,6 +46,8 @@ G0_T04_CLOSURE = "bdf6fbca71b29da79801c1be7a4cdd14f103ce52"
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
 G0_T04_ANOMALY_CANDIDATE = "6541189bbdacc870de5691d07991b9103ee2c763"
+G0_T04_ANOMALY_SEAL = "50a801f2f81c9c6f5eaea99444529fcbeb5933c2"
+G0_T04_ANOMALY_MERGE = "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87"
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -816,6 +818,53 @@ def make_g0_t04_anomaly_seal(
             "forge seal parent",
         )
     return repo, status, seal_sha
+
+
+def make_g0_t04_post_merge_repair(
+    tmp_path: Path, mutation: str | None = None
+) -> tuple[Path, dict, str, str]:
+    repo = tmp_path / f"g0-t04-post-merge-repair-{mutation or 'valid'}"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    base = G0_T04_ANOMALY_MERGE
+    if mutation == "non_f_root":
+        base = G0_T04_ANOMALY_SEAL
+    git(repo, "switch", "-c", "g0-t04-post-merge-repair", base)
+    git(repo, "update-ref", "refs/heads/main", G0_T04_ANOMALY_MERGE)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_ANOMALY_MERGE)
+    install_g0_t03_frozen_refs(repo)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text())
+    with (repo / "tests/test_g0_project_status.py").open("a") as handle:
+        handle.write("\n# clone-stable G0-T04 post-merge fixture repair\n")
+    with (repo / "PROJECT_MEMORY.md").open("a") as handle:
+        handle.write("\n- G0-T04 post-merge fixture repair remains test-only.\n")
+    first = commit(repo, "record clone-stable fixture repair")
+    shutil.copy2(SCRIPT, repo / "scripts/validate_project_status.py")
+    shutil.copy2(ROOT / "tests/test_g0_project_status.py", repo / "tests/test_g0_project_status.py")
+    with (repo / "PROJECT_MEMORY.md").open("a") as handle:
+        handle.write("\n- Exact F-rooted repair validator is fail closed.\n")
+    if mutation == "ordinary":
+        (repo / "ordinary.txt").write_text("scope escape\n")
+    elif mutation == "status":
+        status["next_authorization"]["state"] = "authorized"
+        write_status(repo / "PROJECT_STATUS.yaml", status)
+    elif mutation == "package":
+        with (repo / "governance/packages/package-a.manifest.json").open("a") as handle:
+            handle.write("\n")
+    elif mutation == "activation":
+        activation = repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
+        activation.parent.mkdir(parents=True, exist_ok=True)
+        activation.write_text("{}\n")
+    final = commit(repo, "bind exact F-rooted fixture repair")
+    return repo, status, first, final
 
 
 def make_g0_t04_recovery(
@@ -4006,3 +4055,45 @@ def test_g0_t04_pr15_pr22_same_tree_seal_identity_is_external_gate(
         same_tree_seal,
         require_current_main=False,
     ) == []
+
+
+def test_g0_t04_exact_merge_post_merge_repair_is_canonical(tmp_path: Path) -> None:
+    repo, status, first, final = make_g0_t04_post_merge_repair(tmp_path)
+    parent = VALIDATOR._status_at(repo, first)
+    assert parent is not None
+    assert VALIDATOR._g0_t04_anomaly_post_merge_repair_parent_errors(
+        status,
+        parent,
+        first,
+        repo,
+        final,
+        require_current_main=True,
+    ) == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation", ["non_f_root", "ordinary", "status", "package", "activation"]
+)
+def test_g0_t04_post_merge_repair_rejects_scope_and_authority_drift(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo, _, first, final = make_g0_t04_post_merge_repair(tmp_path, mutation)
+    if mutation == "non_f_root":
+        result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+        assert result.returncode == 1
+        return
+    status = VALIDATOR._status_at(repo, final)
+    parent = VALIDATOR._status_at(repo, first)
+    assert status is not None
+    assert parent is not None
+    errors = VALIDATOR._g0_t04_anomaly_post_merge_repair_parent_errors(
+        status,
+        parent,
+        first,
+        repo,
+        final,
+        require_current_main=False,
+    )
+    assert errors
