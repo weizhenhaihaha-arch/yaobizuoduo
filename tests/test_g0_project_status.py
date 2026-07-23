@@ -4404,8 +4404,8 @@ def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     git(repo, "config", "user.email", "test@example.invalid")
     seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
     valid_bytes = G0_T04_G4_ROUTE_SEAL.read_bytes()
-    seal_path.write_bytes(valid_bytes)
-    valid_subject = commit(repo, "install current valid generation-4 seal")
+    assert seal_path.read_bytes() == valid_bytes
+    valid_subject = git(repo, "rev-parse", "HEAD")
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
 
     hostile = json.loads(valid_bytes.decode("utf-8"))
