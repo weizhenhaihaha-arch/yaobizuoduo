@@ -5,7 +5,7 @@
 - Task ID: `G0-T05`
 - Gate: G0 governance handoff
 - Risk: `D0`
-- Status: `accepted_pending_merge`
+- Status: `merged_verified`
 - Candidate generation: `2`
 - Executor: Codex under the confirmed immutable Package A
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
