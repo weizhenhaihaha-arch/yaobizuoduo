@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `3`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -172,3 +172,24 @@ reviews, blockers, worktree state, and repository/external memory updates.
 - If baseline carries Package A but HEAD deletes manifest or schema, continue
   validation and fail closed.
 - Retain drift, activation, and per-card allowlist rejection.
+
+## Generation 3 delivered planning identity
+
+- Implementation SHA:
+  `57d65f47709b4f683e4326051c737ed037b15b83`
+- Manifest/schema remain unchanged from generation 2:
+  `governance/packages/package-a.manifest.json` /
+  `package-a-manifest.v2`
+- Schema SHA-256 remains:
+  `5ebc757f76c58424e88fa6618c806c1bb73ad9dfa9bc09302481e5206c94ceda`
+- Normalized payload SHA-256 remains:
+  `815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27`
+- Compatibility guard: persistent Package A validation applies when either
+  exact HEAD or authorization baseline carries the manifest; it skips only
+  when both are absent.
+- Adversarial coverage retains fail-closed rejection for baseline-present
+  manifest/schema deletion, drift, activation substitution, and allowlist
+  escape.
+- Package state and first-card state remain `not_authorized`.
+- Review state: awaiting exact delivery-HEAD verification and independent
+  code/security plus architecture/route review.
