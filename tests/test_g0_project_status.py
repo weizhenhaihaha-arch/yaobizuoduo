@@ -4417,7 +4417,7 @@ def make_generation4_fresh_clone_without_competing_objects(
         "origin",
         "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
     )
-    source_head = git(ROOT, "rev-parse", "HEAD")
+    source_head = VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT
     git(
         repo,
         "fetch",
@@ -4502,6 +4502,13 @@ def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+    )
     seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
     valid_bytes = G0_T04_G4_ROUTE_SEAL.read_bytes()
     valid_subject = git(repo, "rev-parse", "HEAD")

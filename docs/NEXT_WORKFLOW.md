@@ -63,3 +63,7 @@ PR #26 把仍为 `in_progress` 的 `c22bc286…` 过早合并为 F
 failure receipt/blocker。普通 `in_progress` merge 继续拒绝。未来 bridge
 只能是 `[F, accepted recovery]` 且 tree 等于 second parent；本切片不创建
 acceptance、bridge、PR、merge 或任何后续卡。
+
+恢复 implementation I 已固定为
+`0a752ac8f14bafb42a18922d8155944612d6d21c`；当前 delivery HEAD 仅等待
+exact-head CI 与独立双审，不得把本地成功升级为 acceptance。

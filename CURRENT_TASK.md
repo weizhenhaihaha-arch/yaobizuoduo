@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 governance anomaly recovery
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `4`
 - Baseline: `1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f`
 - Exact terminal-blocked main:
@@ -83,6 +83,10 @@ fresh canonical Package A route.
 4. A future protected-main bridge is valid only as
    `[F, accepted-generation-4-recovery]` with tree equal to its second parent.
    This card does not create that acceptance or bridge.
+
+Implementation I is
+`0a752ac8f14bafb42a18922d8155944612d6d21c`. The current delivery is the
+implicit candidate and awaits exact-head CI plus independent dual review.
 
 ## Frozen allowlist
 
