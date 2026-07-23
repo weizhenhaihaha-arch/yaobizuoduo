@@ -129,6 +129,24 @@ G0_T04_RECOVERY_BLOCKER = (
     f"url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T04_FAILED_MAIN_RUN} "
     "conclusion=failure"
 )
+G0_T04_RECOVERY_ALLOWED_PATHS = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        G0_T04_RECOVERY_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
+G0_T04_RECOVERY_REQUIRED_PATHS = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        G0_T04_RECOVERY_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 PACKAGE_A_MANIFEST_PATH = "governance/packages/package-a.manifest.json"
 PACKAGE_A_SCHEMA_PATH = "schemas/package_a_manifest.schema.json"
 PACKAGE_A_SCHEMA_VERSION = "package-a-manifest.v2"
@@ -4280,6 +4298,15 @@ def _g0_t04_recovery_parent_errors(
     else:
         errors.extend(_g0_t04_failed_merge_errors(root, schema))
     errors.extend(_g0_t04_recovery_receipt_errors(root, child_sha))
+    changed = _g0_t03_commit_changed_paths(
+        root, G0_T04_FAILED_MAIN_SHA, child_sha
+    )
+    if (
+        changed is None
+        or not G0_T04_RECOVERY_REQUIRED_PATHS.issubset(changed)
+        or not changed.issubset(G0_T04_RECOVERY_ALLOWED_PATHS)
+    ):
+        errors.append("$: G0-T04 recovery changed paths violate the exact allowlist")
     for path in (PACKAGE_A_MANIFEST_PATH, PACKAGE_A_SCHEMA_PATH):
         ok_failed, failed_blob = _git(
             root, "rev-parse", f"{G0_T04_FAILED_MAIN_SHA}:{path}"
@@ -4394,24 +4421,10 @@ def _canonical_g0_t04_recovery_bridge(
     changed = _g0_t03_commit_changed_paths(
         root, G0_T04_FAILED_MAIN_SHA, governed_parent
     )
-    allowed = {
-        "PROJECT_STATUS.yaml",
-        "CURRENT_TASK.md",
-        "PROJECT_MEMORY.md",
-        G0_T04_RECOVERY_RECEIPT_PATH,
-        "scripts/validate_project_status.py",
-        "tests/test_g0_project_status.py",
-    }
-    required = {
-        "PROJECT_STATUS.yaml",
-        G0_T04_RECOVERY_RECEIPT_PATH,
-        "scripts/validate_project_status.py",
-        "tests/test_g0_project_status.py",
-    }
     if (
         changed is None
-        or not required.issubset(changed)
-        or not changed.issubset(allowed)
+        or not G0_T04_RECOVERY_REQUIRED_PATHS.issubset(changed)
+        or not changed.issubset(G0_T04_RECOVERY_ALLOWED_PATHS)
     ):
         errors.append("$: G0-T04 recovery changed paths violate the exact allowlist")
     if not _typed_equal(_status_at(root, governed_parent), status):

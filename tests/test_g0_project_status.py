@@ -3396,6 +3396,23 @@ def test_g0_t04_recovery_historical_validation_ignores_advanced_main(
     assert historical_errors == []
 
 
+def test_g0_t04_recovery_descendant_rejects_out_of_scope_path(
+    tmp_path: Path,
+) -> None:
+    repo, _, recovery = make_g0_t04_recovery(tmp_path)
+    (repo / "ordinary.txt").write_text("out of scope\n", encoding="utf-8")
+    forged = commit(repo, "forge out-of-scope G0-T04 recovery descendant")
+
+    assert git(repo, "rev-list", "--parents", "-n", "1", forged).split() == [
+        forged,
+        recovery,
+    ]
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+
+    assert result.returncode == 1
+    assert "G0-T04 recovery changed paths violate the exact allowlist" in result.stdout
+
+
 def test_exact_g0_t04_recovery_merge_is_accepted(tmp_path: Path) -> None:
     repo, status, recovery = make_g0_t04_recovery(tmp_path)
     tree = git(repo, "rev-parse", f"{recovery}^{{tree}}")
