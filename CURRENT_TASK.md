@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `accepted_pending_merge`
+- Status: `merged_verified`
 - Candidate generation: `3`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -224,3 +224,19 @@ reviews, blockers, worktree state, and repository/external memory updates.
 - The Package A manifest/schema/digests/order remain byte-identical and
   `not_authorized`; G0-T05, G1, market access, ruleset mutation, credentials,
   trading, deployment, and release remain outside authority.
+
+## Generation 3 merged-main verification
+
+- Recovery candidate `06feb30d43360ef732242f1be4ad02478823f47a`
+  passed exact pull-request CI run `29990406421`, code/security `APPROVE`,
+  architecture/route `CLEAR`, and all 264 governance test nodes.
+- PR #15 merged as `8d87f58e690a2ea7fac74d432495c8873d5a9d87`
+  with ordered parents
+  `[11040ca0d8ea17ba1bc47641705aa95c2cba6a75,
+  06feb30d43360ef732242f1be4ad02478823f47a]`; its tree equals the recovery
+  candidate tree `4b7404240a4f81282764059b63be906fec5da377`.
+- Authoritative-main exact-head CI run `29991346572` succeeded. The failed-main
+  blocker is therefore cleared and G0-T04 advances only to `merged_verified`.
+- Package A remains immutable and `not_authorized`; this record does not
+  activate G0-T05, G1, market access, ruleset mutation, deployment, release,
+  credentials, or trading.
