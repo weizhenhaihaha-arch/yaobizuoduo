@@ -228,6 +228,58 @@ G0_T04_G4_ROUTE_SEAL_PAYLOAD = (
 )
 G0_T04_G4_G1_BLOCKED = "3a27f530b338ece78ae90ffd895787e5a10616fc"
 G0_T04_G4_G1_MERGE_BASE = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
+G0_T04_G4_PREMATURE_MAIN = "8a7b8aca2b59a5598f0e721f557c06a008f362e0"
+G0_T04_G4_PREMATURE_MAIN_FIRST_PARENT = G0_T04_G4_BLOCKED_MAIN
+G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT = (
+    "c22bc286b2ee30a0cdaf40a82223bc6f15133af5"
+)
+G0_T04_G4_PREMATURE_MAIN_TREE = "930c41200f0f94fb64e40aa19d3adc4323f8276c"
+G0_T04_G4_PREMATURE_MAIN_STATUS_BLOB = (
+    "a0c097ed92896b0d8b6b958e19655b5a1e8d110d"
+)
+G0_T04_G4_PREMATURE_MAIN_STATUS_DIGEST = (
+    "2b988b6a14c64c507b3dcbed33eba27e28ac13f371c85a665ead2c222661dc52"
+)
+G0_T04_G4_PREMATURE_PR = 26
+G0_T04_G4_PREMATURE_PR_RUN = "30028693653"
+G0_T04_G4_PREMATURE_MAIN_RUN = "30028739788"
+G0_T04_G4_PREMATURE_RECEIPT_PATH = (
+    "evidence/g0-t04/generation-4-premature-merge-recovery.json"
+)
+G0_T04_G4_PREMATURE_RECEIPT_VERSION = (
+    "g0-t04-generation-4-premature-merge-recovery.v1"
+)
+G0_T04_G4_PREMATURE_BLOCKER = (
+    "premature_merge_main_ci_failure "
+    "repository=weizhenhaihaha-arch/yaobizuoduo event=push "
+    "ref=refs/heads/main "
+    f"subject_sha={G0_T04_G4_PREMATURE_MAIN} "
+    f"run_id={G0_T04_G4_PREMATURE_MAIN_RUN} "
+    "url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/"
+    f"{G0_T04_G4_PREMATURE_MAIN_RUN} conclusion=failure"
+)
+G0_T04_G4_PREMATURE_ALLOWED = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        G0_T04_G4_PREMATURE_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
+G0_T04_G4_PREMATURE_REQUIRED = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        G0_T04_G4_PREMATURE_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 G0_T04_G4_ALLOWED = frozenset(
     {
         "PROJECT_STATUS.yaml",
@@ -1760,6 +1812,288 @@ def _g0_t04_g4_authorization_parent_errors(
     return errors
 
 
+def _g0_t04_g4_premature_recovery_receipt() -> dict[str, Any]:
+    receipt: dict[str, Any] = {
+        "schema_version": G0_T04_G4_PREMATURE_RECEIPT_VERSION,
+        "project": "yaobizuoduo",
+        "task_id": "G0-T04",
+        "candidate_generation": 4,
+        "purpose": "premature_in_progress_main_merge_recovery",
+        "premature_main": {
+            "commit_sha": G0_T04_G4_PREMATURE_MAIN,
+            "ordered_parents": [
+                G0_T04_G4_PREMATURE_MAIN_FIRST_PARENT,
+                G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+            ],
+            "tree_sha": G0_T04_G4_PREMATURE_MAIN_TREE,
+            "pull_request": G0_T04_G4_PREMATURE_PR,
+            "pull_request_head": G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+            "reviews": {
+                "state": "empty",
+                "count": 0,
+            },
+            "project_status": {
+                "blob_sha": G0_T04_G4_PREMATURE_MAIN_STATUS_BLOB,
+                "canonical_sha256": G0_T04_G4_PREMATURE_MAIN_STATUS_DIGEST,
+            },
+            "pull_request_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "pull_request",
+                "check": "G0 / exact-head",
+                "subject_sha": G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+                "run_id": G0_T04_G4_PREMATURE_PR_RUN,
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    f"actions/runs/{G0_T04_G4_PREMATURE_PR_RUN}"
+                ),
+                "status": "completed",
+                "conclusion": "success",
+                "authority": "anomaly_history_only",
+            },
+            "main_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "push",
+                "ref": "refs/heads/main",
+                "check": "G0 / exact-head",
+                "subject_sha": G0_T04_G4_PREMATURE_MAIN,
+                "run_id": G0_T04_G4_PREMATURE_MAIN_RUN,
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    f"actions/runs/{G0_T04_G4_PREMATURE_MAIN_RUN}"
+                ),
+                "status": "completed",
+                "conclusion": "failure",
+            },
+        },
+        "recovery_route": {
+            "base_sha": G0_T04_G4_PREMATURE_MAIN,
+            "lineage_rule": "strict_single_parent_only",
+            "ordinary_in_progress_merge_authority": False,
+            "future_bridge": {
+                "first_parent": G0_T04_G4_PREMATURE_MAIN,
+                "second_parent_role": "accepted_generation_4_recovery",
+                "tree_rule": "merge_tree_equals_second_parent_tree",
+            },
+            "allowed_paths": sorted(G0_T04_G4_PREMATURE_ALLOWED),
+        },
+        "scope": {
+            "g0_t05_authorized": False,
+            "g1_authorized": False,
+            "g2_authorized": False,
+            "product_or_network_change_authorized": False,
+        },
+    }
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
+
+
+def _g0_t04_g4_premature_recovery_receipt_errors(
+    root: Path, subject_sha: str
+) -> list[str]:
+    ok_entry, entry = _git(
+        root,
+        "ls-tree",
+        subject_sha,
+        "--",
+        G0_T04_G4_PREMATURE_RECEIPT_PATH,
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != G0_T04_G4_PREMATURE_RECEIPT_PATH
+    ):
+        return [
+            "$: G0-T04 generation-4 premature-merge recovery receipt "
+            "must be an exact committed 100644 blob"
+        ]
+    ok_bytes, actual = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{G0_T04_G4_PREMATURE_RECEIPT_PATH}",
+    )
+    expected = (
+        json.dumps(
+            _g0_t04_g4_premature_recovery_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    if not ok_bytes or actual != expected:
+        return [
+            "$: G0-T04 generation-4 premature-merge recovery receipt "
+            "bytes or digest drifted"
+        ]
+    return []
+
+
+def _g0_t04_g4_premature_recovery_status_errors(
+    status: dict[str, Any],
+) -> list[str]:
+    try:
+        task = status["active_tasks"][0]
+        state = task["state"]
+        blockers = status["blockers"]
+    except (KeyError, IndexError, TypeError):
+        return [
+            "$: G0-T04 generation-4 premature-main recovery status is malformed"
+        ]
+    if state == "in_progress":
+        if blockers != []:
+            return [
+                "$.blockers: G0-T04 generation-4 premature-main in_progress "
+                "recovery must retain exact empty blockers"
+            ]
+        return []
+    if state in {"awaiting_review", "accepted_pending_merge"}:
+        if blockers != [G0_T04_G4_PREMATURE_BLOCKER]:
+            return [
+                "$.blockers: G0-T04 generation-4 premature-main recovery "
+                "must retain the exact premature-main CI blocker through acceptance"
+            ]
+        return []
+    if state in {"merged_verified", "closed"}:
+        return [
+            "$.blockers: G0-T04 generation-4 premature-main recovery blocker "
+            "cannot clear before a dedicated evidence-bound clearing transition"
+        ]
+    return []
+
+
+def _g0_t04_g4_premature_recovery_lineage_errors(
+    root: Path,
+    governed_head: str,
+    *,
+    require_current_main: bool,
+) -> list[str]:
+    errors: list[str] = []
+    ok_f, f_parents_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        G0_T04_G4_PREMATURE_MAIN,
+    )
+    ok_f_tree, f_tree = _git(
+        root,
+        "rev-parse",
+        f"{G0_T04_G4_PREMATURE_MAIN}^{{tree}}",
+    )
+    if (
+        (f_parents_text.split() if ok_f else [])
+        != [
+            G0_T04_G4_PREMATURE_MAIN,
+            G0_T04_G4_PREMATURE_MAIN_FIRST_PARENT,
+            G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+        ]
+        or not ok_f_tree
+        or f_tree != G0_T04_G4_PREMATURE_MAIN_TREE
+    ):
+        errors.append(
+            "$: G0-T04 generation-4 premature main identity or topology drifted"
+        )
+    if governed_head == G0_T04_G4_PREMATURE_MAIN or not _is_ancestor(
+        root,
+        G0_T04_G4_PREMATURE_MAIN,
+        governed_head,
+    ):
+        return errors + [
+            "$: G0-T04 generation-4 recovery must descend from exact premature main"
+        ]
+    ok_lineage, lineage_text = _git(
+        root,
+        "rev-list",
+        "--first-parent",
+        f"{G0_T04_G4_PREMATURE_MAIN}..{governed_head}",
+    )
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    expected_parent = G0_T04_G4_PREMATURE_MAIN
+    for sha in reversed(lineage):
+        ok_parents, parents_text = _git(
+            root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            sha,
+        )
+        if (parents_text.split() if ok_parents else []) != [sha, expected_parent]:
+            errors.append(
+                "$: G0-T04 generation-4 premature-main recovery lineage "
+                "must remain strict single-parent"
+            )
+            break
+        expected_parent = sha
+    changed = _g0_t03_commit_changed_paths(
+        root,
+        G0_T04_G4_PREMATURE_MAIN,
+        governed_head,
+    )
+    if (
+        changed is None
+        or not changed.issubset(G0_T04_G4_PREMATURE_ALLOWED)
+        or not G0_T04_G4_PREMATURE_REQUIRED.issubset(changed)
+    ):
+        errors.append(
+            "$: G0-T04 generation-4 premature-main recovery required scope drifted"
+        )
+    errors.extend(
+        _g0_t04_g4_premature_recovery_receipt_errors(root, governed_head)
+    )
+    if _git_blob_oid(
+        root,
+        governed_head,
+        G0_T04_G4_ROUTE_SEAL_PATH,
+    ) != _git_blob_oid(
+        root,
+        G0_T04_G4_PREMATURE_MAIN,
+        G0_T04_G4_ROUTE_SEAL_PATH,
+    ):
+        errors.append(
+            "$: G0-T04 generation-4 premature-main recovery changed "
+            "the immutable main-drift seal"
+        )
+    if _git_blob_oid(
+        root,
+        G0_T04_G4_PREMATURE_MAIN,
+        "PROJECT_STATUS.yaml",
+    ) != G0_T04_G4_PREMATURE_MAIN_STATUS_BLOB:
+        errors.append(
+            "$: G0-T04 generation-4 premature main status blob drifted"
+        )
+    premature_status = _status_at(root, G0_T04_G4_PREMATURE_MAIN)
+    if (
+        type(premature_status) is not dict
+        or _canonical_status_digest(premature_status)
+        != G0_T04_G4_PREMATURE_MAIN_STATUS_DIGEST
+    ):
+        errors.append(
+            "$: G0-T04 generation-4 premature main canonical status digest drifted"
+        )
+    if require_current_main:
+        ok_main, main = _git(root, "rev-parse", "--verify", "refs/heads/main")
+        ok_remote, remote = _git(
+            root,
+            "rev-parse",
+            "--verify",
+            "refs/remotes/origin/main",
+        )
+        if (
+            not ok_main
+            or not ok_remote
+            or main != G0_T04_G4_PREMATURE_MAIN
+            or remote != G0_T04_G4_PREMATURE_MAIN
+        ):
+            errors.append(
+                "$: G0-T04 generation-4 premature-main recovery requires "
+                "exact local and fetched main"
+            )
+    return errors
+
+
 def _g0_t04_g4_route_errors(
     status: dict[str, Any], root: Path, head: str
 ) -> list[str]:
@@ -2029,9 +2363,6 @@ def _g0_t04_g4_route_errors(
             != "Start G0-T04 generation 4 implementation"
         ):
             errors.append("$: G0-T04 generation-4 competing route topology drifted")
-    changed = _g0_t03_commit_changed_paths(root, G0_T04_G4_AUTHORIZATION, head)
-    if changed is None or not changed.issubset(G0_T04_G4_ALLOWED):
-        errors.append("$: G0-T04 generation-4 cumulative allowlist drifted")
     ok_start, start_parents = _git(
         root, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
     )
@@ -2045,6 +2376,52 @@ def _g0_t04_g4_route_errors(
         root, "rev-list", "--parents", "-n", "1", head
     )
     head_parts = head_parents_text.split() if ok_head_parents else []
+    recovery_subject: str | None = None
+    recovery_is_bridge = (
+        len(head_parts) == 3
+        and head_parts[1] == G0_T04_G4_PREMATURE_MAIN
+    )
+    if recovery_is_bridge:
+        recovery_subject = head_parts[2]
+    elif (
+        head != G0_T04_G4_PREMATURE_MAIN
+        and _is_ancestor(root, G0_T04_G4_PREMATURE_MAIN, head)
+    ):
+        recovery_subject = head
+    if recovery_subject is not None:
+        errors.extend(
+            _g0_t04_g4_premature_recovery_lineage_errors(
+                root,
+                recovery_subject,
+                require_current_main=not recovery_is_bridge,
+            )
+        )
+        if recovery_is_bridge:
+            governed_status = _status_at(root, recovery_subject)
+            if type(governed_status) is not dict:
+                errors.append(
+                    "$: G0-T04 generation-4 premature-main recovery "
+                    "second-parent status is unavailable"
+                )
+            else:
+                errors.extend(
+                    _g0_t04_g4_premature_recovery_status_errors(
+                        governed_status
+                    )
+                )
+        else:
+            errors.extend(
+                _g0_t04_g4_premature_recovery_status_errors(status)
+            )
+        lineage_subject = G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT
+    else:
+        changed = _g0_t03_commit_changed_paths(
+            root,
+            G0_T04_G4_AUTHORIZATION,
+            head,
+        )
+        if changed is None or not changed.issubset(G0_T04_G4_ALLOWED):
+            errors.append("$: G0-T04 generation-4 cumulative allowlist drifted")
     if len(head_parts) == 3 and head_parts[1] == G0_T04_G4_BLOCKED_MAIN:
         lineage_subject = head_parts[2]
     errors.extend(_g0_t04_g4_canonical_lineage_errors(root, lineage_subject))
@@ -2101,22 +2478,44 @@ def _g0_t04_g4_merge_topology_errors(root: Path, head: str) -> list[str]:
     if len(parts) != 3:
         return ["$: G0-T04 generation-4 main bridge must have exactly two parents"]
     first_parent, governed_parent = parts[1], parts[2]
-    if first_parent != G0_T04_G4_BLOCKED_MAIN:
+    if first_parent != G0_T04_G4_PREMATURE_MAIN:
         errors.append(
-            "$: G0-T04 generation-4 main bridge first parent must be exact current main"
+            "$: G0-T04 generation-4 recovery bridge first parent must be "
+            "the exact premature main"
         )
-    if not _is_ancestor(root, G0_T04_G4_AUTHORIZATION, governed_parent):
+    governed_status = _status_at(root, governed_parent)
+    try:
+        governed_task = governed_status["active_tasks"][0]
+    except (KeyError, IndexError, TypeError):
+        governed_task = {}
+    if (
+        governed_task.get("state") != "accepted_pending_merge"
+        or governed_task.get("transition")
+        != {"from": "awaiting_review", "to": "accepted_pending_merge"}
+    ):
         errors.append(
-            "$: G0-T04 generation-4 main bridge second parent must descend from exact authorization"
+            "$: G0-T04 generation-4 recovery bridge second parent must be "
+            "the accepted recovery"
         )
-    errors.extend(_g0_t04_g4_canonical_lineage_errors(root, governed_parent))
+    if type(governed_status) is dict:
+        errors.extend(
+            _g0_t04_g4_premature_recovery_status_errors(governed_status)
+        )
+    errors.extend(
+        _g0_t04_g4_premature_recovery_lineage_errors(
+            root,
+            governed_parent,
+            require_current_main=False,
+        )
+    )
     ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
     ok_parent_tree, parent_tree = _git(
         root, "rev-parse", f"{governed_parent}^{{tree}}"
     )
     if not ok_head_tree or not ok_parent_tree or head_tree != parent_tree:
         errors.append(
-            "$: G0-T04 generation-4 main bridge tree must equal its second-parent tree"
+            "$: G0-T04 generation-4 recovery bridge tree must equal "
+            "its second-parent tree"
         )
     return errors
 
@@ -2360,6 +2759,10 @@ def _governed_first_parent_chain(root: Path, head: str, current_schema: dict[str
     chain: list[str] = []
     seen: set[str] = set()
     sha = head
+    premature_recovery = (
+        head != G0_T04_G4_PREMATURE_MAIN
+        and _is_ancestor(root, G0_T04_G4_PREMATURE_MAIN, head)
+    )
     while sha not in seen:
         seen.add(sha)
         chain.append(sha)
@@ -2369,6 +2772,19 @@ def _governed_first_parent_chain(root: Path, head: str, current_schema: dict[str
             break
         next_sha = parts[1]
         if len(parts) == 3:
+            if (
+                premature_recovery
+                and sha == G0_T04_G4_PREMATURE_MAIN
+                and parts
+                == [
+                    G0_T04_G4_PREMATURE_MAIN,
+                    G0_T04_G4_PREMATURE_MAIN_FIRST_PARENT,
+                    G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+                ]
+            ):
+                next_sha = G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT
+                sha = next_sha
+                continue
             node = _status_at(root, sha)
             if type(node) is dict:
                 governed_parent, bridge_errors = _canonical_g0_merge_bridge(
@@ -6378,7 +6794,7 @@ def _canonical_g0_merge_bridge(
         G0_T02_FAILED_MAIN_SHA
         if recovery_bridge
         else (
-            G0_T04_G4_BLOCKED_MAIN
+            G0_T04_G4_PREMATURE_MAIN
             if g0_t04_g4_bridge
             else status["evidence"]["authorization_baseline_sha"]
         )

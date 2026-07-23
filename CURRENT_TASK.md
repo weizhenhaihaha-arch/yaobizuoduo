@@ -5,11 +5,13 @@
 - Task ID: `G0-T04`
 - Gate: G0 governance anomaly recovery
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `accepted_pending_merge`
 - Candidate generation: `4`
 - Baseline: `1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f`
 - Exact terminal-blocked main:
   `414fa392026c71b01378c64cbf62cb6b304b2eed`
+- Exact premature generation-4 main:
+  `8a7b8aca2b59a5598f0e721f557c06a008f362e0`
 
 ## Single goal
 
@@ -42,6 +44,14 @@ fresh canonical Package A route.
   remain `not_authorized` until this generation fully closes.
 - Capability remains capped at `OFFLINE_EVIDENCE_ACCEPTED`; G2 remains
   forbidden.
+- PR #26 merged the still-`in_progress` repair head
+  `c22bc286b2ee30a0cdaf40a82223bc6f15133af5` prematurely as
+  `8a7b8aca2b59a5598f0e721f557c06a008f362e0`, with ordered parents
+  `[414fa392026c71b01378c64cbf62cb6b304b2eed,
+  c22bc286b2ee30a0cdaf40a82223bc6f15133af5]` and tree
+  `930c41200f0f94fb64e40aa19d3adc4323f8276c`. PR run `30028693653`
+  is anomaly history only; push/main run `30028739788` failed canonical
+  validation. Neither fact is acceptance.
 
 ## Exact generation-4 topology
 
@@ -60,13 +70,33 @@ fresh canonical Package A route.
 5. G0-T04 must complete merged-main and finalization CI before a fresh
    activation may bind the reconfirmed Package A payload to the new close.
 
+## Premature-main recovery route
+
+1. The immutable recovery receipt freezes exact F
+   `8a7b8aca2b59a5598f0e721f557c06a008f362e0`, its parents/tree, PR #26
+   head/run, and failed push/main run.
+2. Only a strict single-parent recovery lineage may follow F. The ordinary
+   `in_progress` merge F is anomaly history and never merge authority.
+3. Recovery candidate `388a75b18f37ddd970a37938dba8b955dc95e719`
+   passed exact-head run `30036514625`, independent code/security `APPROVE`,
+   and independent architecture/route `CLEAR`; the exact failed-main blocker
+   remains retained through acceptance.
+4. The protected-main bridge is valid only as
+   `[F, accepted-generation-4-recovery]` with tree equal to its second parent.
+   Acceptance does not establish closure, merged-main, or finalization proof.
+
+Implementation I is
+`0a752ac8f14bafb42a18922d8155944612d6d21c`. The reviewed candidate is
+`388a75b18f37ddd970a37938dba8b955dc95e719`; its acceptance record must pass
+its own exact-head CI before any `[F, acceptance]` bridge is created.
+
 ## Frozen allowlist
 
 - `PROJECT_STATUS.yaml`
 - `CURRENT_TASK.md`
 - `PROJECT_MEMORY.md`
 - `docs/NEXT_WORKFLOW.md`
-- `evidence/g0-t04/generation-4-main-drift-seal.json`
+- `evidence/g0-t04/generation-4-premature-merge-recovery.json`
 - `scripts/validate_project_status.py`
 - `tests/test_g0_project_status.py`
 

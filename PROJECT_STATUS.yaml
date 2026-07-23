@@ -25,18 +25,18 @@
     {
       "task_id": "G0-T04",
       "risk": "D0",
-      "state": "in_progress",
-      "transition": {"from": "authorized", "to": "in_progress"},
+      "state": "accepted_pending_merge",
+      "transition": {"from": "awaiting_review", "to": "accepted_pending_merge"},
       "candidate_generation": 4
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
-    "implementation_sha": null,
+    "implementation_sha": "0a752ac8f14bafb42a18922d8155944612d6d21c",
     "candidate": {
-      "commit_sha": null,
-      "local_verification": {"status": "pending", "subject": "delivery_head"},
-      "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "388a75b18f37ddd970a37938dba8b955dc95e719",
+      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "ci": {"status": "success", "subject_sha": "388a75b18f37ddd970a37938dba8b955dc95e719", "run_id": "30036514625", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30036514625"}
     },
     "closure": {
       "commit_sha": null,
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "approve",
+    "architecture": "clear",
+    "reviewed_candidate_sha": "388a75b18f37ddd970a37938dba8b955dc95e719"
   },
   "bootstrap_exception": null,
   "capability": {
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "premature_merge_main_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=8a7b8aca2b59a5598f0e721f557c06a008f362e0 run_id=30028739788 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30028739788 conclusion=failure"
+  ],
   "next_authorization": {"gate": "G0", "task_id": "G0-T05", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
