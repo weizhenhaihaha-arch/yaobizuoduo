@@ -683,6 +683,21 @@ def clone_g0_t04_failed_main(tmp_path: Path) -> Path:
     return repo
 
 
+def install_g0_t03_frozen_refs(repo: Path) -> None:
+    frozen = {
+        "refs/remotes/origin/codex/g0-t03-main-protection": G0_T03_BLOCKED,
+        "refs/remotes/origin/codex/g0-t03-merge-recovery": (
+            G0_T03_RECOVERY_ACCEPTED_RECORD
+        ),
+        "refs/remotes/origin/codex/g0-t03-recovery-merge-recovery": (
+            G0_T03_RECOVERY_CLOSURE
+        ),
+        "refs/remotes/origin/codex/g0-t03-finalize": G0_T03_CLOSED_RECORD,
+    }
+    for ref, sha in frozen.items():
+        git(repo, "update-ref", ref, sha)
+
+
 def make_g0_t04_anomaly_recovery(
     tmp_path: Path, mutation: str | None = None
 ) -> tuple[Path, dict, str, str]:
@@ -700,6 +715,7 @@ def make_g0_t04_anomaly_recovery(
     )
     git(repo, "update-ref", "refs/heads/main", G0_T04_ANOMALY_MAIN)
     git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_ANOMALY_MAIN)
+    install_g0_t03_frozen_refs(repo)
     implementation = G0_T04_ANOMALY_IMPLEMENTATION
 
     status = VALIDATOR._g0_t04_anomaly_status(repo)
@@ -755,6 +771,7 @@ def make_g0_t04_anomaly_seal(
     git(repo, "switch", "-c", "g0-t04-anomaly-seal", G0_T04_ANOMALY_CANDIDATE)
     git(repo, "update-ref", "refs/heads/main", G0_T04_ANOMALY_MAIN)
     git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_ANOMALY_MAIN)
+    install_g0_t03_frozen_refs(repo)
     status = VALIDATOR._g0_t04_anomaly_seal_status(repo)
     write_status(repo / "PROJECT_STATUS.yaml", status)
     seal = VALIDATOR._g0_t04_anomaly_seal()
