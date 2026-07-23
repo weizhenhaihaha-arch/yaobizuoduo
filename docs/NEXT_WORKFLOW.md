@@ -1,6 +1,6 @@
 # 后续工作流程与授权门禁
 
-更新日期：2026-07-23（Asia/Shanghai）
+更新日期：2026-07-24（Asia/Shanghai）
 
 本文只解释路线，`PROJECT_STATUS.yaml` 是唯一当前机器状态源。
 
@@ -60,12 +60,21 @@ PR #26 把仍为 `in_progress` 的 `c22bc286…` 过早合并为 F
 
 从 F 开始的严格单父恢复 candidate `388a75b18f37ddd970a37938dba8b955dc95e719`
 已通过 exact-head run `30036514625`、独立 code/security `APPROVE` 与
-architecture/route `CLEAR`，因此当前仅推进到 `accepted_pending_merge`。
-精确 failure receipt/blocker 继续保留，普通 `in_progress` merge 继续拒绝。
-未来 bridge 只能是 `[F, accepted recovery]` 且 tree 等于 second parent；
-acceptance 自身的 exact-head CI 成功前不得创建 bridge、merge 或任何后续卡。
+architecture/route `CLEAR`。Acceptance
+`9652fabb655b1d678ef7677f173c2f15d65f881d` 通过 exact-head run
+`30037270342`；authoritative main
+`1419f7c77ff102fd68eb9583f5ec5c3b196ae4be` 的 ordered parents 精确为
+`[8a7b8aca…, 9652fabb…]`，tree 等于 second parent，并通过 push/main run
+`30037311721`，因此先推进到 `merged_verified`，sole failed-main blocker
+已按精确证据清除。Finalization subject
+`80effc864ce6788ebf6be8485ca1273ae52de538` 随后通过 exact pull-request
+run `30039415469`；当前严格单父 close record 只执行
+`merged_verified -> closed`。
 
 恢复 implementation I 已固定为
 `0a752ac8f14bafb42a18922d8155944612d6d21c`；reviewed candidate 固定为
-`388a75b18f37ddd970a37938dba8b955dc95e719`。closure、merged-main 与
-finalization evidence 仍未建立。
+`388a75b18f37ddd970a37938dba8b955dc95e719`。Closure、merged-main 与
+finalization evidence 均已建立。未来 terminal bridge 只能使用 ordered
+parents `[1419f7c77ff102fd68eb9583f5ec5c3b196ae4be, exact-close-record]`
+且 merge tree 等于 close-record tree；普通 closed merge 不具权威。
+Package A、G0-T05、G1、G2 以及产品、联网、凭证、交易、部署和发布仍未授权。

@@ -1,5 +1,5 @@
 {
-  "schema_version": "g0-t04-generation-4-premature-merge-recovery.v1",
+  "schema_version": "g0-t04-generation-4-premature-merge-recovery.v3",
   "project": "yaobizuoduo",
   "task_id": "G0-T04",
   "candidate_generation": 4,
@@ -69,5 +69,123 @@
     "g2_authorized": false,
     "product_or_network_change_authorized": false
   },
-  "payload_sha256": "ef0bcc7638bc268bf39b4ebca7c4dd2a8c489438b9ed090b30b1f9a1b48909af"
+  "merged_verification": {
+    "candidate": {
+      "commit_sha": "388a75b18f37ddd970a37938dba8b955dc95e719",
+      "ci": {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "ref": "refs/heads/codex/g0-t04-g4-premature-merge-recovery",
+        "check": "G0 / exact-head",
+        "subject_sha": "388a75b18f37ddd970a37938dba8b955dc95e719",
+        "run_id": "30036514625",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30036514625",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      "review": {
+        "code_security": "approve",
+        "architecture": "clear",
+        "reviewed_candidate_sha": "388a75b18f37ddd970a37938dba8b955dc95e719"
+      }
+    },
+    "acceptance": {
+      "commit_sha": "9652fabb655b1d678ef7677f173c2f15d65f881d",
+      "ordered_parents": [
+        "388a75b18f37ddd970a37938dba8b955dc95e719"
+      ],
+      "tree_sha": "1746a81c49d6dd4164925c04b476808e22b66ccc",
+      "ci": {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "ref": "refs/heads/codex/g0-t04-g4-premature-merge-recovery",
+        "check": "G0 / exact-head",
+        "subject_sha": "9652fabb655b1d678ef7677f173c2f15d65f881d",
+        "run_id": "30037270342",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30037270342",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    },
+    "merged_main": {
+      "commit_sha": "1419f7c77ff102fd68eb9583f5ec5c3b196ae4be",
+      "ordered_parents": [
+        "8a7b8aca2b59a5598f0e721f557c06a008f362e0",
+        "9652fabb655b1d678ef7677f173c2f15d65f881d"
+      ],
+      "tree_sha": "1746a81c49d6dd4164925c04b476808e22b66ccc",
+      "ci": {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "push",
+        "ref": "refs/heads/main",
+        "check": "G0 / exact-head",
+        "subject_sha": "1419f7c77ff102fd68eb9583f5ec5c3b196ae4be",
+        "run_id": "30037311721",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30037311721",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    },
+    "blocker_transition": {
+      "before": [
+        "premature_merge_main_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=8a7b8aca2b59a5598f0e721f557c06a008f362e0 run_id=30028739788 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30028739788 conclusion=failure"
+      ],
+      "after": [],
+      "clearing_authority": "exact_acceptance_and_ordered_main_bridge_and_three_success_cis"
+    },
+    "finalization": {
+      "commit_sha": null,
+      "ci_status": "not_run",
+      "authority": "not_created"
+    }
+  },
+  "finalization_close": {
+    "finalization_subject": {
+      "commit_sha": "80effc864ce6788ebf6be8485ca1273ae52de538",
+      "ci": {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "ref": "refs/heads/codex/g0-t04-g4-merged-verification",
+        "check": "G0 / exact-head",
+        "subject_sha": "80effc864ce6788ebf6be8485ca1273ae52de538",
+        "run_id": "30039415469",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30039415469",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    },
+    "close_record": {
+      "parent_sha": "80effc864ce6788ebf6be8485ca1273ae52de538",
+      "state": "closed",
+      "transition": {
+        "from": "merged_verified",
+        "to": "closed"
+      },
+      "changed_paths": [
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "PROJECT_STATUS.yaml",
+        "docs/NEXT_WORKFLOW.md",
+        "evidence/g0-t04/generation-4-premature-merge-recovery.json",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py"
+      ]
+    },
+    "future_terminal_bridge": {
+      "ordered_parents": [
+        "1419f7c77ff102fd68eb9583f5ec5c3b196ae4be",
+        "exact_finalization_close_record"
+      ],
+      "tree_rule": "merge_tree_equals_exact_close_record_tree",
+      "generic_closed_merge_authority": false
+    },
+    "scope": {
+      "package_activation_authorized": false,
+      "g0_t05_authorized": false,
+      "g1_authorized": false,
+      "g2_authorized": false,
+      "product_or_network_change_authorized": false
+    }
+  },
+  "payload_sha256": "4e8c6d3b4c9e8081fd25dd789c820acebc84a3809d7671f6cd6b822a188e7571"
 }
