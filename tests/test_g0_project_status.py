@@ -4577,7 +4577,15 @@ def make_generation4_premature_recovery_repo(
     )
     receipt_path = repo / VALIDATOR.G0_T04_G4_PREMATURE_RECEIPT_PATH
     receipt_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(G0_T04_G4_PREMATURE_RECEIPT, receipt_path)
+    receipt_path.write_text(
+        json.dumps(
+            VALIDATOR._g0_t04_g4_premature_recovery_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
     status_path = repo / "PROJECT_STATUS.yaml"
     if missing_required != "PROJECT_STATUS.yaml":
         status_value = json.loads(status_path.read_text(encoding="utf-8"))
@@ -4615,6 +4623,7 @@ def test_g0_t04_generation4_premature_recovery_receipt_is_exact() -> None:
     receipt = json.loads(
         G0_T04_G4_PREMATURE_RECEIPT.read_text(encoding="utf-8")
     )
+    assert receipt == VALIDATOR._g0_t04_g4_merged_verification_receipt()
     supplied = receipt.pop("payload_sha256")
     assert supplied == hashlib.sha256(
         json.dumps(
@@ -4624,6 +4633,10 @@ def test_g0_t04_generation4_premature_recovery_receipt_is_exact() -> None:
             ensure_ascii=False,
         ).encode("utf-8")
     ).hexdigest()
+    assert (
+        receipt["schema_version"]
+        == VALIDATOR.G0_T04_G4_MERGED_VERIFICATION_RECEIPT_VERSION
+    )
     assert receipt["premature_main"] == {
         "commit_sha": VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
         "ordered_parents": [
@@ -4924,3 +4937,315 @@ def test_g0_t04_generation4_recovery_bridge_rejects_hostile_topology(
         assert any("accepted recovery" in error for error in errors)
     else:
         assert any("tree must equal" in error for error in errors)
+
+
+def make_generation4_merged_verification_repo(
+    tmp_path: Path,
+    *,
+    status_mutation: str | None = None,
+    receipt_mutation: tuple[str, str] | None = None,
+    extra_path: str | None = None,
+    omitted_path: str | None = None,
+) -> tuple[Path, str, dict]:
+    repo = tmp_path / (
+        "g0-t04-generation4-merged-verification-"
+        f"{status_mutation or 'exact'}-"
+        f"{receipt_mutation[0] if receipt_mutation else 'receipt-exact'}"
+    )
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN,
+    )
+    acceptance = VALIDATOR._status_at(
+        repo,
+        VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTANCE,
+    )
+    assert type(acceptance) is dict
+    status = copy.deepcopy(acceptance)
+    status["active_tasks"][0].update(
+        state="merged_verified",
+        transition={
+            "from": "accepted_pending_merge",
+            "to": "merged_verified",
+        },
+    )
+    status["evidence"]["closure"] = {
+        "commit_sha": VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTANCE,
+        "ci": {
+            "status": "success",
+            "subject_sha": VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTANCE,
+            "run_id": VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTANCE_RUN,
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                f"actions/runs/{VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTANCE_RUN}"
+            ),
+        },
+    }
+    status["evidence"]["merged_main"] = {
+        "commit_sha": VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN,
+        "ci": {
+            "status": "success",
+            "subject_sha": VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN,
+            "run_id": VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN_RUN,
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                f"actions/runs/{VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN_RUN}"
+            ),
+        },
+    }
+    status["blockers"] = []
+    if status_mutation == "premature_blocker_clear":
+        acceptance["blockers"] = []
+    elif status_mutation == "extra_blocker":
+        status["blockers"] = ["unexpected blocker"]
+    elif status_mutation == "capability":
+        status["capability"]["maturity"] = "INTEGRATION_ACCEPTED"
+    elif status_mutation == "activation":
+        status["next_authorization"]["state"] = "authorized"
+    elif status_mutation == "finalization":
+        status["evidence"]["finalization"]["commit_sha"] = "f" * 40
+    status_path = repo / "PROJECT_STATUS.yaml"
+    status_path.write_text(
+        json.dumps(status, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    receipt = VALIDATOR._g0_t04_g4_merged_verification_receipt()
+    if receipt_mutation is not None:
+        field, value = receipt_mutation
+        receipt["merged_verification"]["merged_main"]["ci"][field] = value
+    receipt_path = repo / VALIDATOR.G0_T04_G4_PREMATURE_RECEIPT_PATH
+    write_digest_json(receipt_path, receipt)
+    for relative in (
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        path = repo / relative
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            + "\nMerged-verification fixture marker.\n",
+            encoding="utf-8",
+        )
+    if omitted_path is not None:
+        git(
+            repo,
+            "checkout",
+            VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN,
+            "--",
+            omitted_path,
+        )
+    if extra_path is not None:
+        path = repo / extra_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("forbidden scope\n", encoding="utf-8")
+    subject = commit(repo, "record exact generation-4 merged verification")
+    return repo, subject, status
+
+
+def test_g0_t04_generation4_merged_verification_accepts_exact_evidence(
+    tmp_path: Path,
+) -> None:
+    repo, subject, status = make_generation4_merged_verification_repo(tmp_path)
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject) == []
+    assert VALIDATOR._g0_t04_g4_merged_verification_topology_errors(repo) == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("repository", "example.invalid/wrong"),
+        ("event", "pull_request"),
+        ("ref", "refs/heads/not-main"),
+        ("subject_sha", "f" * 40),
+        ("run_id", "30037311722"),
+        ("url", "https://github.com/example/wrong/actions/runs/1"),
+        ("status", "queued"),
+        ("conclusion", "failure"),
+    ],
+)
+def test_g0_t04_generation4_merged_verification_rejects_ci_identity_drift(
+    tmp_path: Path,
+    field: str,
+    value: str,
+) -> None:
+    repo, subject, status = make_generation4_merged_verification_repo(
+        tmp_path,
+        receipt_mutation=(field, value),
+    )
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+    assert any("CI evidence" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "extra_blocker",
+        "capability",
+        "activation",
+        "finalization",
+    ],
+)
+def test_g0_t04_generation4_merged_verification_rejects_status_drift(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    repo, subject, status = make_generation4_merged_verification_repo(
+        tmp_path,
+        status_mutation=mutation,
+    )
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+    assert errors
+    if mutation != "activation":
+        assert any("exact evidence-bound projection" in error for error in errors)
+
+
+def test_g0_t04_generation4_merged_verification_rejects_premature_clear(
+) -> None:
+    candidate = VALIDATOR._status_at(
+        ROOT,
+        VALIDATOR.G0_T04_G4_RECOVERY_CANDIDATE,
+    )
+    acceptance = VALIDATOR._status_at(
+        ROOT,
+        VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTANCE,
+    )
+    merged = VALIDATOR._status_at(
+        ROOT,
+        VALIDATOR.G0_T04_G4_RECOVERY_MERGED_MAIN,
+    )
+    assert all(type(value) is dict for value in (candidate, acceptance, merged))
+    hostile_acceptance = copy.deepcopy(acceptance)
+    hostile_acceptance["blockers"] = []
+    errors = VALIDATOR._g0_t04_g4_merged_verification_status_errors(
+        copy.deepcopy(hostile_acceptance),
+        candidate,
+        hostile_acceptance,
+        merged,
+    )
+    assert any("acceptance evidence or blocker drifted" in error for error in errors)
+
+
+def test_g0_t04_generation4_merged_verification_rejects_ordinary_path(
+    tmp_path: Path,
+) -> None:
+    repo, subject, status = make_generation4_merged_verification_repo(
+        tmp_path,
+        extra_path="governance/package-a.activation.json",
+    )
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+    assert any("required seven-path scope drifted" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    "omitted_path",
+    sorted(VALIDATOR.G0_T04_G4_PREMATURE_ALLOWED),
+)
+def test_g0_t04_generation4_merged_verification_requires_all_seven_paths(
+    tmp_path: Path,
+    omitted_path: str,
+) -> None:
+    repo, subject, status = make_generation4_merged_verification_repo(
+        tmp_path,
+        omitted_path=omitted_path,
+    )
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+    assert any("required seven-path scope drifted" in error for error in errors)
+
+
+@pytest.mark.parametrize("mutation", ["missing_parent", "swapped", "tree"])
+def test_g0_t04_generation4_merged_verification_rejects_hostile_main_topology(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    repo = tmp_path / f"g0-t04-generation4-merged-topology-{mutation}"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    tree = VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTED_TREE
+    parents = [
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+        VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTANCE,
+    ]
+    if mutation == "missing_parent":
+        parents = parents[:1]
+    elif mutation == "swapped":
+        parents.reverse()
+    else:
+        tree = git(
+            repo,
+            "rev-parse",
+            f"{VALIDATOR.G0_T04_G4_PREMATURE_MAIN}^{{tree}}",
+        )
+    args = ["commit-tree", tree]
+    for parent in parents:
+        args.extend(["-p", parent])
+    hostile = git(repo, *args, "-m", f"hostile merged topology {mutation}")
+    monkeypatch.setattr(
+        VALIDATOR,
+        "G0_T04_G4_RECOVERY_MERGED_MAIN",
+        hostile,
+    )
+    errors = VALIDATOR._g0_t04_g4_merged_verification_topology_errors(repo)
+    if mutation == "tree":
+        assert any("tree must equal" in error for error in errors)
+    else:
+        assert any("ordered parents drifted" in error for error in errors)
+
+
+def test_g0_t04_generation4_merged_verification_rejects_wrong_acceptance_parent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repo = tmp_path / "g0-t04-generation4-wrong-acceptance-parent"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    hostile_acceptance = git(
+        repo,
+        "commit-tree",
+        VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTED_TREE,
+        "-p",
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+        "-m",
+        "hostile acceptance parent",
+    )
+    hostile_main = git(
+        repo,
+        "commit-tree",
+        VALIDATOR.G0_T04_G4_RECOVERY_ACCEPTED_TREE,
+        "-p",
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+        "-p",
+        hostile_acceptance,
+        "-m",
+        "hostile main over wrong acceptance",
+    )
+    monkeypatch.setattr(
+        VALIDATOR,
+        "G0_T04_G4_RECOVERY_ACCEPTANCE",
+        hostile_acceptance,
+    )
+    monkeypatch.setattr(
+        VALIDATOR,
+        "G0_T04_G4_RECOVERY_MERGED_MAIN",
+        hostile_main,
+    )
+    errors = VALIDATOR._g0_t04_g4_merged_verification_topology_errors(repo)
+    assert any("single-parent child" in error for error in errors)

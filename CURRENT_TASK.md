@@ -5,13 +5,17 @@
 - Task ID: `G0-T04`
 - Gate: G0 governance anomaly recovery
 - Risk: `D0`
-- Status: `accepted_pending_merge`
+- Status: `merged_verified`
 - Candidate generation: `4`
 - Baseline: `1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f`
 - Exact terminal-blocked main:
   `414fa392026c71b01378c64cbf62cb6b304b2eed`
 - Exact premature generation-4 main:
   `8a7b8aca2b59a5598f0e721f557c06a008f362e0`
+- Exact generation-4 recovery acceptance:
+  `9652fabb655b1d678ef7677f173c2f15d65f881d`
+- Exact recovered authoritative main:
+  `1419f7c77ff102fd68eb9583f5ec5c3b196ae4be`
 
 ## Single goal
 
@@ -83,12 +87,22 @@ fresh canonical Package A route.
    remains retained through acceptance.
 4. The protected-main bridge is valid only as
    `[F, accepted-generation-4-recovery]` with tree equal to its second parent.
-   Acceptance does not establish closure, merged-main, or finalization proof.
+   Acceptance `9652fabb655b1d678ef7677f173c2f15d65f881d` passed exact-head
+   run `30037270342`; authoritative main
+   `1419f7c77ff102fd68eb9583f5ec5c3b196ae4be` has exact ordered parents
+   `[8a7b8aca2b59a5598f0e721f557c06a008f362e0,
+   9652fabb655b1d678ef7677f173c2f15d65f881d]`, the same tree as its
+   second parent, and passed push/main run `30037311721`.
+5. Those exact facts establish only `merged_verified` and clear the sole
+   failed-main blocker. Finalization remains null/`not_run`; G0-T04 is not
+   closed and no later card is activated.
 
 Implementation I is
 `0a752ac8f14bafb42a18922d8155944612d6d21c`. The reviewed candidate is
-`388a75b18f37ddd970a37938dba8b955dc95e719`; its acceptance record must pass
-its own exact-head CI before any `[F, acceptance]` bridge is created.
+`388a75b18f37ddd970a37938dba8b955dc95e719`; candidate run
+`30036514625`, acceptance run `30037270342`, and merged-main run
+`30037311721` are all strict-success evidence. The only remaining G0-T04
+action is a separately evidenced finalization/close transition.
 
 ## Frozen allowlist
 
@@ -126,7 +140,7 @@ its own exact-head CI before any `[F, acceptance]` bridge is created.
   - `git diff --check`
 - Any failed test, review, topology, identity, blob, allowlist, or authority
   check returns only this G0-T04 card.
-- The product owner authorizes automatic push, PR, exact-HEAD CI, independent
-  dual review, protected-main merge, merged-main/finalization CI, fresh Package
-  A activation, G0-T05 rerun, and G1-T01 generation-2 reconciliation within
-  the previously frozen boundaries.
+- This merged-verification record authorizes no automatic finalization, Package
+  A activation, G0-T05, G1-T01, or later work. A separately governed
+  finalization/close record is required before any next authorization can be
+  evaluated.
