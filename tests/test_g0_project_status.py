@@ -2999,6 +2999,15 @@ def package_a_fixture(tmp_path: Path) -> tuple[Path, dict]:
     schema_path.parent.mkdir(parents=True)
     shutil.copy2(PACKAGE_A_MANIFEST, manifest_path)
     shutil.copy2(PACKAGE_A_SCHEMA, schema_path)
+    tests = root / "tests"
+    tests.mkdir()
+    (tests / "test_g0_project_status.py").write_text("# fixture\n", encoding="utf-8")
+    (tests / "test_m5_transport.py").write_text("# fixture\n", encoding="utf-8")
+    git(root, "init", "-q")
+    git(root, "config", "user.name", "Test")
+    git(root, "config", "user.email", "test@example.invalid")
+    git(root, "add", ".")
+    git(root, "commit", "-q", "-m", "exact package A")
     return root, json.loads(manifest_path.read_text(encoding="utf-8"))
 
 
@@ -3009,6 +3018,8 @@ def write_package_a(root: Path, manifest: dict, *, refresh_digest: bool = True) 
         json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
         encoding="utf-8",
     )
+    git(root, "add", VALIDATOR.PACKAGE_A_MANIFEST_PATH)
+    git(root, "commit", "-q", "-m", "mutate package A")
 
 
 def test_package_a_exact_manifest_is_valid_and_inactive() -> None:
@@ -3031,6 +3042,8 @@ def test_package_a_exact_manifest_is_valid_and_inactive() -> None:
         ("reviewer", "independent dual review"),
         ("cross_package", "cross-package continuation is forbidden"),
         ("implicit_activation", "must remain explicitly inactive"),
+        ("superseded_digest", "superseded generation-1 digest is forbidden"),
+        ("missing_test_path", "acceptance test path does not exist"),
     ],
 )
 def test_package_a_manifest_adversarial_drift_fails_closed(
@@ -3059,9 +3072,168 @@ def test_package_a_manifest_adversarial_drift_fails_closed(
         manifest["package_state"] = "authorized"
         manifest["activation"]["confirmed_payload_sha256"] = manifest["payload_sha256"]
         manifest["activation"]["first_task_state"] = "authorized"
+    elif mutation == "superseded_digest":
+        manifest["payload_sha256"] = VALIDATOR.PACKAGE_A_SUPERSEDED_PAYLOAD_SHA256
+        refresh_digest = False
+    elif mutation == "missing_test_path":
+        manifest["cards"][0]["acceptance_commands"][2] = (
+            "python3 -m pytest -q --ignore=tests/does_not_exist.py"
+        )
     else:
         raise AssertionError(mutation)
     write_package_a(root, manifest, refresh_digest=refresh_digest)
     errors = VALIDATOR._package_a_manifest_errors(root)
     assert errors
     assert expected in "\n".join(errors)
+
+
+@pytest.mark.parametrize("relative", [VALIDATOR.PACKAGE_A_MANIFEST_PATH, VALIDATOR.PACKAGE_A_SCHEMA_PATH])
+def test_package_a_symlink_git_entries_are_rejected(
+    tmp_path: Path, relative: str
+) -> None:
+    root, _ = package_a_fixture(tmp_path)
+    path = root / relative
+    external = tmp_path / ("external-" + path.name)
+    external.write_bytes(path.read_bytes())
+    path.unlink()
+    path.symlink_to(external)
+    git(root, "add", relative)
+    git(root, "commit", "-q", "-m", "replace immutable artifact with symlink")
+    errors = VALIDATOR._package_a_manifest_errors(root)
+    assert "exact committed 100644 Git blobs" in "\n".join(errors)
+
+
+def test_package_a_executable_git_entry_is_rejected(tmp_path: Path) -> None:
+    root, _ = package_a_fixture(tmp_path)
+    path = root / VALIDATOR.PACKAGE_A_MANIFEST_PATH
+    path.chmod(0o755)
+    git(root, "add", VALIDATOR.PACKAGE_A_MANIFEST_PATH)
+    git(root, "commit", "-q", "-m", "make immutable manifest executable")
+    errors = VALIDATOR._package_a_manifest_errors(root)
+    assert "exact committed 100644 Git blobs" in "\n".join(errors)
+
+
+def test_package_a_g1_freezes_complete_transport_backend_ci() -> None:
+    manifest = json.loads(PACKAGE_A_MANIFEST.read_text(encoding="utf-8"))
+    g1 = manifest["cards"][1]
+    rendered = json.dumps(g1, ensure_ascii=False)
+    assert "non-transport" not in rendered
+    assert "tests/test_m5_transport.py" in rendered
+    assert "missing API dependency" in rendered
+    assert "uncollected, skipped, or failed transport test" in rendered
+    assert "python3 -m pytest -q" in g1["acceptance_commands"]
+    g0 = manifest["cards"][0]
+    assert "python3 -m pytest -q --ignore=tests/test_m5_transport.py" in g0["acceptance_commands"]
+    assert all("test_api_transport.py" not in command for command in g0["acceptance_commands"])
+
+
+def make_package_a_activation(
+    closed_sha: str, **overrides: object
+) -> dict:
+    activation = {
+        "schema_version": VALIDATOR.PACKAGE_A_ACTIVATION_VERSION,
+        "package_id": "PACKAGE-A",
+        "package_generation": 2,
+        "manifest_path": VALIDATOR.PACKAGE_A_MANIFEST_PATH,
+        "schema_path": VALIDATOR.PACKAGE_A_SCHEMA_PATH,
+        "manifest_payload_sha256": VALIDATOR.PACKAGE_A_PAYLOAD_SHA256,
+        "first_task_id": "G0-T05",
+        "package_state": "authorized",
+        "product_owner_confirmation": "exact_payload_digest_confirmed",
+        "g0_t04_closed_sha": closed_sha,
+    }
+    activation.update(overrides)
+    activation["payload_sha256"] = VALIDATOR._payload_digest(activation)
+    return activation
+
+
+def make_post_g0_t04_package_repo(tmp_path: Path) -> tuple[Path, dict, str, str]:
+    repo = tmp_path / "post-g0-t04-package"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    shutil.copy2(PACKAGE_A_MANIFEST, repo / VALIDATOR.PACKAGE_A_MANIFEST_PATH)
+    shutil.copy2(PACKAGE_A_SCHEMA, repo / VALIDATOR.PACKAGE_A_SCHEMA_PATH)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    status["active_tasks"][0].update(
+        task_id="G0-T04",
+        risk="D0",
+        state="closed",
+        transition={"from": "merged_verified", "to": "closed"},
+        candidate_generation=2,
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    closed_sha = commit(repo, "synthetic closed G0-T04 package anchor")
+
+    status["active_tasks"][0].update(
+        task_id="G0-T05",
+        state="authorized",
+        transition={"from": "closed", "to": "authorized"},
+        candidate_generation=1,
+    )
+    status["evidence"]["authorization_baseline_sha"] = closed_sha
+    status["evidence"]["implementation_sha"] = None
+    status["evidence"]["candidate"] = {
+        "commit_sha": None,
+        "local_verification": {"status": "pending", "subject": "delivery_head"},
+        "ci": {"status": "not_run", "subject_sha": None, "run_id": None, "url": None},
+    }
+    for phase in ("closure", "merged_main"):
+        status["evidence"][phase] = {
+            "commit_sha": None,
+            "ci": {"status": "not_run", "subject_sha": None, "run_id": None, "url": None},
+        }
+    status["evidence"]["finalization"] = {
+        "commit_sha": None,
+        "d0_ci": {"status": "not_run", "subject_sha": None, "run_id": None, "url": None},
+    }
+    status["review"] = {
+        "code_security": "pending",
+        "architecture": "pending",
+        "reviewed_candidate_sha": None,
+    }
+    status["next_authorization"] = {
+        "gate": "G1",
+        "task_id": "G1-T01",
+        "state": "not_authorized",
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    activation_path = repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
+    activation_path.parent.mkdir(parents=True, exist_ok=True)
+    write_digest_json(activation_path, make_package_a_activation(closed_sha))
+    authorized_sha = commit(repo, "authorize G0-T05 with exact package digest")
+    return repo, status, closed_sha, authorized_sha
+
+
+def test_package_a_persists_from_g0_t04_close_through_g0_t05(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, authorized_sha = make_post_g0_t04_package_repo(tmp_path)
+    assert VALIDATOR._package_a_persistence_errors(status, repo, authorized_sha) == []
+
+    status["active_tasks"][0].update(
+        state="in_progress",
+        transition={"from": "authorized", "to": "in_progress"},
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    in_progress_sha = commit(repo, "start G0-T05")
+    assert VALIDATOR._package_a_persistence_errors(status, repo, in_progress_sha) == []
+
+    manifest_path = repo / VALIDATOR.PACKAGE_A_MANIFEST_PATH
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["cards"][0]["goal"] += " drift"
+    write_digest_json(manifest_path, manifest)
+    drift_sha = commit(repo, "drift accepted package")
+    errors = VALIDATOR._package_a_persistence_errors(status, repo, drift_sha)
+    assert "immutable blob drifted after accepted baseline" in "\n".join(errors)
+
+
+def test_package_a_active_card_allowlist_remains_fail_closed(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, authorized_sha = make_post_g0_t04_package_repo(tmp_path)
+    assert VALIDATOR._package_a_persistence_errors(status, repo, authorized_sha) == []
+    (repo / "strategy" / "package_scope_escape.py").write_text("escape = True\n", encoding="utf-8")
+    escaped_sha = commit(repo, "escape frozen G0-T05 allowlist")
+    errors = VALIDATOR._package_a_persistence_errors(status, repo, escaped_sha)
+    assert "changed paths exceed its immutable allowlist" in "\n".join(errors)

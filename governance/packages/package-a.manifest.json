@@ -1,11 +1,12 @@
 {
-  "schema_version": "package-a-manifest.v1",
+  "schema_version": "package-a-manifest.v2",
   "package_id": "PACKAGE-A",
   "package_state": "not_authorized",
   "manifest_path": "governance/packages/package-a.manifest.json",
   "schema_path": "schemas/package_a_manifest.schema.json",
-  "schema_sha256": "95974fb830e65221a14e8c7068a6c313277d879a49067e3847328f24276b61f4",
-  "generation": 1,
+  "schema_sha256": "5ebc757f76c58424e88fa6618c806c1bb73ad9dfa9bc09302481e5206c94ceda",
+  "generation": 2,
+  "supersedes_payload_sha256": "a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff",
   "authoritative_baseline_sha": "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
   "canonical_serialization": "utf8-json-sort-keys-compact-excluding-payload_sha256.v1",
   "first_task_id": "G0-T05",
@@ -18,6 +19,7 @@
     "product_owner_digest_confirmation_required": true,
     "confirmed_payload_sha256": null,
     "first_task_state": "not_authorized",
+    "activation_record_path": "evidence/g0-t05/package-a-activation.json",
     "automatic_cross_package_continuation": false
   },
   "cards": [
@@ -57,7 +59,7 @@
       "acceptance_commands": [
         "python3 scripts/validate_project_status.py --repo-root .",
         "python3 -m pytest -q tests/test_g0_project_status.py -k 'package_a or g0_t05'",
-        "python3 -m pytest -q --ignore=tests/test_api_transport.py",
+        "python3 -m pytest -q --ignore=tests/test_m5_transport.py",
         "npm --prefix frontend test -- --run",
         "npm --prefix frontend run build",
         "python3 -m compileall -q scripts tests",
@@ -99,15 +101,16 @@
       "task_id": "G1-T01",
       "gate": "G1",
       "risk": "D1",
-      "goal": "Establish one reproducible, cross-platform, full non-transport CI entrypoint with pinned Python and Node dependency identities and fail-closed governance, fixture, type, build, secret, and forbidden-scope checks.",
+      "goal": "Establish one reproducible, cross-platform, complete backend and frontend CI entrypoint with pinned Python, API, and Node dependency identities and fail-closed transport, governance, fixture, type, build, dependency, secret, and forbidden-scope checks.",
       "inputs": [
         "authoritative main with G0-T05 closed",
         "the activated Package A manifest with unchanged payload digest",
-        "the existing G0 / exact-head trust anchor and ruleset 19526291 readback"
+        "the existing G0 / exact-head trust anchor and ruleset 19526291 readback",
+        "pinned API dependencies required to collect and run tests/test_m5_transport.py"
       ],
       "outputs": [
-        "one documented local and CI verification entrypoint using pinned runtime and dependency identities",
-        "full non-transport Python, frontend, fixture digest, type, build, dependency, secret, and forbidden-scope checks under the stable aggregate required-check context",
+        "one documented local and CI verification entrypoint using pinned runtime, API, and dependency identities",
+        "complete backend coverage including mandatory collected and passing tests/test_m5_transport.py, plus frontend, fixture digest, type, build, dependency, secret, and forbidden-scope checks under the stable aggregate required-check context",
         "cross-platform reproducibility evidence from clean environments with no product capability increase"
       ],
       "allowed_paths": [
@@ -140,8 +143,9 @@
       ],
       "acceptance_commands": [
         "python3 scripts/validate_project_status.py --repo-root .",
-        "python3 -m pytest -q tests/test_g0_project_status.py tests/test_verify_full_ci.py",
-        "python3 scripts/verify_full_ci.py --offline --fail-closed",
+        "python3 -m pytest -q",
+        "python3 -m pytest -q tests/test_m5_transport.py",
+        "python3 scripts/verify_full_ci.py --offline --fail-closed --require-transport",
         "npm --prefix frontend test -- --run",
         "npm --prefix frontend run build",
         "python3 -m compileall -q scripts tests",
@@ -154,8 +158,8 @@
       "default_fail_closed": {
         "decision": "STOP_AND_RETURN_CURRENT_CARD",
         "triggers": [
-          "manifest digest, activated-package identity, G0-T05 close, runtime pin, dependency lock, fixture digest, command set, or required-check context drift",
-          "platform-dependent pass, skipped required suite, unpinned dependency, network fallback, or non-deterministic generated output",
+          "manifest digest, activated-package identity, G0-T05 close, runtime pin, API dependency lock, dependency lock, fixture digest, command set, or required-check context drift",
+          "missing API dependency, uncollected, skipped, or failed transport test, platform-dependent pass, skipped required suite, unpinned dependency, network fallback, or non-deterministic generated output",
           "HEAD, base, parent order, tree, CI subject, ruleset, allowlist, or fresh-clone drift",
           "unknown field, path, permission, dependency, network, secret, paid resource, deployment, release, or trading need"
         ]
@@ -177,5 +181,5 @@
       ]
     }
   ],
-  "payload_sha256": "a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff"
+  "payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27"
 }

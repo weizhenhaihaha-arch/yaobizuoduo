@@ -96,7 +96,7 @@ ordered Package A cards, frozen per-card scope and commands, validator tests,
 full verification, changed paths, forbidden-scope scan, PR/run, independent
 reviews, blockers, worktree state, and repository/external memory updates.
 
-## Delivered planning identity
+## Generation 1 delivered planning identity (superseded)
 
 - Implementation SHA:
   `ab351b2a14e16f71177cf56c10870b98b6f0f503`

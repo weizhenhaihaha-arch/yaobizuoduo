@@ -8,6 +8,7 @@ import functools
 import hashlib
 import json
 import re
+import shlex
 import subprocess
 import sys
 import os
@@ -111,10 +112,13 @@ G0_T03_RULESET_ID = 19526291
 G0_T03_RULESET_EVIDENCE_DIGEST = "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
 PACKAGE_A_MANIFEST_PATH = "governance/packages/package-a.manifest.json"
 PACKAGE_A_SCHEMA_PATH = "schemas/package_a_manifest.schema.json"
-PACKAGE_A_SCHEMA_VERSION = "package-a-manifest.v1"
+PACKAGE_A_SCHEMA_VERSION = "package-a-manifest.v2"
 PACKAGE_A_BASELINE_SHA = "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
-PACKAGE_A_SCHEMA_SHA256 = "95974fb830e65221a14e8c7068a6c313277d879a49067e3847328f24276b61f4"
-PACKAGE_A_PAYLOAD_SHA256 = "a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff"
+PACKAGE_A_SCHEMA_SHA256 = "5ebc757f76c58424e88fa6618c806c1bb73ad9dfa9bc09302481e5206c94ceda"
+PACKAGE_A_PAYLOAD_SHA256 = "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27"
+PACKAGE_A_SUPERSEDED_PAYLOAD_SHA256 = "a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff"
+PACKAGE_A_ACTIVATION_PATH = "evidence/g0-t05/package-a-activation.json"
+PACKAGE_A_ACTIVATION_VERSION = "package-a-activation.v1"
 PACKAGE_A_ORDERED_TASKS = ["G0-T05", "G1-T01"]
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
@@ -173,18 +177,31 @@ def _package_a_manifest_errors(
 ) -> list[str]:
     """Validate the immutable, still-inactive Package A planning artifact."""
 
-    def read(relative: str) -> tuple[bool, str]:
-        if subject_sha is not None:
-            return _git(root, "show", f"{subject_sha}:{relative}")
-        try:
-            return True, (root / relative).read_text(encoding="utf-8")
-        except (OSError, UnicodeError):
-            return False, ""
+    subject = subject_sha or "HEAD"
 
-    ok_manifest, manifest_text = read(PACKAGE_A_MANIFEST_PATH)
-    ok_schema, schema_text = read(PACKAGE_A_SCHEMA_PATH)
+    def read_regular_blob(relative: str) -> tuple[bool, bytes]:
+        ok_entry, entry = _git(root, "ls-tree", subject, "--", relative)
+        fields = entry.split(None, 3) if ok_entry else []
+        if (
+            len(fields) != 4
+            or fields[0] != "100644"
+            or fields[1] != "blob"
+            or fields[3] != relative
+        ):
+            return False, b""
+        return _git_bytes(root, "show", f"{subject}:{relative}")
+
+    ok_manifest, manifest_bytes = read_regular_blob(PACKAGE_A_MANIFEST_PATH)
+    ok_schema, schema_bytes = read_regular_blob(PACKAGE_A_SCHEMA_PATH)
     if not ok_manifest or not ok_schema:
-        return ["$: Package A manifest or schema is missing"]
+        return [
+            "$: Package A manifest and schema must be exact committed 100644 Git blobs"
+        ]
+    try:
+        manifest_text = manifest_bytes.decode("utf-8")
+        schema_text = schema_bytes.decode("utf-8")
+    except UnicodeDecodeError:
+        return ["$: Package A manifest or schema is not UTF-8"]
     try:
         manifest = json.loads(
             manifest_text, object_pairs_hook=_reject_duplicate_keys
@@ -203,7 +220,7 @@ def _package_a_manifest_errors(
             manifest, manifest_schema, manifest_schema
         )
     ]
-    schema_digest = hashlib.sha256(schema_text.encode("utf-8")).hexdigest()
+    schema_digest = hashlib.sha256(schema_bytes).hexdigest()
     if (
         schema_digest != PACKAGE_A_SCHEMA_SHA256
         or manifest.get("schema_sha256") != PACKAGE_A_SCHEMA_SHA256
@@ -213,6 +230,8 @@ def _package_a_manifest_errors(
         errors.append("$.package_a.payload_sha256: normalized payload digest mismatch")
     if manifest.get("payload_sha256") != PACKAGE_A_PAYLOAD_SHA256:
         errors.append("$.package_a.payload_sha256: immutable accepted planning payload drifted")
+    if manifest.get("payload_sha256") == PACKAGE_A_SUPERSEDED_PAYLOAD_SHA256:
+        errors.append("$.package_a.payload_sha256: superseded generation-1 digest is forbidden")
 
     cards = manifest.get("cards")
     ordered = manifest.get("ordered_task_ids")
@@ -222,7 +241,8 @@ def _package_a_manifest_errors(
         "package_state": "not_authorized",
         "manifest_path": PACKAGE_A_MANIFEST_PATH,
         "schema_path": PACKAGE_A_SCHEMA_PATH,
-        "generation": 1,
+        "generation": 2,
+        "supersedes_payload_sha256": PACKAGE_A_SUPERSEDED_PAYLOAD_SHA256,
         "authoritative_baseline_sha": PACKAGE_A_BASELINE_SHA,
         "canonical_serialization": "utf8-json-sort-keys-compact-excluding-payload_sha256.v1",
         "first_task_id": PACKAGE_A_ORDERED_TASKS[0],
@@ -252,12 +272,39 @@ def _package_a_manifest_errors(
                 errors.append(f"$.package_a.cards[{index}]: continuation permission is inconsistent")
             if continuation.get("requires_same_package") is not True:
                 errors.append(f"$.package_a.cards[{index}]: cross-package continuation is forbidden")
+            for command in card["acceptance_commands"]:
+                try:
+                    tokens = shlex.split(command)
+                except ValueError:
+                    errors.append(f"$.package_a.cards[{index}]: acceptance command is not parseable")
+                    continue
+                test_paths: set[str] = set()
+                for token in tokens:
+                    if token.startswith("--ignore="):
+                        test_paths.add(token.removeprefix("--ignore="))
+                    elif token.startswith("tests/") and token.endswith(".py"):
+                        test_paths.add(token)
+                for test_path in test_paths:
+                    ok_test, test_entry = _git(
+                        root, "ls-tree", subject, "--", test_path
+                    )
+                    test_fields = test_entry.split(None, 3) if ok_test else []
+                    if (
+                        len(test_fields) != 4
+                        or test_fields[0] not in {"100644", "100755"}
+                        or test_fields[1] != "blob"
+                        or test_fields[3] != test_path
+                    ):
+                        errors.append(
+                            f"$.package_a.cards[{index}]: acceptance test path does not exist: {test_path}"
+                        )
 
     activation = manifest.get("activation")
     if activation != {
         "product_owner_digest_confirmation_required": True,
         "confirmed_payload_sha256": None,
         "first_task_state": "not_authorized",
+        "activation_record_path": PACKAGE_A_ACTIVATION_PATH,
         "automatic_cross_package_continuation": False,
     }:
         errors.append("$.package_a.activation: Package A must remain explicitly inactive")
@@ -306,6 +353,158 @@ def _g0_t04_package_a_changed_path_errors(
         )
         if ok_prior:
             errors.append(f"$: G0-T04 immutable artifact must be newly introduced: {relative}")
+    return errors
+
+
+def _package_a_activation_errors(
+    status: dict[str, Any], root: Path, subject_sha: str
+) -> list[str]:
+    ok_entry, entry = _git(
+        root, "ls-tree", subject_sha, "--", PACKAGE_A_ACTIVATION_PATH
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != PACKAGE_A_ACTIVATION_PATH
+    ):
+        return ["$: Package A activation must be an exact committed 100644 Git blob"]
+    ok_blob, payload = _git_bytes(
+        root, "show", f"{subject_sha}:{PACKAGE_A_ACTIVATION_PATH}"
+    )
+    try:
+        activation = json.loads(
+            payload.decode("utf-8"), object_pairs_hook=_reject_duplicate_keys
+        ) if ok_blob else None
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        activation = None
+    if type(activation) is not dict:
+        return ["$: Package A activation evidence is not canonical JSON"]
+    expected_keys = {
+        "schema_version",
+        "package_id",
+        "package_generation",
+        "manifest_path",
+        "schema_path",
+        "manifest_payload_sha256",
+        "first_task_id",
+        "package_state",
+        "product_owner_confirmation",
+        "g0_t04_closed_sha",
+        "payload_sha256",
+    }
+    errors: list[str] = []
+    if set(activation) != expected_keys:
+        errors.append("$.package_a_activation: inexact field set")
+    expected = {
+        "schema_version": PACKAGE_A_ACTIVATION_VERSION,
+        "package_id": "PACKAGE-A",
+        "package_generation": 2,
+        "manifest_path": PACKAGE_A_MANIFEST_PATH,
+        "schema_path": PACKAGE_A_SCHEMA_PATH,
+        "manifest_payload_sha256": PACKAGE_A_PAYLOAD_SHA256,
+        "first_task_id": PACKAGE_A_ORDERED_TASKS[0],
+        "package_state": "authorized",
+        "product_owner_confirmation": "exact_payload_digest_confirmed",
+    }
+    for key, value in expected.items():
+        if not _typed_equal(activation.get(key), value):
+            errors.append(f"$.package_a_activation.{key}: activation identity drifted")
+    if activation.get("payload_sha256") != _payload_digest(activation):
+        errors.append("$.package_a_activation.payload_sha256: digest mismatch")
+    closed_sha = activation.get("g0_t04_closed_sha")
+    closed_status = (
+        _status_at(root, closed_sha)
+        if type(closed_sha) is str and re.fullmatch(r"[0-9a-f]{40}", closed_sha)
+        else None
+    )
+    try:
+        valid_closed = (
+            type(closed_status) is dict
+            and closed_status["active_tasks"][0].get("task_id") == "G0-T04"
+            and closed_status["active_tasks"][0].get("state") == "closed"
+            and _is_ancestor(root, closed_sha, subject_sha)
+        )
+    except (KeyError, IndexError, TypeError):
+        valid_closed = False
+    if not valid_closed:
+        errors.append("$.package_a_activation.g0_t04_closed_sha: must bind an ancestor closed G0-T04")
+    if status["active_tasks"][0]["task_id"] == "G0-T05" and closed_sha != status["evidence"]["authorization_baseline_sha"]:
+        errors.append("$.package_a_activation.g0_t04_closed_sha: G0-T05 must start from the bound close")
+    return errors
+
+
+def _package_a_persistence_errors(
+    status: dict[str, Any], root: Path, head: str
+) -> list[str]:
+    """Keep accepted Package A blobs and card scopes frozen after G0-T04."""
+
+    task = status["active_tasks"][0]
+    task_id = task["task_id"]
+    if task_id == "G0-T04":
+        return _package_a_manifest_errors(root, head)
+    if task_id not in PACKAGE_A_ORDERED_TASKS:
+        return []
+
+    errors = _package_a_manifest_errors(root, head)
+    baseline = status["evidence"]["authorization_baseline_sha"]
+    errors.extend(_package_a_manifest_errors(root, baseline))
+    expected_previous = "G0-T04" if task_id == "G0-T05" else "G0-T05"
+    baseline_status = _status_at(root, baseline)
+    try:
+        valid_baseline = (
+            type(baseline_status) is dict
+            and baseline_status["active_tasks"][0].get("task_id") == expected_previous
+            and baseline_status["active_tasks"][0].get("state") == "closed"
+        )
+    except (KeyError, IndexError, TypeError):
+        valid_baseline = False
+    if not valid_baseline:
+        errors.append(
+            f"$.package_a: {task_id} baseline must be the exact closed {expected_previous}"
+        )
+    for relative in (PACKAGE_A_MANIFEST_PATH, PACKAGE_A_SCHEMA_PATH):
+        ok_current, current_blob = _git(root, "rev-parse", f"{head}:{relative}")
+        ok_base, base_blob = _git(root, "rev-parse", f"{baseline}:{relative}")
+        if not ok_current or not ok_base or current_blob != base_blob:
+            errors.append(f"$.package_a: immutable blob drifted after accepted baseline: {relative}")
+
+    errors.extend(_package_a_activation_errors(status, root, head))
+    if task_id == "G1-T01":
+        ok_current, current_activation = _git(
+            root, "rev-parse", f"{head}:{PACKAGE_A_ACTIVATION_PATH}"
+        )
+        ok_base, base_activation = _git(
+            root, "rev-parse", f"{baseline}:{PACKAGE_A_ACTIVATION_PATH}"
+        )
+        if not ok_current or not ok_base or current_activation != base_activation:
+            errors.append("$.package_a_activation: immutable activation drifted after G0-T05 close")
+
+    ok_manifest, manifest_bytes = _git_bytes(
+        root, "show", f"{baseline}:{PACKAGE_A_MANIFEST_PATH}"
+    )
+    try:
+        manifest = json.loads(
+            manifest_bytes.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+        ) if ok_manifest else None
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        manifest = None
+    cards = manifest.get("cards") if type(manifest) is dict else None
+    card = next(
+        (
+            item
+            for item in cards
+            if type(item) is dict and item.get("task_id") == task_id
+        ),
+        None,
+    ) if type(cards) is list else None
+    ok_diff, changed_text = _git(root, "diff", "--name-only", baseline, head)
+    changed = {line for line in changed_text.splitlines() if line} if ok_diff else None
+    allowed_paths = set(card.get("allowed_paths", [])) if type(card) is dict else set()
+    if changed is None or not changed.issubset(allowed_paths):
+        errors.append(f"$.package_a.cards: {task_id} changed paths exceed its immutable allowlist")
     return errors
 
 
@@ -3991,10 +4190,9 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     if not ok:
         return ["$: repository HEAD is unavailable"]
     task = status["active_tasks"][0]
-    if task["task_id"] == "G0-T04":
-        errors.extend(_package_a_manifest_errors(root))
-        if task["state"] == "awaiting_review":
-            errors.extend(_g0_t04_package_a_changed_path_errors(root, head))
+    errors.extend(_package_a_persistence_errors(status, root, head))
+    if task["task_id"] == "G0-T04" and task["state"] == "awaiting_review":
+        errors.extend(_g0_t04_package_a_changed_path_errors(root, head))
     governed_history_head, bridge_errors = _canonical_g0_merge_bridge(status, root, head, schema)
     errors.extend(bridge_errors)
     ok, parents = _git(root, "rev-list", "--parents", "-n", "1", head)

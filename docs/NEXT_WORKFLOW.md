@@ -19,12 +19,14 @@
 
 唯一规划 artifact 是
 `governance/packages/package-a.manifest.json`，schema 为
-`package-a-manifest.v1`。它固定严格顺序：
+`package-a-manifest.v2`。它固定严格顺序：
 
 1. `G0-T05`：只完成 G0 治理交接，绑定产品负责人确认的 manifest digest，
    不修改 workflow、required check、ruleset 或产品能力。
-2. `G1-T01`：建立可复现、跨平台、完整的非传输 CI 入口和固定运行时/依赖身份，
-   不实现 G2、真实行情或任何交易/部署能力。
+2. `G1-T01`：建立可复现、跨平台、完整后端与前端 CI 统一入口和固定
+   Python/API/Node 运行时及依赖身份；`tests/test_m5_transport.py` 必须实际收集
+   并通过，缺 API 依赖、未收集、跳过或失败都 fail closed。该卡不实现 G2、
+   真实行情或任何交易/部署能力。
 
 G0-T04 是 manifest 规划卡本身，不能复用为实施卡。Package A 当前保持
 `not_authorized`；产品负责人必须先确认其精确 `payload_sha256`，才可能另行

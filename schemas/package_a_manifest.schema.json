@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.invalid/yaobizuoduo/package-a-manifest.v1.schema.json",
+  "$id": "https://example.invalid/yaobizuoduo/package-a-manifest.v2.schema.json",
   "title": "Immutable Package A planning manifest",
   "type": "object",
   "additionalProperties": false,
@@ -12,6 +12,7 @@
     "schema_path",
     "schema_sha256",
     "generation",
+    "supersedes_payload_sha256",
     "authoritative_baseline_sha",
     "canonical_serialization",
     "first_task_id",
@@ -22,13 +23,16 @@
     "payload_sha256"
   ],
   "properties": {
-    "schema_version": {"const": "package-a-manifest.v1"},
+    "schema_version": {"const": "package-a-manifest.v2"},
     "package_id": {"const": "PACKAGE-A"},
     "package_state": {"const": "not_authorized"},
     "manifest_path": {"const": "governance/packages/package-a.manifest.json"},
     "schema_path": {"const": "schemas/package_a_manifest.schema.json"},
     "schema_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "generation": {"const": 1},
+    "generation": {"const": 2},
+    "supersedes_payload_sha256": {
+      "const": "a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff"
+    },
     "authoritative_baseline_sha": {
       "const": "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
     },
@@ -51,12 +55,16 @@
         "product_owner_digest_confirmation_required",
         "confirmed_payload_sha256",
         "first_task_state",
+        "activation_record_path",
         "automatic_cross_package_continuation"
       ],
       "properties": {
         "product_owner_digest_confirmation_required": {"const": true},
         "confirmed_payload_sha256": {"type": "null"},
         "first_task_state": {"const": "not_authorized"},
+        "activation_record_path": {
+          "const": "evidence/g0-t05/package-a-activation.json"
+        },
         "automatic_cross_package_continuation": {"const": false}
       }
     },
