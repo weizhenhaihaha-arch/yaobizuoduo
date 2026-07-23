@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `1`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -111,3 +111,13 @@ reviews, blockers, worktree state, and repository/external memory updates.
 - Package state: `not_authorized`
 - Review state: awaiting exact delivery-HEAD CI and independent code/security
   plus architecture/route review.
+
+## Generation 1 review result
+
+- Exact candidate:
+  `2629f414a52bdcf6ed57db02f17a4973b9a3d8f0`
+- Code/security: `REQUEST CHANGES`
+- Architecture/route: `BLOCK`
+- The generation-1 payload digest `a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff`
+  is superseded and cannot be confirmed or activated.
+- Repair remains limited to G0-T04 manifest/schema/validator/tests/docs.
