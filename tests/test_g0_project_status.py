@@ -41,6 +41,8 @@ G0_T03_RECOVERED_MAIN = "02e05d1f2d68a9a1c89fda9c8636e2263fc48053"
 G0_T03_PLANNING_HANDOFF = "e1d251c35bbfc128990be4f9e3d1b851a3146f12"
 G0_T03_PLANNING_HEAD = "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b"
 G0_T03_STATUS_RECONCILIATION_BASE = "c11eae14986de8bb5f387e3064680ce48d2c284b"
+PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
+PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -2987,3 +2989,79 @@ def test_g0_t03_status_reconciliation_rejects_ordinary_descendant_and_merge_drif
     assert governed is None
     assert errors
     assert descendant != candidate
+
+
+def package_a_fixture(tmp_path: Path) -> tuple[Path, dict]:
+    root = tmp_path / "package-a"
+    manifest_path = root / VALIDATOR.PACKAGE_A_MANIFEST_PATH
+    schema_path = root / VALIDATOR.PACKAGE_A_SCHEMA_PATH
+    manifest_path.parent.mkdir(parents=True)
+    schema_path.parent.mkdir(parents=True)
+    shutil.copy2(PACKAGE_A_MANIFEST, manifest_path)
+    shutil.copy2(PACKAGE_A_SCHEMA, schema_path)
+    return root, json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+def write_package_a(root: Path, manifest: dict, *, refresh_digest: bool = True) -> None:
+    if refresh_digest:
+        manifest["payload_sha256"] = VALIDATOR._payload_digest(manifest)
+    (root / VALIDATOR.PACKAGE_A_MANIFEST_PATH).write_text(
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_package_a_exact_manifest_is_valid_and_inactive() -> None:
+    assert VALIDATOR._package_a_manifest_errors(ROOT) == []
+    manifest = json.loads(PACKAGE_A_MANIFEST.read_text(encoding="utf-8"))
+    assert manifest["package_state"] == "not_authorized"
+    assert manifest["activation"]["confirmed_payload_sha256"] is None
+    assert manifest["ordered_task_ids"] == ["G0-T05", "G1-T01"]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected"),
+    [
+        ("unknown_field", "unknown field"),
+        ("order", "ordered unique task list"),
+        ("digest", "normalized payload digest mismatch"),
+        ("baseline", "authoritative_baseline_sha"),
+        ("scope", "immutable accepted planning payload drifted"),
+        ("nonserial", "strictly serial"),
+        ("reviewer", "independent dual review"),
+        ("cross_package", "cross-package continuation is forbidden"),
+        ("implicit_activation", "must remain explicitly inactive"),
+    ],
+)
+def test_package_a_manifest_adversarial_drift_fails_closed(
+    tmp_path: Path, mutation: str, expected: str
+) -> None:
+    root, manifest = package_a_fixture(tmp_path)
+    refresh_digest = True
+    if mutation == "unknown_field":
+        manifest["unexpected"] = True
+    elif mutation == "order":
+        manifest["cards"].reverse()
+    elif mutation == "digest":
+        manifest["payload_sha256"] = "0" * 64
+        refresh_digest = False
+    elif mutation == "baseline":
+        manifest["authoritative_baseline_sha"] = "0" * 40
+    elif mutation == "scope":
+        manifest["cards"][0]["allowed_paths"].append("strategy/live.py")
+    elif mutation == "nonserial":
+        manifest["cards"][0]["automatic_continuation"]["next_task_id"] = "G1-T02"
+    elif mutation == "reviewer":
+        manifest["cards"][0]["independent_review"]["code_security"] = "PENDING"
+    elif mutation == "cross_package":
+        manifest["cards"][0]["automatic_continuation"]["requires_same_package"] = False
+    elif mutation == "implicit_activation":
+        manifest["package_state"] = "authorized"
+        manifest["activation"]["confirmed_payload_sha256"] = manifest["payload_sha256"]
+        manifest["activation"]["first_task_state"] = "authorized"
+    else:
+        raise AssertionError(mutation)
+    write_package_a(root, manifest, refresh_digest=refresh_digest)
+    errors = VALIDATOR._package_a_manifest_errors(root)
+    assert errors
+    assert expected in "\n".join(errors)

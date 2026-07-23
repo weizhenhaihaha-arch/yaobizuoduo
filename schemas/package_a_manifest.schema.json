@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/yaobizuoduo/package-a-manifest.v1.schema.json",
+  "title": "Immutable Package A planning manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "package_state",
+    "manifest_path",
+    "schema_path",
+    "schema_sha256",
+    "generation",
+    "authoritative_baseline_sha",
+    "canonical_serialization",
+    "first_task_id",
+    "last_task_id",
+    "ordered_task_ids",
+    "activation",
+    "cards",
+    "payload_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "package-a-manifest.v1"},
+    "package_id": {"const": "PACKAGE-A"},
+    "package_state": {"const": "not_authorized"},
+    "manifest_path": {"const": "governance/packages/package-a.manifest.json"},
+    "schema_path": {"const": "schemas/package_a_manifest.schema.json"},
+    "schema_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "generation": {"const": 1},
+    "authoritative_baseline_sha": {
+      "const": "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
+    },
+    "canonical_serialization": {
+      "const": "utf8-json-sort-keys-compact-excluding-payload_sha256.v1"
+    },
+    "first_task_id": {"const": "G0-T05"},
+    "last_task_id": {"const": "G1-T01"},
+    "ordered_task_ids": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^G[01]-T[0-9]{2}$"}
+    },
+    "activation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_owner_digest_confirmation_required",
+        "confirmed_payload_sha256",
+        "first_task_state",
+        "automatic_cross_package_continuation"
+      ],
+      "properties": {
+        "product_owner_digest_confirmation_required": {"const": true},
+        "confirmed_payload_sha256": {"type": "null"},
+        "first_task_state": {"const": "not_authorized"},
+        "automatic_cross_package_continuation": {"const": false}
+      }
+    },
+    "cards": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/card"}
+    },
+    "payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "nonEmptyStringArray": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "card": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "gate",
+        "risk",
+        "goal",
+        "inputs",
+        "outputs",
+        "allowed_paths",
+        "forbidden_scope",
+        "acceptance_commands",
+        "independent_review",
+        "default_fail_closed",
+        "automatic_continuation",
+        "stop_conditions"
+      ],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^G[01]-T[0-9]{2}$"},
+        "gate": {"enum": ["G0", "G1"]},
+        "risk": {"enum": ["D0", "D1", "D2"]},
+        "goal": {"type": "string", "minLength": 1},
+        "inputs": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "outputs": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "allowed_paths": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "forbidden_scope": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "acceptance_commands": {"$ref": "#/$defs/nonEmptyStringArray"},
+        "independent_review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code_security", "architecture_route"],
+          "properties": {
+            "code_security": {"const": "APPROVE"},
+            "architecture_route": {"const": "CLEAR"}
+          }
+        },
+        "default_fail_closed": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decision", "triggers"],
+          "properties": {
+            "decision": {"const": "STOP_AND_RETURN_CURRENT_CARD"},
+            "triggers": {"$ref": "#/$defs/nonEmptyStringArray"}
+          }
+        },
+        "automatic_continuation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "allowed",
+            "next_task_id",
+            "requires_same_package",
+            "preconditions"
+          ],
+          "properties": {
+            "allowed": {"type": "boolean"},
+            "next_task_id": {
+              "type": ["string", "null"],
+              "pattern": "^G[01]-T[0-9]{2}$"
+            },
+            "requires_same_package": {"const": true},
+            "preconditions": {"$ref": "#/$defs/nonEmptyStringArray"}
+          }
+        },
+        "stop_conditions": {"$ref": "#/$defs/nonEmptyStringArray"}
+      }
+    }
+  }
+}

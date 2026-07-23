@@ -90,6 +90,12 @@ train/validation/untouched holdout；禁止未来数据和幸存者偏差。
 - 任意时刻只有一个活动任务。
 - 开发 AG 只能交付 `awaiting_review`，不能自行写 accepted。
 - `RETURNED` 只返修当前卡；新 candidate 必须废止旧 reviewer/CI 身份。
+- 对已经由产品负责人明确授权的当前卡，只有当 exact-HEAD CI、独立双审、
+  allowlist、父节点、tree、ruleset 与远端回读全部无漂移时，主 Codex 才可按
+  冻结拓扑自动合并；任一未知或不一致都停止。自动合并当前卡不等于授权下一卡。
+- 只有产品负责人先确认精确 package manifest digest 并激活该 package 时，
+  package 内才可在前卡完整 `closed` 后按 manifest 的严格顺序自动授权下一卡；
+  最后一张卡、跨 package 或任何 scope 变化都必须停止并重新取得明确授权。
 - `closed` 只能来自 `merged_verified`；下一卡必须等待 finalization 已进 main
   且外部 D0 required check 成功。
 - candidate、closure、implementation merge、finalization 使用不可变 SHA

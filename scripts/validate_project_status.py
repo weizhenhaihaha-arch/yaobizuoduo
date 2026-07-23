@@ -109,6 +109,13 @@ G0_T03_STATUS_RECONCILIATION_PATH = "evidence/g0-t03/post-recovery-status-reconc
 G0_T03_STATUS_RECONCILIATION_VERSION = "g0-t03-post-recovery-status-reconciliation.v1"
 G0_T03_RULESET_ID = 19526291
 G0_T03_RULESET_EVIDENCE_DIGEST = "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+PACKAGE_A_MANIFEST_PATH = "governance/packages/package-a.manifest.json"
+PACKAGE_A_SCHEMA_PATH = "schemas/package_a_manifest.schema.json"
+PACKAGE_A_SCHEMA_VERSION = "package-a-manifest.v1"
+PACKAGE_A_BASELINE_SHA = "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
+PACKAGE_A_SCHEMA_SHA256 = "95974fb830e65221a14e8c7068a6c313277d879a49067e3847328f24276b61f4"
+PACKAGE_A_PAYLOAD_SHA256 = "a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff"
+PACKAGE_A_ORDERED_TASKS = ["G0-T05", "G1-T01"]
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -159,6 +166,147 @@ def _payload_digest(value: dict[str, Any]) -> str:
     payload = {key: item for key, item in value.items() if key != "payload_sha256"}
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(canonical).hexdigest()
+
+
+def _package_a_manifest_errors(
+    root: Path, subject_sha: str | None = None
+) -> list[str]:
+    """Validate the immutable, still-inactive Package A planning artifact."""
+
+    def read(relative: str) -> tuple[bool, str]:
+        if subject_sha is not None:
+            return _git(root, "show", f"{subject_sha}:{relative}")
+        try:
+            return True, (root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return False, ""
+
+    ok_manifest, manifest_text = read(PACKAGE_A_MANIFEST_PATH)
+    ok_schema, schema_text = read(PACKAGE_A_SCHEMA_PATH)
+    if not ok_manifest or not ok_schema:
+        return ["$: Package A manifest or schema is missing"]
+    try:
+        manifest = json.loads(
+            manifest_text, object_pairs_hook=_reject_duplicate_keys
+        )
+        manifest_schema = json.loads(
+            schema_text, object_pairs_hook=_reject_duplicate_keys
+        )
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return ["$: Package A manifest or schema is not canonical JSON"]
+    if type(manifest) is not dict or type(manifest_schema) is not dict:
+        return ["$: Package A manifest and schema roots must be objects"]
+
+    errors = [
+        f"$.package_a{item[1:]}"
+        for item in _schema_errors(
+            manifest, manifest_schema, manifest_schema
+        )
+    ]
+    schema_digest = hashlib.sha256(schema_text.encode("utf-8")).hexdigest()
+    if (
+        schema_digest != PACKAGE_A_SCHEMA_SHA256
+        or manifest.get("schema_sha256") != PACKAGE_A_SCHEMA_SHA256
+    ):
+        errors.append("$.package_a.schema_sha256: immutable schema bytes drifted")
+    if manifest.get("payload_sha256") != _payload_digest(manifest):
+        errors.append("$.package_a.payload_sha256: normalized payload digest mismatch")
+    if manifest.get("payload_sha256") != PACKAGE_A_PAYLOAD_SHA256:
+        errors.append("$.package_a.payload_sha256: immutable accepted planning payload drifted")
+
+    cards = manifest.get("cards")
+    ordered = manifest.get("ordered_task_ids")
+    expected_identity = {
+        "schema_version": PACKAGE_A_SCHEMA_VERSION,
+        "package_id": "PACKAGE-A",
+        "package_state": "not_authorized",
+        "manifest_path": PACKAGE_A_MANIFEST_PATH,
+        "schema_path": PACKAGE_A_SCHEMA_PATH,
+        "generation": 1,
+        "authoritative_baseline_sha": PACKAGE_A_BASELINE_SHA,
+        "canonical_serialization": "utf8-json-sort-keys-compact-excluding-payload_sha256.v1",
+        "first_task_id": PACKAGE_A_ORDERED_TASKS[0],
+        "last_task_id": PACKAGE_A_ORDERED_TASKS[-1],
+        "ordered_task_ids": PACKAGE_A_ORDERED_TASKS,
+    }
+    for key, value in expected_identity.items():
+        if not _typed_equal(manifest.get(key), value):
+            errors.append(f"$.package_a.{key}: immutable identity drifted")
+
+    if type(cards) is not list or [card.get("task_id") for card in cards if type(card) is dict] != PACKAGE_A_ORDERED_TASKS:
+        errors.append("$.package_a.cards: cards must exactly match the ordered unique task list")
+    elif type(ordered) is list:
+        for index, card in enumerate(cards):
+            task_id = card["task_id"]
+            gate = card["gate"]
+            review = card["independent_review"]
+            continuation = card["automatic_continuation"]
+            if task_id == "G0-T04" or task_id.split("-", 1)[0] != gate:
+                errors.append("$.package_a.cards: planning task reuse or gate mismatch is forbidden")
+            if review != {"code_security": "APPROVE", "architecture_route": "CLEAR"}:
+                errors.append(f"$.package_a.cards[{index}]: independent dual review is mandatory")
+            expected_next = ordered[index + 1] if index + 1 < len(ordered) else None
+            if continuation.get("next_task_id") != expected_next:
+                errors.append(f"$.package_a.cards[{index}]: continuation is not strictly serial")
+            if continuation.get("allowed") is not (expected_next is not None):
+                errors.append(f"$.package_a.cards[{index}]: continuation permission is inconsistent")
+            if continuation.get("requires_same_package") is not True:
+                errors.append(f"$.package_a.cards[{index}]: cross-package continuation is forbidden")
+
+    activation = manifest.get("activation")
+    if activation != {
+        "product_owner_digest_confirmation_required": True,
+        "confirmed_payload_sha256": None,
+        "first_task_state": "not_authorized",
+        "automatic_cross_package_continuation": False,
+    }:
+        errors.append("$.package_a.activation: Package A must remain explicitly inactive")
+    return errors
+
+
+def _g0_t04_package_a_changed_path_errors(
+    root: Path, subject_sha: str
+) -> list[str]:
+    ok, text = _git(
+        root, "diff", "--name-only", PACKAGE_A_BASELINE_SHA, subject_sha
+    )
+    if not ok:
+        return ["$: G0-T04 changed-path proof is unavailable"]
+    changed = {line for line in text.splitlines() if line}
+    allowed = {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "README.md",
+        "DEVELOPMENT_WORKFLOW.md",
+        "AG_WORK_LOOP.md",
+        "docs/NEXT_WORKFLOW.md",
+        PACKAGE_A_MANIFEST_PATH,
+        PACKAGE_A_SCHEMA_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+    required = {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "README.md",
+        "docs/NEXT_WORKFLOW.md",
+        PACKAGE_A_MANIFEST_PATH,
+        PACKAGE_A_SCHEMA_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+    errors: list[str] = []
+    if not required.issubset(changed) or not changed.issubset(allowed):
+        errors.append("$: G0-T04 changed paths violate the frozen planning-only allowlist")
+    for relative in (PACKAGE_A_MANIFEST_PATH, PACKAGE_A_SCHEMA_PATH):
+        ok_prior, _ = _git(
+            root, "cat-file", "-e", f"{PACKAGE_A_BASELINE_SHA}:{relative}"
+        )
+        if ok_prior:
+            errors.append(f"$: G0-T04 immutable artifact must be newly introduced: {relative}")
+    return errors
 
 
 def _resolve_ref(schema: dict[str, Any], ref: str) -> dict[str, Any]:
@@ -3842,6 +3990,11 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     ok, head = _git(root, "rev-parse", "HEAD")
     if not ok:
         return ["$: repository HEAD is unavailable"]
+    task = status["active_tasks"][0]
+    if task["task_id"] == "G0-T04":
+        errors.extend(_package_a_manifest_errors(root))
+        if task["state"] == "awaiting_review":
+            errors.extend(_g0_t04_package_a_changed_path_errors(root, head))
     governed_history_head, bridge_errors = _canonical_g0_merge_bridge(status, root, head, schema)
     errors.extend(bridge_errors)
     ok, parents = _git(root, "rev-list", "--parents", "-n", "1", head)
@@ -3925,7 +4078,6 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
             errors.append("$.authoritative_main_ref: local main must equal fetched origin/main")
         elif not _is_first_parent_ancestor(root, merged, remote_main_sha):
             errors.append("$.evidence.merged_main.commit_sha: merge is not on the authoritative remote-main first-parent chain")
-    task = status["active_tasks"][0]
     if task["transition"] == {"from": "closed", "to": "authorized"}:
         direct_parent = parent_parts[1] if len(parent_parts) >= 2 else None
         if not remote_main_ok or main_sha != remote_main_sha or direct_parent != remote_main_sha:
