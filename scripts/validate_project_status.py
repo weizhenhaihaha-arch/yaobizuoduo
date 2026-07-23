@@ -201,6 +201,35 @@ G0_T04_ANOMALY_POST_MERGE_REPAIR_ALLOWED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+G0_T04_G4_AUTHORIZATION = "376aa67c5abf81aaf037b21fd833474bf704395d"
+G0_T04_G4_START = "39a50d9ea1d97e2fe3925ffa355eb787165bc1d6"
+G0_T04_G4_BLOCKED_MAIN = "414fa392026c71b01378c64cbf62cb6b304b2eed"
+G0_T04_G4_BASELINE = "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
+G0_T04_G4_PR24_HEAD = "db507f75f46196a03a9d87725be5946e6f05575c"
+G0_T04_G4_PR24_RUN = "30014856791"
+G0_T04_G4_ABANDONED_AUTH = "de070276e53ec75f0cfd864a02d6d05236784eb8"
+G0_T04_G4_ABANDONED_START = "c7be2b2f07ef171e9d1535e29d93aa6beadf348a"
+G0_T04_G4_ABANDONED_CANDIDATE = "45e714f9e099774ac0c4885f77523fb73c2d313d"
+G0_T04_G4_ROUTE_SEAL_PATH = (
+    "evidence/g0-t04/generation-4-main-drift-seal.json"
+)
+G0_T04_G4_ROUTE_SEAL_VERSION = "g0-t04-generation-4-main-drift-seal.v1"
+G0_T04_G4_ROUTE_SEAL_PAYLOAD = (
+    "e967269715204baa8b52ee09d3d62cf809d35b6c18e6a175316a0a51dbc9fb9f"
+)
+G0_T04_G4_G1_BLOCKED = "3a27f530b338ece78ae90ffd895787e5a10616fc"
+G0_T04_G4_G1_MERGE_BASE = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
+G0_T04_G4_ALLOWED = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        G0_T04_G4_ROUTE_SEAL_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -1600,6 +1629,340 @@ def _blocked_reauthorization_errors(
     return errors
 
 
+def _is_g0_t04_g4_status(status: dict[str, Any]) -> bool:
+    try:
+        task = status["active_tasks"][0]
+        return (
+            status["current_gate"] == "G0"
+            and task["task_id"] == "G0-T04"
+            and task["risk"] == "D0"
+            and task["candidate_generation"] == 4
+            and status["evidence"]["authorization_baseline_sha"]
+            == G0_T04_G4_BASELINE
+            and status["next_authorization"]
+            == {"gate": "G0", "task_id": "G0-T05", "state": "not_authorized"}
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _git_blob_oid(root: Path, subject: str, path: str) -> str | None:
+    ok, entry = _git(root, "ls-tree", subject, "--", path)
+    fields = entry.split(None, 3) if ok else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != path
+    ):
+        return None
+    return fields[2]
+
+
+def _g0_t04_g4_authorization_parent_errors(
+    status: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+    *,
+    require_current_main: bool,
+) -> list[str] | None:
+    task = status.get("active_tasks", [{}])[0]
+    if not (
+        _is_g0_t04_g4_status(status)
+        and task.get("state") == "authorized"
+        and task.get("transition") == {"from": "closed", "to": "authorized"}
+    ):
+        return None
+    if root is None or child_sha is None:
+        return ["$: G0-T04 generation-4 authorization requires repository lineage"]
+    errors: list[str] = []
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+    if (parents_text.split() if ok else []) != [
+        child_sha,
+        G0_T04_G4_BASELINE,
+        G0_T04_G4_BLOCKED_MAIN,
+    ]:
+        errors.append("$: G0-T04 generation-4 authorization parents drifted")
+    if child_sha != G0_T04_G4_AUTHORIZATION or parent_sha != G0_T04_G4_BASELINE:
+        errors.append("$: G0-T04 generation-4 authorization identity drifted")
+    blocked = _status_at(root, G0_T04_G4_BLOCKED_MAIN)
+    try:
+        blocked_task = blocked["active_tasks"][0] if type(blocked) is dict else {}
+        blocked_identity = (
+            blocked_task
+            == {
+                "task_id": "G0-T04",
+                "risk": "D0",
+                "state": "blocked",
+                "transition": {"from": "blocked", "to": "blocked"},
+                "candidate_generation": 3,
+            }
+            and blocked["evidence"]["authorization_baseline_sha"]
+            == G0_T04_G4_BASELINE
+            and bool(blocked["blockers"])
+        )
+    except (KeyError, IndexError, TypeError):
+        blocked_identity = False
+    if not blocked_identity:
+        errors.append("$: G0-T04 generation-4 terminal blocked record drifted")
+    if not _cleared_handoff(status):
+        errors.append("$: G0-T04 generation-4 authorization must clear all evidence")
+    changed = _g0_t03_commit_changed_paths(
+        root, G0_T04_G4_BLOCKED_MAIN, child_sha
+    )
+    if changed != {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+    }:
+        errors.append("$: G0-T04 generation-4 authorization scope drifted")
+    for path in (
+        G0_T04_ANOMALY_RECEIPT_PATH,
+        G0_T04_ANOMALY_SEAL_PATH,
+        PACKAGE_A_MANIFEST_PATH,
+        PACKAGE_A_SCHEMA_PATH,
+    ):
+        if _git_blob_oid(root, child_sha, path) != _git_blob_oid(
+            root, G0_T04_G4_BLOCKED_MAIN, path
+        ):
+            errors.append(
+                f"$: G0-T04 generation-4 immutable blocked-main blob drifted: {path}"
+            )
+    if _git_blob_oid(root, child_sha, PACKAGE_A_ACTIVATION_PATH) is not None:
+        errors.append("$: G0-T04 generation-4 authorization resurrected activation")
+    if require_current_main:
+        ok_main, main = _git(
+            root, "rev-parse", "--verify", status["authoritative_main_ref"]
+        )
+        ok_remote, remote = _git(
+            root, "rev-parse", "--verify", "refs/remotes/origin/main"
+        )
+        if (
+            not ok_main
+            or not ok_remote
+            or main != G0_T04_G4_BLOCKED_MAIN
+            or remote != G0_T04_G4_BLOCKED_MAIN
+        ):
+            errors.append(
+                "$: G0-T04 generation-4 authorization requires exact terminal blocked main"
+            )
+    return errors
+
+
+def _g0_t04_g4_route_errors(
+    status: dict[str, Any], root: Path, head: str
+) -> list[str]:
+    if not _is_g0_t04_g4_status(status):
+        return []
+    errors: list[str] = []
+    seal_path = root / G0_T04_G4_ROUTE_SEAL_PATH
+    if not seal_path.is_file() or seal_path.is_symlink():
+        return ["$: G0-T04 generation-4 main-drift seal is missing"]
+    ok_entry, entry = _git(
+        root, "ls-tree", head, "--", G0_T04_G4_ROUTE_SEAL_PATH
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if len(fields) != 4 or fields[0] != "100644" or fields[1] != "blob":
+        errors.append(
+            "$: G0-T04 generation-4 main-drift seal must be a committed 100644 blob"
+        )
+    try:
+        seal = json.loads(
+            seal_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_reject_duplicate_keys,
+        )
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+        return errors + ["$: G0-T04 generation-4 main-drift seal is unreadable"]
+    expected_keys = {
+        "schema_version",
+        "project",
+        "task_id",
+        "candidate_generation",
+        "authorization",
+        "pr24_main_drift",
+        "abandoned_off_main_route",
+        "immutable_history",
+        "owner_authority",
+        "protected_main_bridge",
+        "continuation",
+        "allowed_paths",
+        "payload_sha256",
+    }
+    if type(seal) is not dict or set(seal) != expected_keys:
+        return errors + ["$: G0-T04 generation-4 main-drift seal fields drifted"]
+    supplied_digest = seal.get("payload_sha256")
+    digest_input = dict(seal)
+    digest_input.pop("payload_sha256", None)
+    computed_digest = hashlib.sha256(
+        json.dumps(
+            digest_input, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+    ).hexdigest()
+    if (
+        seal.get("schema_version") != G0_T04_G4_ROUTE_SEAL_VERSION
+        or seal.get("project") != "yaobizuoduo"
+        or seal.get("task_id") != "G0-T04"
+        or seal.get("candidate_generation") != 4
+        or supplied_digest != G0_T04_G4_ROUTE_SEAL_PAYLOAD
+        or computed_digest != G0_T04_G4_ROUTE_SEAL_PAYLOAD
+    ):
+        errors.append("$: G0-T04 generation-4 main-drift seal identity drifted")
+    if seal.get("authorization") != {
+        "sha": G0_T04_G4_AUTHORIZATION,
+        "ordered_parents": [G0_T04_G4_BASELINE, G0_T04_G4_BLOCKED_MAIN],
+        "start_sha": G0_T04_G4_START,
+    }:
+        errors.append("$: G0-T04 generation-4 authorization seal drifted")
+    if seal.get("pr24_main_drift") != {
+        "pr": 24,
+        "head_sha": G0_T04_G4_PR24_HEAD,
+        "exact_head_run_id": G0_T04_G4_PR24_RUN,
+        "reviews": "empty",
+        "merge_sha": G0_T04_G4_BLOCKED_MAIN,
+        "ordered_merge_parents": [G0_T04_ANOMALY_MERGE, G0_T04_G4_PR24_HEAD],
+        "merge_tree": "1f5234ed411b7ab00fea8f74e360deeb1f1340a3",
+    }:
+        errors.append("$: G0-T04 generation-4 PR #24 identity drifted")
+    if seal.get("abandoned_off_main_route") != {
+        "authorization_sha": G0_T04_G4_ABANDONED_AUTH,
+        "authorization_ordered_parents": [
+            G0_T04_G4_BASELINE,
+            G0_T04_ANOMALY_MERGE,
+        ],
+        "start_sha": G0_T04_G4_ABANDONED_START,
+        "candidate_sha": G0_T04_G4_ABANDONED_CANDIDATE,
+        "candidate_state": "awaiting_review",
+        "route_seal_blob": "ca7aa3b416024ed44f57ab8cfa8de94f39995f04",
+        "pull_request": 25,
+        "ci_status": "not_run",
+        "reusable": False,
+    }:
+        errors.append("$: G0-T04 generation-4 abandoned route identity drifted")
+    if seal.get("immutable_history") != {
+        "anomaly_receipt_blob": "c71560939c1b6fd0c6f038c3fe723df178fa2596",
+        "anomaly_seal_blob": "382331a1b6293f6174d52102422a10a340cbf077",
+        "package_manifest_blob": "f523c793a58d27e8ffd79da01048c8cd93aaa315",
+        "package_schema_blob": "132656bcda439c20a2ade78d30116c49706de7b3",
+        "package_payload_sha256": PACKAGE_A_PAYLOAD_SHA256,
+        "activation_present": False,
+    }:
+        errors.append("$: G0-T04 generation-4 immutable history seal drifted")
+    if seal.get("owner_authority") != {
+        "package_payload_sha256": PACKAGE_A_PAYLOAD_SHA256,
+        "fresh_activation_only_after_new_g0_t04_close": True,
+        "old_activation_reuse_forbidden": True,
+    }:
+        errors.append("$: G0-T04 generation-4 owner authority drifted")
+    if seal.get("protected_main_bridge") != {
+        "first_parent": G0_T04_G4_BLOCKED_MAIN,
+        "second_parent_role": "accepted_generation_4_closure",
+        "tree_rule": "merge_tree_equals_second_parent_tree",
+    }:
+        errors.append("$: G0-T04 generation-4 protected-main bridge drifted")
+    if seal.get("continuation") != {
+        "g0_t05_generation_rule": "smallest_unused_integer_strictly_greater_than_all_historical_g0_t05_generations",
+        "g1_t01_generation": 2,
+        "g1_ordered_parents": [
+            "new_g0_t05_closed_authoritative_main",
+            G0_T04_G4_G1_BLOCKED,
+        ],
+        "g1_merge_base": G0_T04_G4_G1_MERGE_BASE,
+        "g2_authorized": False,
+    }:
+        errors.append("$: G0-T04 generation-4 continuation boundary drifted")
+    if seal.get("allowed_paths") != sorted(G0_T04_G4_ALLOWED):
+        errors.append("$: G0-T04 generation-4 allowlist seal drifted")
+    for path, expected_blob in (
+        (G0_T04_ANOMALY_RECEIPT_PATH, "c71560939c1b6fd0c6f038c3fe723df178fa2596"),
+        (G0_T04_ANOMALY_SEAL_PATH, "382331a1b6293f6174d52102422a10a340cbf077"),
+        (PACKAGE_A_MANIFEST_PATH, "f523c793a58d27e8ffd79da01048c8cd93aaa315"),
+        (PACKAGE_A_SCHEMA_PATH, "132656bcda439c20a2ade78d30116c49706de7b3"),
+    ):
+        if _git_blob_oid(root, head, path) != expected_blob:
+            errors.append(f"$: G0-T04 generation-4 immutable blob drifted: {path}")
+    if _git_blob_oid(root, head, PACKAGE_A_ACTIVATION_PATH) is not None:
+        errors.append("$: G0-T04 generation-4 route resurrected activation")
+    pr24_ok, pr24_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_BLOCKED_MAIN
+    )
+    pr24_tree_ok, pr24_tree = _git(
+        root, "rev-parse", f"{G0_T04_G4_BLOCKED_MAIN}^{{tree}}"
+    )
+    if (
+        (pr24_line.split() if pr24_ok else [])
+        != [G0_T04_G4_BLOCKED_MAIN, G0_T04_ANOMALY_MERGE, G0_T04_G4_PR24_HEAD]
+        or not pr24_tree_ok
+        or pr24_tree != "1f5234ed411b7ab00fea8f74e360deeb1f1340a3"
+    ):
+        errors.append("$: G0-T04 generation-4 PR #24 merge topology drifted")
+    abandoned_ok, abandoned_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_ABANDONED_AUTH
+    )
+    abandoned_start_ok, abandoned_start_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_ABANDONED_START
+    )
+    if (
+        (abandoned_line.split() if abandoned_ok else [])
+        != [
+            G0_T04_G4_ABANDONED_AUTH,
+            G0_T04_G4_BASELINE,
+            G0_T04_ANOMALY_MERGE,
+        ]
+        or (abandoned_start_line.split() if abandoned_start_ok else [])
+        != [G0_T04_G4_ABANDONED_START, G0_T04_G4_ABANDONED_AUTH]
+        or not _is_ancestor(
+            root, G0_T04_G4_ABANDONED_START, G0_T04_G4_ABANDONED_CANDIDATE
+        )
+        or _git_blob_oid(
+            root,
+            G0_T04_G4_ABANDONED_CANDIDATE,
+            "evidence/g0-t04/generation-4-route-seal.json",
+        )
+        != "ca7aa3b416024ed44f57ab8cfa8de94f39995f04"
+    ):
+        errors.append("$: G0-T04 generation-4 abandoned route topology drifted")
+    changed = _g0_t03_commit_changed_paths(root, G0_T04_G4_AUTHORIZATION, head)
+    if not changed.issubset(G0_T04_G4_ALLOWED):
+        errors.append("$: G0-T04 generation-4 cumulative allowlist drifted")
+    ok_start, start_parents = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
+    )
+    if (start_parents.split() if ok_start else []) != [
+        G0_T04_G4_START,
+        G0_T04_G4_AUTHORIZATION,
+    ]:
+        errors.append("$: G0-T04 generation-4 start lineage drifted")
+    return errors
+
+
+def _g0_t04_g4_merge_topology_errors(root: Path, head: str) -> list[str]:
+    errors: list[str] = []
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    parts = parents_text.split() if ok else []
+    if len(parts) != 3:
+        return ["$: G0-T04 generation-4 main bridge must have exactly two parents"]
+    first_parent, governed_parent = parts[1], parts[2]
+    if first_parent != G0_T04_G4_BLOCKED_MAIN:
+        errors.append(
+            "$: G0-T04 generation-4 main bridge first parent must be exact current main"
+        )
+    if not _is_ancestor(root, G0_T04_G4_AUTHORIZATION, governed_parent):
+        errors.append(
+            "$: G0-T04 generation-4 main bridge second parent must descend from exact authorization"
+        )
+    ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+    ok_parent_tree, parent_tree = _git(
+        root, "rev-parse", f"{governed_parent}^{{tree}}"
+    )
+    if not ok_head_tree or not ok_parent_tree or head_tree != parent_tree:
+        errors.append(
+            "$: G0-T04 generation-4 main bridge tree must equal its second-parent tree"
+        )
+    return errors
+
+
 def _parent_status_errors(
     status: dict[str, Any],
     parent: dict[str, Any] | None,
@@ -1626,6 +1989,15 @@ def _parent_status_errors(
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
+    recovery_errors = _g0_t04_g4_authorization_parent_errors(
+        status,
+        parent_sha,
+        root,
+        child_sha,
+        require_current_main=require_current_main,
+    )
+    if recovery_errors is not None:
+        return recovery_errors
     recovery_errors = _g0_t04_anomaly_post_merge_repair_parent_errors(
         status,
         parent,
@@ -4850,6 +5222,8 @@ def _g0_t04_anomaly_post_merge_repair_parent_errors(
     *,
     require_current_main: bool,
 ) -> list[str] | None:
+    if _is_g0_t04_g4_status(status):
+        return None
     if root is None or child_sha is None or child_sha == G0_T04_ANOMALY_MERGE:
         return None
     if not _is_ancestor(root, G0_T04_ANOMALY_MERGE, child_sha):
@@ -5841,7 +6215,16 @@ def _canonical_g0_merge_bridge(
     elif not require_canonical_main and (not ok_origin or _github_repository_identity(origin_url) != LEDGER_REPOSITORY):
         errors.append("$: canonical G0 merge bridge requires the canonical repository")
     recovery_bridge = _is_g0_t02_post_merge_recovery_status(status)
-    expected_first_parent = G0_T02_FAILED_MAIN_SHA if recovery_bridge else status["evidence"]["authorization_baseline_sha"]
+    g0_t04_g4_bridge = _is_g0_t04_g4_status(status)
+    expected_first_parent = (
+        G0_T02_FAILED_MAIN_SHA
+        if recovery_bridge
+        else (
+            G0_T04_G4_BLOCKED_MAIN
+            if g0_t04_g4_bridge
+            else status["evidence"]["authorization_baseline_sha"]
+        )
+    )
     if not _typed_equal(first_parent, expected_first_parent):
         errors.append("$: canonical G0 merge bridge first parent is not the authoritative prior main")
     if task["task_id"] == BOOTSTRAP_TASK and not _typed_equal(governed_parent, G0_GOVERNED_PARENT_SHA):
@@ -5850,6 +6233,8 @@ def _canonical_g0_merge_bridge(
     errors.extend(governed_errors)
     if governed_status is None or not _typed_equal(status, governed_status):
         errors.append("$: canonical G0 merge bridge status must exactly equal its governed second parent")
+    if g0_t04_g4_bridge:
+        errors.extend(_g0_t04_g4_merge_topology_errors(root, head))
     ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
     ok_parent_tree, parent_tree = _git(root, "rev-parse", f"{governed_parent}^{{tree}}")
     if not ok_head_tree or not ok_parent_tree or not _typed_equal(head_tree, parent_tree):
@@ -5911,7 +6296,12 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
         return ["$: repository HEAD is unavailable"]
     task = status["active_tasks"][0]
     errors.extend(_package_a_persistence_errors(status, root, head))
-    if task["task_id"] == "G0-T04" and task["state"] == "awaiting_review":
+    errors.extend(_g0_t04_g4_route_errors(status, root, head))
+    if (
+        task["task_id"] == "G0-T04"
+        and task["state"] == "awaiting_review"
+        and not _is_g0_t04_g4_status(status)
+    ):
         errors.extend(_g0_t04_package_a_changed_path_errors(root, head))
     governed_history_head, bridge_errors = _canonical_g0_merge_bridge(status, root, head, schema)
     errors.extend(bridge_errors)
@@ -5998,7 +6388,20 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
             errors.append("$.evidence.merged_main.commit_sha: merge is not on the authoritative remote-main first-parent chain")
     if task["transition"] == {"from": "closed", "to": "authorized"}:
         direct_parent = parent_parts[1] if len(parent_parts) >= 2 else None
-        if not remote_main_ok or main_sha != remote_main_sha or direct_parent != remote_main_sha:
+        g4_authorization = (
+            _is_g0_t04_g4_status(status)
+            and head == G0_T04_G4_AUTHORIZATION
+            and direct_parent == G0_T04_G4_BASELINE
+            and len(parent_parts) == 3
+            and parent_parts[2] == G0_T04_G4_BLOCKED_MAIN
+            and remote_main_ok
+            and main_sha == remote_main_sha == G0_T04_G4_BLOCKED_MAIN
+        )
+        if not g4_authorization and (
+            not remote_main_ok
+            or main_sha != remote_main_sha
+            or direct_parent != remote_main_sha
+        ):
             errors.append("$: inter-task handoff must start from the exact fetched authoritative main close")
     if finalization is not None:
         if merged is None or not _is_ancestor(root, merged, finalization):

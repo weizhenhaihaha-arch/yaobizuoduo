@@ -48,6 +48,16 @@ G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
 G0_T04_ANOMALY_CANDIDATE = "6541189bbdacc870de5691d07991b9103ee2c763"
 G0_T04_ANOMALY_SEAL = "50a801f2f81c9c6f5eaea99444529fcbeb5933c2"
 G0_T04_ANOMALY_MERGE = "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87"
+G0_T04_G4_AUTHORIZATION = "376aa67c5abf81aaf037b21fd833474bf704395d"
+G0_T04_G4_START = "39a50d9ea1d97e2fe3925ffa355eb787165bc1d6"
+G0_T04_G4_BLOCKED_MAIN = "414fa392026c71b01378c64cbf62cb6b304b2eed"
+G0_T04_G4_BASELINE = "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
+G0_T04_G4_ROUTE_SEAL = (
+    ROOT / "evidence/g0-t04/generation-4-main-drift-seal.json"
+)
+G0_T04_G4_ROUTE_PAYLOAD = (
+    "e967269715204baa8b52ee09d3d62cf809d35b6c18e6a175316a0a51dbc9fb9f"
+)
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -794,7 +804,16 @@ def make_g0_t04_anomaly_seal(
     seal_path.write_text(json.dumps(seal, indent=2, ensure_ascii=False) + "\n")
     shutil.copy2(SCRIPT, repo / "scripts/validate_project_status.py")
     shutil.copy2(ROOT / "tests/test_g0_project_status.py", repo / "tests/test_g0_project_status.py")
-    shutil.copy2(ROOT / "CURRENT_TASK.md", repo / "CURRENT_TASK.md")
+    task = status["active_tasks"][0]
+    (repo / "CURRENT_TASK.md").write_text(
+        "# G0-T04 anomaly recovery seal\n\n"
+        f"- Task ID: `{task['task_id']}`\n"
+        f"- Gate: {status['current_gate']} governance recovery\n"
+        f"- Risk: `{task['risk']}`\n"
+        f"- Status: `{task['state']}`\n"
+        f"- Baseline: `{status['evidence']['authorization_baseline_sha']}`\n",
+        encoding="utf-8",
+    )
     shutil.copy2(ROOT / "PROJECT_MEMORY.md", repo / "PROJECT_MEMORY.md")
     shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
     if mutation == "package":
@@ -4172,3 +4191,112 @@ def test_g0_t04_post_merge_repair_merge_rejects_substitutions(
     repo, _, _, _ = make_g0_t04_post_merge_repair_merge(tmp_path, mutation)
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1, result.stdout
+
+
+def test_g0_t04_generation4_main_drift_authorization_and_seal_are_exact() -> None:
+    assert git(
+        ROOT, "rev-list", "--parents", "-n", "1", G0_T04_G4_AUTHORIZATION
+    ).split() == [
+        G0_T04_G4_AUTHORIZATION,
+        G0_T04_G4_BASELINE,
+        G0_T04_G4_BLOCKED_MAIN,
+    ]
+    assert git(
+        ROOT, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
+    ).split() == [G0_T04_G4_START, G0_T04_G4_AUTHORIZATION]
+    seal = json.loads(G0_T04_G4_ROUTE_SEAL.read_text(encoding="utf-8"))
+    supplied = seal.pop("payload_sha256")
+    computed = hashlib.sha256(
+        json.dumps(
+            seal, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+    ).hexdigest()
+    assert supplied == computed == G0_T04_G4_ROUTE_PAYLOAD
+    assert seal["pr24_main_drift"] == {
+        "pr": 24,
+        "head_sha": "db507f75f46196a03a9d87725be5946e6f05575c",
+        "exact_head_run_id": "30014856791",
+        "reviews": "empty",
+        "merge_sha": G0_T04_G4_BLOCKED_MAIN,
+        "ordered_merge_parents": [
+            G0_T04_ANOMALY_MERGE,
+            "db507f75f46196a03a9d87725be5946e6f05575c",
+        ],
+        "merge_tree": "1f5234ed411b7ab00fea8f74e360deeb1f1340a3",
+    }
+    assert seal["abandoned_off_main_route"]["candidate_sha"] == (
+        "45e714f9e099774ac0c4885f77523fb73c2d313d"
+    )
+    assert seal["abandoned_off_main_route"]["reusable"] is False
+    assert seal["protected_main_bridge"]["first_parent"] == G0_T04_G4_BLOCKED_MAIN
+    assert seal["continuation"]["g2_authorized"] is False
+
+
+@pytest.mark.parametrize("mutation", ["parents", "tree", "substitution"])
+def test_g0_t04_generation4_main_drift_bridge_rejects_hostile_topology(
+    mutation: str,
+) -> None:
+    governed = git(ROOT, "rev-parse", "HEAD")
+    governed_tree = git(ROOT, "rev-parse", f"{governed}^{{tree}}")
+    first_parent = G0_T04_G4_BLOCKED_MAIN
+    second_parent = governed
+    tree = governed_tree
+    if mutation == "parents":
+        first_parent, second_parent = second_parent, first_parent
+    elif mutation == "tree":
+        tree = git(ROOT, "rev-parse", f"{G0_T04_G4_BLOCKED_MAIN}^{{tree}}")
+    else:
+        second_parent = G0_T04_G4_BLOCKED_MAIN
+    merged = git(
+        ROOT,
+        "commit-tree",
+        tree,
+        "-p",
+        first_parent,
+        "-p",
+        second_parent,
+        "-m",
+        f"hostile generation-4 main-drift bridge {mutation}",
+    )
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, merged)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["pr24", "abandoned", "package", "activation", "allowlist"]
+)
+def test_g0_t04_generation4_main_drift_seal_rejects_substitutions(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo = tmp_path / f"g0-t04-generation4-main-drift-{mutation}"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
+    if mutation in {"pr24", "abandoned"}:
+        seal = json.loads(seal_path.read_text(encoding="utf-8"))
+        if mutation == "pr24":
+            seal["pr24_main_drift"]["exact_head_run_id"] = "30014856792"
+        else:
+            seal["abandoned_off_main_route"]["reusable"] = True
+        write_digest_json(seal_path, seal)
+    elif mutation == "package":
+        with (repo / "governance/packages/package-a.manifest.json").open("a") as handle:
+            handle.write("\n")
+    elif mutation == "activation":
+        activation = repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
+        activation.parent.mkdir(parents=True, exist_ok=True)
+        activation.write_text("{}\n", encoding="utf-8")
+    else:
+        (repo / "forbidden-main-drift-change.txt").write_text(
+            "scope escape\n", encoding="utf-8"
+        )
+    subject = commit(repo, f"hostile generation-4 main-drift {mutation}")
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
