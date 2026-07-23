@@ -58,12 +58,14 @@ PR #26 把仍为 `in_progress` 的 `c22bc286…` 过早合并为 F
 `30028693653` 只作为异常历史；push/main failure run `30028739788` 是当前
 恢复 blocker，二者都不是 acceptance。
 
-当前只允许从 F 开始严格单父的同卡恢复实现与 delivery。delivery 必须保持
-`awaiting_review`、candidate 隐式、CI `not_run`、双审 pending，并保留精确
-failure receipt/blocker。普通 `in_progress` merge 继续拒绝。未来 bridge
-只能是 `[F, accepted recovery]` 且 tree 等于 second parent；本切片不创建
-acceptance、bridge、PR、merge 或任何后续卡。
+从 F 开始的严格单父恢复 candidate `388a75b18f37ddd970a37938dba8b955dc95e719`
+已通过 exact-head run `30036514625`、独立 code/security `APPROVE` 与
+architecture/route `CLEAR`，因此当前仅推进到 `accepted_pending_merge`。
+精确 failure receipt/blocker 继续保留，普通 `in_progress` merge 继续拒绝。
+未来 bridge 只能是 `[F, accepted recovery]` 且 tree 等于 second parent；
+acceptance 自身的 exact-head CI 成功前不得创建 bridge、merge 或任何后续卡。
 
 恢复 implementation I 已固定为
-`0a752ac8f14bafb42a18922d8155944612d6d21c`；当前 delivery HEAD 仅等待
-exact-head CI 与独立双审，不得把本地成功升级为 acceptance。
+`0a752ac8f14bafb42a18922d8155944612d6d21c`；reviewed candidate 固定为
+`388a75b18f37ddd970a37938dba8b955dc95e719`。closure、merged-main 与
+finalization evidence 仍未建立。

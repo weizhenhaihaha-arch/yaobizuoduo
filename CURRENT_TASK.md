@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 governance anomaly recovery
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `accepted_pending_merge`
 - Candidate generation: `4`
 - Baseline: `1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f`
 - Exact terminal-blocked main:
@@ -77,16 +77,18 @@ fresh canonical Package A route.
    head/run, and failed push/main run.
 2. Only a strict single-parent recovery lineage may follow F. The ordinary
    `in_progress` merge F is anomaly history and never merge authority.
-3. Recovery delivery remains `awaiting_review`, with candidate identity
-   implicit in the delivery HEAD, CI `not_run`, both reviewers pending, and
-   the exact failed-main blocker retained.
-4. A future protected-main bridge is valid only as
+3. Recovery candidate `388a75b18f37ddd970a37938dba8b955dc95e719`
+   passed exact-head run `30036514625`, independent code/security `APPROVE`,
+   and independent architecture/route `CLEAR`; the exact failed-main blocker
+   remains retained through acceptance.
+4. The protected-main bridge is valid only as
    `[F, accepted-generation-4-recovery]` with tree equal to its second parent.
-   This card does not create that acceptance or bridge.
+   Acceptance does not establish closure, merged-main, or finalization proof.
 
 Implementation I is
-`0a752ac8f14bafb42a18922d8155944612d6d21c`. The current delivery is the
-implicit candidate and awaits exact-head CI plus independent dual review.
+`0a752ac8f14bafb42a18922d8155944612d6d21c`. The reviewed candidate is
+`388a75b18f37ddd970a37938dba8b955dc95e719`; its acceptance record must pass
+its own exact-head CI before any `[F, acceptance]` bridge is created.
 
 ## Frozen allowlist
 
