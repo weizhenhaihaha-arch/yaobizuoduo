@@ -28,8 +28,14 @@ PR #20 至 #22 中出现的“产品负责人已确认 Package A”“G0-T05 已
 - 恢复实现必须直接基于 exact main
   `4f358cf42b9a8e0f741563425fc26cf532df98fb`。
 - delivery 必须直接跟随 validator/tests-only implementation。
-- 未来 merge 只能使用 ordered parents `[4f358cf, delivery]`，且 merge tree
-  必须与 delivery 完全相同。
+- exact candidate `6541189bbdacc870de5691d07991b9103ee2c763` 已通过
+  PR #23 run `30005396033`、主控复跑、code/security `APPROVE` 和
+  architecture `CLEAR_FOR_SEAL`；这些结果只允许其 direct-child Stage-2
+  seal `S` 固化证据。
+- 未来 merge 只能使用 ordered parents `[4f358cf, S]`，且 merge tree
+  必须与 `S` 完全相同；直接 `[4f358cf, candidate]` 路线失效。
+- `S` 保持 G0-T04 `blocked`、generation 3、原 blocker 和 G0-T05
+  `not_authorized`，不得自称 accepted/merged/closed。
 - live checkout 必须严格匹配 local/fetched main；历史 replay 不依赖移动 ref。
 - manifest/schema blob、ruleset `19526291`、required check
   `G0 / exact-head`、零 required review 和无 bypass 均不得漂移。

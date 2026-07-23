@@ -21,8 +21,11 @@ authorization boundary.
 ## Current truth
 
 - Reviews for PR #15, #17, #19, #20, #21, and #22 are all empty.
-- Independent code/security is `REQUEST CHANGES`.
-- Independent architecture/route is `BLOCK`.
+- Exact reviewed candidate `6541189bbdacc870de5691d07991b9103ee2c763`
+  passed PR #23 run `30005396033`, main verification, independent
+  code/security `APPROVE`, and architecture/route `CLEAR_FOR_SEAL`.
+- Those candidate results authorize only the later Stage-2 seal `S`; they do
+  not accept, merge, close, or expand G0-T04.
 - No product-owner confirmation of Package A was observed.
 - Package A payload
   `815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27`
@@ -35,6 +38,8 @@ The immutable anomaly receipt is
 `evidence/g0-t04/pr15-pr22-review-chain.json`. The false activation assertion
 previously stored at `evidence/g0-t05/package-a-activation.json` is absent from
 the recovery tree but remains permanently visible in Git history.
+The later review seal is
+`evidence/g0-t04/pr15-pr22-recovery-seal.json`.
 
 ## Exact recovery topology
 
@@ -42,10 +47,13 @@ the recovery tree but remains permanently visible in Git history.
    `4f358cf42b9a8e0f741563425fc26cf532df98fb` and changes only validator/tests.
 2. Delivery directly follows implementation and changes only the frozen
    G0-T04 anomaly allowlist.
-3. A future recovery merge must have ordered parents
-   `[4f358cf42b9a8e0f741563425fc26cf532df98fb, delivery]` and a tree exactly
-   equal to delivery.
-4. Live validation requires local main and fetched origin/main to equal the
+3. Stage-2 seal `S` must directly consume exact reviewed candidate
+   `6541189bbdacc870de5691d07991b9103ee2c763`, retain G0-T04 `blocked`,
+   and bind the exact external CI/review/verification evidence.
+4. A future recovery merge must have ordered parents
+   `[4f358cf42b9a8e0f741563425fc26cf532df98fb, S]` and a tree exactly equal
+   to `S`; the obsolete direct `[M, C]` route is rejected.
+5. Live validation requires local main and fetched origin/main to equal the
    exact current main; historical replay never consults a moving main ref.
 
 ## Frozen allowlist
@@ -54,8 +62,7 @@ the recovery tree but remains permanently visible in Git history.
 - `CURRENT_TASK.md`
 - `PROJECT_MEMORY.md`
 - `docs/NEXT_WORKFLOW.md`
-- `evidence/g0-t04/pr15-pr22-review-chain.json`
-- deletion of `evidence/g0-t05/package-a-activation.json`
+- `evidence/g0-t04/pr15-pr22-recovery-seal.json`
 - `scripts/validate_project_status.py`
 - `tests/test_g0_project_status.py`
 
@@ -84,4 +91,5 @@ the recovery tree but remains permanently visible in Git history.
   - `git diff --check`
 - Any failed test, review, topology, identity, blob, ruleset, allowlist, or
   authority check returns only this G0-T04 card.
-- Stop after delivery. No push, PR, merge, or next-card dispatch is authorized.
+- Stop after the uncommitted Stage-2 seal patch for main-Codex inspection.
+  This task grants no push, PR, merge, or next-card dispatch authority.

@@ -26,7 +26,7 @@
       "task_id": "G0-T04",
       "risk": "D0",
       "state": "blocked",
-      "transition": {"from": "closed", "to": "blocked"},
+      "transition": {"from": "blocked", "to": "blocked"},
       "candidate_generation": 3
     }
   ],
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "approve",
+    "architecture": "clear",
+    "reviewed_candidate_sha": "6541189bbdacc870de5691d07991b9103ee2c763"
   },
   "bootstrap_exception": null,
   "capability": {
