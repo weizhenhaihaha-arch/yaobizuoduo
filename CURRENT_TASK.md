@@ -5,8 +5,8 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `returned`
-- Candidate generation: `1`
+- Status: `in_progress`
+- Candidate generation: `2`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
 - Authorization: product owner explicitly authorized this planning-only card on 2026-07-23 Asia/Shanghai
@@ -121,3 +121,14 @@ reviews, blockers, worktree state, and repository/external memory updates.
 - The generation-1 payload digest `a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff`
   is superseded and cannot be confirmed or activated.
 - Repair remains limited to G0-T04 manifest/schema/validator/tests/docs.
+
+## Generation 2 repair scope
+
+1. Freeze G1-T01 as complete backend CI, including pinned API dependencies and
+   mandatory collected/passing `tests/test_m5_transport.py`.
+2. Correct G0-T05's D0 non-transport regression command to ignore the real
+   `tests/test_m5_transport.py`; every referenced test/ignore path must exist.
+3. Read manifest/schema only from exact committed `100644` Git blobs and reject
+   symlink, executable, submodule, tree, or external-byte substitution.
+4. Persist manifest/schema/digest/activation and per-card allowlist validation
+   after G0-T04, including G0-T05 authorized/in-progress drift rejection.
