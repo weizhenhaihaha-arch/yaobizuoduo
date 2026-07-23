@@ -783,7 +783,16 @@ def make_g0_t04_anomaly_seal(
     seal_path.write_text(json.dumps(seal, indent=2, ensure_ascii=False) + "\n")
     shutil.copy2(SCRIPT, repo / "scripts/validate_project_status.py")
     shutil.copy2(ROOT / "tests/test_g0_project_status.py", repo / "tests/test_g0_project_status.py")
-    shutil.copy2(ROOT / "CURRENT_TASK.md", repo / "CURRENT_TASK.md")
+    task = status["active_tasks"][0]
+    (repo / "CURRENT_TASK.md").write_text(
+        "# G0-T04 anomaly recovery seal\n\n"
+        f"- Task ID: `{task['task_id']}`\n"
+        f"- Gate: {status['current_gate']} governance recovery\n"
+        f"- Risk: `{task['risk']}`\n"
+        f"- Status: `{task['state']}`\n"
+        f"- Baseline: `{status['evidence']['authorization_baseline_sha']}`\n",
+        encoding="utf-8",
+    )
     shutil.copy2(ROOT / "PROJECT_MEMORY.md", repo / "PROJECT_MEMORY.md")
     shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
     if mutation == "package":
