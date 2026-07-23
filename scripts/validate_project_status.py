@@ -161,6 +161,8 @@ G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_ORIGIN = "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373"
 G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
 G0_T04_ANOMALY_CANDIDATE = "6541189bbdacc870de5691d07991b9103ee2c763"
+G0_T04_ANOMALY_SEAL = "50a801f2f81c9c6f5eaea99444529fcbeb5933c2"
+G0_T04_ANOMALY_MERGE = "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87"
 G0_T04_ANOMALY_RECEIPT_PATH = "evidence/g0-t04/pr15-pr22-review-chain.json"
 G0_T04_ANOMALY_SEAL_PATH = "evidence/g0-t04/pr15-pr22-recovery-seal.json"
 G0_T04_ANOMALY_SEAL_VERSION = "g0-t04-pr15-pr22-recovery-seal.v1"
@@ -188,6 +190,13 @@ G0_T04_ANOMALY_SEAL_ALLOWED = frozenset(
         "PROJECT_MEMORY.md",
         "docs/NEXT_WORKFLOW.md",
         G0_T04_ANOMALY_SEAL_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
+G0_T04_ANOMALY_POST_MERGE_REPAIR_ALLOWED = frozenset(
+    {
+        "PROJECT_MEMORY.md",
         "scripts/validate_project_status.py",
         "tests/test_g0_project_status.py",
     }
@@ -1617,6 +1626,16 @@ def _parent_status_errors(
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
+    recovery_errors = _g0_t04_anomaly_post_merge_repair_parent_errors(
+        status,
+        parent,
+        parent_sha,
+        root,
+        child_sha,
+        require_current_main=require_current_main,
+    )
+    if recovery_errors is not None:
+        return recovery_errors
     recovery_errors = _g0_t04_anomaly_seal_parent_errors(
         status,
         parent,
@@ -4822,6 +4841,148 @@ def _g0_t03_recovery_merge_recovery_parent_errors(
     return errors
 
 
+def _g0_t04_anomaly_post_merge_repair_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+    *,
+    require_current_main: bool,
+) -> list[str] | None:
+    if root is None or child_sha is None or child_sha == G0_T04_ANOMALY_MERGE:
+        return None
+    if not _is_ancestor(root, G0_T04_ANOMALY_MERGE, child_sha):
+        return None
+    if not _is_g0_t04_anomaly_seal_status(status):
+        return ["$: G0-T04 post-merge repair must preserve exact blocked status"]
+    errors: list[str] = []
+    merge_status = _status_at(root, G0_T04_ANOMALY_MERGE)
+    if (
+        type(merge_status) is not dict
+        or not _typed_equal(status, merge_status)
+        or not _typed_equal(parent, merge_status)
+    ):
+        errors.append("$: G0-T04 post-merge repair status drifted from exact F")
+    ok_child, child_line = _git(
+        root, "rev-list", "--parents", "-n", "1", child_sha
+    )
+    if (
+        parent_sha is None
+        or (child_line.split() if ok_child else []) != [child_sha, parent_sha]
+    ):
+        errors.append("$: G0-T04 post-merge repair must be single-parent")
+    ok_lineage, lineage_text = _git(
+        root,
+        "rev-list",
+        "--first-parent",
+        f"{G0_T04_ANOMALY_MERGE}..{child_sha}",
+    )
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    if not lineage or lineage[0] != child_sha:
+        errors.append("$: G0-T04 post-merge repair is not rooted at exact F")
+    for index, repair_sha in enumerate(lineage):
+        expected_parent = (
+            lineage[index + 1]
+            if index + 1 < len(lineage)
+            else G0_T04_ANOMALY_MERGE
+        )
+        ok_repair, repair_line = _git(
+            root, "rev-list", "--parents", "-n", "1", repair_sha
+        )
+        if (
+            (repair_line.split() if ok_repair else [])
+            != [repair_sha, expected_parent]
+            or not _typed_equal(_status_at(root, repair_sha), merge_status)
+        ):
+            errors.append(
+                "$: G0-T04 post-merge repair requires status-identical "
+                "single-parent lineage from exact F"
+            )
+            break
+    changed = _g0_t03_commit_changed_paths(
+        root, G0_T04_ANOMALY_MERGE, child_sha
+    )
+    if (
+        changed is None
+        or not changed
+        or not changed.issubset(G0_T04_ANOMALY_POST_MERGE_REPAIR_ALLOWED)
+    ):
+        errors.append("$: G0-T04 post-merge repair cumulative allowlist drifted")
+    ok_merge, merge_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_ANOMALY_MERGE
+    )
+    ok_merge_tree, merge_tree = _git(
+        root, "rev-parse", f"{G0_T04_ANOMALY_MERGE}^{{tree}}"
+    )
+    ok_seal_tree, seal_tree = _git(
+        root, "rev-parse", f"{G0_T04_ANOMALY_SEAL}^{{tree}}"
+    )
+    if (
+        (merge_line.split() if ok_merge else [])
+        != [
+            G0_T04_ANOMALY_MERGE,
+            G0_T04_ANOMALY_MAIN,
+            G0_T04_ANOMALY_SEAL,
+        ]
+        or not ok_merge_tree
+        or not ok_seal_tree
+        or merge_tree != seal_tree
+    ):
+        errors.append("$: exact G0-T04 anomaly merge F topology drifted")
+    schema = _schema_at(root, child_sha)
+    if type(schema) is not dict:
+        errors.append("$: G0-T04 post-merge repair schema is unavailable")
+    else:
+        governed, bridge_errors = _canonical_g0_t04_anomaly_bridge(
+            merge_status if type(merge_status) is dict else status,
+            root,
+            G0_T04_ANOMALY_MERGE,
+            schema,
+            require_canonical_main=False,
+        )
+        errors.extend(bridge_errors)
+        if governed != G0_T04_ANOMALY_SEAL:
+            errors.append("$: exact G0-T04 anomaly merge F is not canonical")
+    for relative in (
+        G0_T04_ANOMALY_RECEIPT_PATH,
+        G0_T04_ANOMALY_SEAL_PATH,
+        PACKAGE_A_MANIFEST_PATH,
+        PACKAGE_A_SCHEMA_PATH,
+    ):
+        ok_f, f_blob = _git(
+            root, "rev-parse", f"{G0_T04_ANOMALY_MERGE}:{relative}"
+        )
+        ok_child_blob, child_blob = _git(
+            root, "rev-parse", f"{child_sha}:{relative}"
+        )
+        if not ok_f or not ok_child_blob or child_blob != f_blob:
+            errors.append(
+                f"$: G0-T04 post-merge repair immutable blob drifted: {relative}"
+            )
+    if _git(
+        root, "cat-file", "-e", f"{child_sha}:{PACKAGE_A_ACTIVATION_PATH}"
+    )[0]:
+        errors.append("$: false Package A activation reappeared after exact F")
+    if require_current_main:
+        ok_main, main = _git(
+            root, "rev-parse", "--verify", status["authoritative_main_ref"]
+        )
+        ok_remote, remote = _git(
+            root, "rev-parse", "--verify", "refs/remotes/origin/main"
+        )
+        if (
+            not ok_main
+            or not ok_remote
+            or main != remote
+            or main != G0_T04_ANOMALY_MERGE
+        ):
+            errors.append(
+                "$: G0-T04 post-merge repair requires exact authoritative F"
+            )
+    return errors
+
+
 def _g0_t04_anomaly_seal_parent_errors(
     status: dict[str, Any],
     parent: dict[str, Any],
@@ -5019,6 +5180,164 @@ def _canonical_g0_t04_anomaly_bridge(
         if not ok_main or not ok_remote or main != remote or main != head:
             errors.append("$: G0-T04 anomaly merge requires exact current main")
     return (None, errors) if errors else (governed, [])
+
+
+def _canonical_g0_t04_post_merge_repair_bridge(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    schema: dict[str, Any],
+    *,
+    require_canonical_main: bool,
+) -> tuple[str | None, list[str]]:
+    """Recognize only a standard [exact F, exact F-rooted repair] merge."""
+    if not _is_g0_t04_anomaly_seal_status(status) or head == G0_T04_ANOMALY_MERGE:
+        return None, []
+    ok_head, head_line = _git(root, "rev-list", "--parents", "-n", "1", head)
+    head_parts = head_line.split() if ok_head else []
+    if len(head_parts) != 3:
+        return None, []
+    first_parent, repair_parent = head_parts[1], head_parts[2]
+    ok_lineage, lineage_text = _git(
+        root,
+        "rev-list",
+        "--first-parent",
+        f"{G0_T04_ANOMALY_MERGE}..{repair_parent}",
+    )
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    owns_route = first_parent == G0_T04_ANOMALY_MERGE or (
+        bool(lineage) and lineage[0] == repair_parent
+    )
+    if not owns_route:
+        return None, []
+
+    errors: list[str] = []
+    if first_parent != G0_T04_ANOMALY_MERGE:
+        errors.append(
+            "$: G0-T04 post-merge repair merge first parent must be exact F"
+        )
+    if not lineage or lineage[0] != repair_parent:
+        errors.append(
+            "$: G0-T04 post-merge repair merge second parent is not rooted at exact F"
+        )
+    for index, repair_sha in enumerate(lineage):
+        expected_parent = (
+            lineage[index + 1]
+            if index + 1 < len(lineage)
+            else G0_T04_ANOMALY_MERGE
+        )
+        ok_repair, repair_line = _git(
+            root, "rev-list", "--parents", "-n", "1", repair_sha
+        )
+        if (
+            (repair_line.split() if ok_repair else [])
+            != [repair_sha, expected_parent]
+            or not _typed_equal(_status_at(root, repair_sha), status)
+        ):
+            errors.append(
+                "$: G0-T04 post-merge repair merge requires a status-identical "
+                "single-parent second-parent lineage"
+            )
+            break
+
+    changed = _g0_t03_commit_changed_paths(
+        root, G0_T04_ANOMALY_MERGE, repair_parent
+    )
+    if (
+        changed is None
+        or not changed
+        or not changed.issubset(G0_T04_ANOMALY_POST_MERGE_REPAIR_ALLOWED)
+    ):
+        errors.append(
+            "$: G0-T04 post-merge repair merge cumulative allowlist drifted"
+        )
+
+    ok_f, f_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_ANOMALY_MERGE
+    )
+    ok_f_tree, f_tree = _git(
+        root, "rev-parse", f"{G0_T04_ANOMALY_MERGE}^{{tree}}"
+    )
+    ok_seal_tree, seal_tree = _git(
+        root, "rev-parse", f"{G0_T04_ANOMALY_SEAL}^{{tree}}"
+    )
+    if (
+        (f_line.split() if ok_f else [])
+        != [
+            G0_T04_ANOMALY_MERGE,
+            G0_T04_ANOMALY_MAIN,
+            G0_T04_ANOMALY_SEAL,
+        ]
+        or not ok_f_tree
+        or not ok_seal_tree
+        or f_tree != seal_tree
+    ):
+        errors.append("$: exact G0-T04 anomaly merge F topology drifted")
+
+    governed_f, f_errors = _canonical_g0_t04_anomaly_bridge(
+        status,
+        root,
+        G0_T04_ANOMALY_MERGE,
+        schema,
+        require_canonical_main=False,
+    )
+    errors.extend(f_errors)
+    if governed_f != G0_T04_ANOMALY_SEAL:
+        errors.append("$: exact G0-T04 anomaly merge F is not canonical")
+
+    for relative in (
+        G0_T04_ANOMALY_RECEIPT_PATH,
+        G0_T04_ANOMALY_SEAL_PATH,
+        PACKAGE_A_MANIFEST_PATH,
+        PACKAGE_A_SCHEMA_PATH,
+    ):
+        ok_f_blob, f_blob = _git(
+            root, "rev-parse", f"{G0_T04_ANOMALY_MERGE}:{relative}"
+        )
+        ok_repair_blob, repair_blob = _git(
+            root, "rev-parse", f"{repair_parent}:{relative}"
+        )
+        if not ok_f_blob or not ok_repair_blob or repair_blob != f_blob:
+            errors.append(
+                "$: G0-T04 post-merge repair merge immutable blob drifted: "
+                f"{relative}"
+            )
+    if _git(
+        root, "cat-file", "-e", f"{repair_parent}:{PACKAGE_A_ACTIVATION_PATH}"
+    )[0]:
+        errors.append(
+            "$: false Package A activation reappeared in repair merge"
+        )
+
+    governed_status = _status_at(root, repair_parent)
+    if not _typed_equal(governed_status, status):
+        errors.append(
+            "$: G0-T04 post-merge repair merge status must equal its second parent"
+        )
+    ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+    ok_repair_tree, repair_tree = _git(
+        root, "rev-parse", f"{repair_parent}^{{tree}}"
+    )
+    if (
+        not ok_head_tree
+        or not ok_repair_tree
+        or head_tree != repair_tree
+    ):
+        errors.append(
+            "$: G0-T04 post-merge repair merge tree must equal its second parent"
+        )
+    if require_canonical_main:
+        ok_main, main = _git(
+            root, "rev-parse", "--verify", status["authoritative_main_ref"]
+        )
+        ok_remote, remote = _git(
+            root, "rev-parse", "--verify", "refs/remotes/origin/main"
+        )
+        if not ok_main or not ok_remote or main != remote or main != head:
+            errors.append(
+                "$: G0-T04 post-merge repair merge requires exact local/fetched main"
+            )
+    return (None, errors) if errors else (repair_parent, [])
 
 
 def _g0_t04_failed_merge_errors(
@@ -5411,6 +5730,17 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
+    repair_governed, repair_errors = (
+        _canonical_g0_t04_post_merge_repair_bridge(
+            status,
+            root,
+            head,
+            schema,
+            require_canonical_main=require_canonical_main,
+        )
+    )
+    if repair_governed is not None or repair_errors:
+        return repair_governed, repair_errors
     if _is_g0_t04_anomaly_status(status) or _is_g0_t04_anomaly_seal_status(status):
         governed, anomaly_errors = _canonical_g0_t04_anomaly_bridge(
             status,
