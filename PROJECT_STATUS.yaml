@@ -23,38 +23,38 @@
   "current_gate": "G0",
   "active_tasks": [
     {
-      "task_id": "G0-T03",
-      "risk": "D2",
-      "state": "closed",
-      "transition": {"from": "closed", "to": "closed"},
+      "task_id": "G0-T04",
+      "risk": "D0",
+      "state": "accepted_pending_merge",
+      "transition": {"from": "awaiting_review", "to": "accepted_pending_merge"},
       "candidate_generation": 3
     }
   ],
   "evidence": {
-    "authorization_baseline_sha": "09bfbd23d898198fe694a3a94f77663759dd89d8",
-    "implementation_sha": "a247cd33e5e31dc4889fa611192c9a8f7c043b04",
+    "authorization_baseline_sha": "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
+    "implementation_sha": "57d65f47709b4f683e4326051c737ed037b15b83",
     "candidate": {
-      "commit_sha": "6ca1ace6af66f874eed38f644104f59bbc4009ad",
+      "commit_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8",
       "local_verification": {"status": "success", "subject": "delivery_head"},
-      "ci": {"status": "success", "subject_sha": "6ca1ace6af66f874eed38f644104f59bbc4009ad", "run_id": "29893836848", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29893836848"}
+      "ci": {"status": "success", "subject_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8", "run_id": "29987891035", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29987891035"}
     },
     "closure": {
-      "commit_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd",
-      "ci": {"status": "success", "subject_sha": "3263cf207cecac1e3fb019df2fbd6c2a6435d5bd", "run_id": "29905690883", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29905690883"}
+      "commit_sha": null,
+      "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
     },
     "merged_main": {
-      "commit_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1",
-      "ci": {"status": "success", "subject_sha": "a98dada059c91dc70714119f333d0d03ab1cb9f1", "run_id": "29906115287", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29906115287"}
+      "commit_sha": null,
+      "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
     },
     "finalization": {
-      "commit_sha": "e4fd7ae620955867ac0c6914aff2c913420c3ba2",
-      "d0_ci": {"status": "success", "subject_sha": "e4fd7ae620955867ac0c6914aff2c913420c3ba2", "run_id": "29906677035", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29906677035"}
+      "commit_sha": null,
+      "d0_ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
     }
   },
   "review": {
     "code_security": "approve",
     "architecture": "clear",
-    "reviewed_candidate_sha": "6ca1ace6af66f874eed38f644104f59bbc4009ad"
+    "reviewed_candidate_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8"
   },
   "bootstrap_exception": null,
   "capability": {
@@ -63,7 +63,7 @@
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
   "blockers": [],
-  "next_authorization": {"gate": "G0", "task_id": "G0-T04", "state": "not_authorized"},
+  "next_authorization": {"gate": "G0", "task_id": "G0-T05", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
