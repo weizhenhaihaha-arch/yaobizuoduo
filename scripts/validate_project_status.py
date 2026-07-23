@@ -224,7 +224,7 @@ G0_T04_G4_ROUTE_SEAL_PATH = (
 )
 G0_T04_G4_ROUTE_SEAL_VERSION = "g0-t04-generation-4-main-drift-seal.v1"
 G0_T04_G4_ROUTE_SEAL_PAYLOAD = (
-    "40af99e4a08e06914b0df4908adc8eb9695b25e46aaa0385fcd95681aef635e7"
+    "87b9b2b0ab285de6ef7d9850203b083315a630efae23427b23a4b08e5ce71146"
 )
 G0_T04_G4_G1_BLOCKED = "3a27f530b338ece78ae90ffd895787e5a10616fc"
 G0_T04_G4_G1_MERGE_BASE = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
@@ -1878,6 +1878,11 @@ def _g0_t04_g4_route_errors(
         "start_parent": G0_T04_G4_COMPETING_AUTH,
         "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
         "start_message": "Start G0-T04 generation 4 implementation",
+        "source_clone_object_requirement": False,
+        "verification_rule": (
+            "both_absent_accept_sealed_identity_if_any_present_require_both_"
+            "and_exact_metadata"
+        ),
         "governed_parent_eligible": False,
         "import_allowed": False,
     }:
@@ -1975,44 +1980,55 @@ def _g0_t04_g4_route_errors(
         != "ca7aa3b416024ed44f57ab8cfa8de94f39995f04"
     ):
         errors.append("$: G0-T04 generation-4 abandoned route topology drifted")
-    competing_ok, competing_line = _git(
-        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_AUTH
-    )
-    competing_tree_ok, competing_tree = _git(
-        root, "rev-parse", f"{G0_T04_G4_COMPETING_AUTH}^{{tree}}"
-    )
-    competing_message_ok, competing_message = _git(
-        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_AUTH
-    )
-    competing_start_ok, competing_start_line = _git(
-        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_START
-    )
-    competing_start_tree_ok, competing_start_tree = _git(
-        root, "rev-parse", f"{G0_T04_G4_COMPETING_START}^{{tree}}"
-    )
-    competing_start_message_ok, competing_start_message = _git(
-        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_START
-    )
-    if (
-        (competing_line.split() if competing_ok else [])
-        != [
-            G0_T04_G4_COMPETING_AUTH,
-            G0_T04_G4_BASELINE,
-            G0_T04_G4_BLOCKED_MAIN,
-        ]
-        or not competing_tree_ok
-        or competing_tree != "11098e342e3706e47ff74ddea7f6515475339a89"
-        or not competing_message_ok
-        or competing_message != "Authorize G0-T04 generation 4"
-        or (competing_start_line.split() if competing_start_ok else [])
-        != [G0_T04_G4_COMPETING_START, G0_T04_G4_COMPETING_AUTH]
-        or not competing_start_tree_ok
-        or competing_start_tree != "0296e60d4cb54cbc509dfd13b0ba54809d848b25"
-        or not competing_start_message_ok
-        or competing_start_message
-        != "Start G0-T04 generation 4 implementation"
-    ):
-        errors.append("$: G0-T04 generation-4 competing route topology drifted")
+    competing_auth_present = _git(
+        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_AUTH}^{{commit}}"
+    )[0]
+    competing_start_present = _git(
+        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_START}^{{commit}}"
+    )[0]
+    if competing_auth_present != competing_start_present:
+        errors.append(
+            "$: G0-T04 generation-4 competing route objects are only partially present"
+        )
+    elif competing_auth_present:
+        competing_ok, competing_line = _git(
+            root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_AUTH
+        )
+        competing_tree_ok, competing_tree = _git(
+            root, "rev-parse", f"{G0_T04_G4_COMPETING_AUTH}^{{tree}}"
+        )
+        competing_message_ok, competing_message = _git(
+            root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_AUTH
+        )
+        competing_start_ok, competing_start_line = _git(
+            root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_START
+        )
+        competing_start_tree_ok, competing_start_tree = _git(
+            root, "rev-parse", f"{G0_T04_G4_COMPETING_START}^{{tree}}"
+        )
+        competing_start_message_ok, competing_start_message = _git(
+            root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_START
+        )
+        if (
+            (competing_line.split() if competing_ok else [])
+            != [
+                G0_T04_G4_COMPETING_AUTH,
+                G0_T04_G4_BASELINE,
+                G0_T04_G4_BLOCKED_MAIN,
+            ]
+            or not competing_tree_ok
+            or competing_tree != "11098e342e3706e47ff74ddea7f6515475339a89"
+            or not competing_message_ok
+            or competing_message != "Authorize G0-T04 generation 4"
+            or (competing_start_line.split() if competing_start_ok else [])
+            != [G0_T04_G4_COMPETING_START, G0_T04_G4_COMPETING_AUTH]
+            or not competing_start_tree_ok
+            or competing_start_tree != "0296e60d4cb54cbc509dfd13b0ba54809d848b25"
+            or not competing_start_message_ok
+            or competing_start_message
+            != "Start G0-T04 generation 4 implementation"
+        ):
+            errors.append("$: G0-T04 generation-4 competing route topology drifted")
     changed = _g0_t03_commit_changed_paths(root, G0_T04_G4_AUTHORIZATION, head)
     if changed is None or not changed.issubset(G0_T04_G4_ALLOWED):
         errors.append("$: G0-T04 generation-4 cumulative allowlist drifted")

@@ -50,6 +50,8 @@
     "start_parent": "046414bea45316f01e3d3e7b556b4c06d489c03b",
     "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
     "start_message": "Start G0-T04 generation 4 implementation",
+    "source_clone_object_requirement": false,
+    "verification_rule": "both_absent_accept_sealed_identity_if_any_present_require_both_and_exact_metadata",
     "governed_parent_eligible": false,
     "import_allowed": false
   },
@@ -103,5 +105,5 @@
     "scripts/validate_project_status.py",
     "tests/test_g0_project_status.py"
   ],
-  "payload_sha256": "40af99e4a08e06914b0df4908adc8eb9695b25e46aaa0385fcd95681aef635e7"
+  "payload_sha256": "87b9b2b0ab285de6ef7d9850203b083315a630efae23427b23a4b08e5ce71146"
 }

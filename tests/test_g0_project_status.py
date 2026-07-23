@@ -56,7 +56,7 @@ G0_T04_G4_ROUTE_SEAL = (
     ROOT / "evidence/g0-t04/generation-4-main-drift-seal.json"
 )
 G0_T04_G4_ROUTE_PAYLOAD = (
-    "40af99e4a08e06914b0df4908adc8eb9695b25e46aaa0385fcd95681aef635e7"
+    "87b9b2b0ab285de6ef7d9850203b083315a630efae23427b23a4b08e5ce71146"
 )
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
@@ -4241,6 +4241,11 @@ def test_g0_t04_generation4_main_drift_authorization_and_seal_are_exact() -> Non
         "start_parent": VALIDATOR.G0_T04_G4_COMPETING_AUTH,
         "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
         "start_message": "Start G0-T04 generation 4 implementation",
+        "source_clone_object_requirement": False,
+        "verification_rule": (
+            "both_absent_accept_sealed_identity_if_any_present_require_both_"
+            "and_exact_metadata"
+        ),
         "governed_parent_eligible": False,
         "import_allowed": False,
     }
@@ -4395,6 +4400,98 @@ def test_g0_t04_generation4_discarded_node_cannot_be_governed_parent(
     assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, merged)
 
 
+def make_generation4_fresh_clone_without_competing_objects(
+    tmp_path: Path,
+) -> tuple[Path, str, dict]:
+    repo = tmp_path / "g0-t04-generation4-fresh-object-boundary"
+    git(tmp_path, "init", "--quiet", str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    source_head = git(ROOT, "rev-parse", "HEAD")
+    git(
+        repo,
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        str(ROOT),
+        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
+    )
+    git(repo, "fetch", "--quiet", "--no-tags", str(ROOT), source_head)
+    git(repo, "checkout", "--quiet", "--detach", "FETCH_HEAD")
+    shutil.copy2(
+        G0_T04_G4_ROUTE_SEAL,
+        repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH,
+    )
+    subject = git(repo, "rev-parse", "HEAD")
+    if git(repo, "status", "--short"):
+        subject = commit(repo, "install current generation-4 route seal")
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    for sha in (
+        VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        VALIDATOR.G0_T04_G4_COMPETING_START,
+    ):
+        absent = subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            cwd=repo,
+            capture_output=True,
+            check=False,
+        )
+        assert absent.returncode != 0
+    return repo, subject, status
+
+
+def write_exact_commit_object(repo: Path, source_repo: Path, sha: str) -> None:
+    source = subprocess.run(
+        ["git", "cat-file", "commit", sha],
+        cwd=source_repo,
+        capture_output=True,
+        check=True,
+    )
+    written = subprocess.run(
+        ["git", "hash-object", "-t", "commit", "-w", "--stdin"],
+        cwd=repo,
+        input=source.stdout,
+        capture_output=True,
+        check=True,
+    )
+    assert written.stdout.decode().strip() == sha
+
+
+def test_g0_t04_generation4_fresh_clone_accepts_absent_competing_objects(
+    tmp_path: Path,
+) -> None:
+    repo, subject, status = make_generation4_fresh_clone_without_competing_objects(
+        tmp_path
+    )
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject) == []
+
+
+@pytest.mark.parametrize(
+    "present_sha",
+    [
+        VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        VALIDATOR.G0_T04_G4_COMPETING_START,
+    ],
+)
+def test_g0_t04_generation4_partial_competing_object_presence_is_rejected(
+    tmp_path: Path,
+    present_sha: str,
+) -> None:
+    repo, subject, status = make_generation4_fresh_clone_without_competing_objects(
+        tmp_path
+    )
+    write_exact_commit_object(repo, ROOT, present_sha)
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+    assert any("only partially present" in error for error in errors)
+
+
 def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     tmp_path: Path,
 ) -> None:
@@ -4404,8 +4501,10 @@ def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     git(repo, "config", "user.email", "test@example.invalid")
     seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
     valid_bytes = G0_T04_G4_ROUTE_SEAL.read_bytes()
-    assert seal_path.read_bytes() == valid_bytes
     valid_subject = git(repo, "rev-parse", "HEAD")
+    if seal_path.read_bytes() != valid_bytes:
+        seal_path.write_bytes(valid_bytes)
+        valid_subject = commit(repo, "install current valid generation-4 seal")
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
 
     hostile = json.loads(valid_bytes.decode("utf-8"))
