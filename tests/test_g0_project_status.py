@@ -58,6 +58,9 @@ G0_T04_G4_ROUTE_SEAL = (
 G0_T04_G4_ROUTE_PAYLOAD = (
     "87b9b2b0ab285de6ef7d9850203b083315a630efae23427b23a4b08e5ce71146"
 )
+G0_T04_G4_PREMATURE_RECEIPT = (
+    ROOT / "evidence/g0-t04/generation-4-premature-merge-recovery.json"
+)
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -4519,3 +4522,398 @@ def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     hostile["discarded_competing_route"]["import_allowed"] = True
     write_digest_json(seal_path, hostile)
     assert VALIDATOR._g0_t04_g4_route_errors(status, repo, valid_subject) == []
+
+
+def make_generation4_premature_recovery_repo(
+    tmp_path: Path,
+    missing_required: str | None = None,
+) -> tuple[Path, str, dict]:
+    repo = tmp_path / "g0-t04-generation4-premature-recovery"
+    git(tmp_path, "init", "--quiet", str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    git(
+        repo,
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        str(ROOT),
+        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
+    )
+    git(
+        repo,
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        str(ROOT),
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+    )
+    git(repo, "checkout", "--quiet", "-b", "recovery", "FETCH_HEAD")
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+    )
+    receipt_path = repo / VALIDATOR.G0_T04_G4_PREMATURE_RECEIPT_PATH
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(G0_T04_G4_PREMATURE_RECEIPT, receipt_path)
+    status_path = repo / "PROJECT_STATUS.yaml"
+    if missing_required != "PROJECT_STATUS.yaml":
+        status_value = json.loads(status_path.read_text(encoding="utf-8"))
+        status_path.write_text(
+            json.dumps(status_value, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
+    for relative in (
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+    ):
+        if missing_required != relative:
+            path = repo / relative
+            path.write_text(
+                path.read_text(encoding="utf-8") + "\nRecovery fixture marker.\n",
+                encoding="utf-8",
+            )
+    for relative in (
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        if missing_required != relative:
+            path = repo / relative
+            path.write_text(
+                path.read_text(encoding="utf-8") + "\n# recovery fixture marker\n",
+                encoding="utf-8",
+            )
+    implementation = commit(repo, "install premature-main recovery receipt")
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    return repo, implementation, status
+
+
+def test_g0_t04_generation4_premature_recovery_receipt_is_exact() -> None:
+    receipt = json.loads(
+        G0_T04_G4_PREMATURE_RECEIPT.read_text(encoding="utf-8")
+    )
+    supplied = receipt.pop("payload_sha256")
+    assert supplied == hashlib.sha256(
+        json.dumps(
+            receipt,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    assert receipt["premature_main"] == {
+        "commit_sha": VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+        "ordered_parents": [
+            VALIDATOR.G0_T04_G4_PREMATURE_MAIN_FIRST_PARENT,
+            VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+        ],
+        "tree_sha": VALIDATOR.G0_T04_G4_PREMATURE_MAIN_TREE,
+        "pull_request": 26,
+        "pull_request_head": VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+        "reviews": {
+            "state": "empty",
+            "count": 0,
+        },
+        "project_status": {
+            "blob_sha": VALIDATOR.G0_T04_G4_PREMATURE_MAIN_STATUS_BLOB,
+            "canonical_sha256": VALIDATOR.G0_T04_G4_PREMATURE_MAIN_STATUS_DIGEST,
+        },
+        "pull_request_ci": {
+            "repository": "weizhenhaihaha-arch/yaobizuoduo",
+            "event": "pull_request",
+            "check": "G0 / exact-head",
+            "subject_sha": VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
+            "run_id": "30028693653",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/30028693653"
+            ),
+            "status": "completed",
+            "conclusion": "success",
+            "authority": "anomaly_history_only",
+        },
+        "main_ci": {
+            "repository": "weizhenhaihaha-arch/yaobizuoduo",
+            "event": "push",
+            "ref": "refs/heads/main",
+            "check": "G0 / exact-head",
+            "subject_sha": VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+            "run_id": "30028739788",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/30028739788"
+            ),
+            "status": "completed",
+            "conclusion": "failure",
+        },
+    }
+
+
+def test_g0_t04_generation4_premature_recovery_fresh_clone_validates(
+    tmp_path: Path,
+) -> None:
+    repo, implementation, status = make_generation4_premature_recovery_repo(
+        tmp_path
+    )
+    assert VALIDATOR._g0_t04_g4_route_errors(
+        status,
+        repo,
+        implementation,
+    ) == []
+    assert VALIDATOR._g0_t04_g4_premature_recovery_lineage_errors(
+        repo,
+        implementation,
+        require_current_main=True,
+    ) == []
+
+
+@pytest.mark.parametrize(
+    ("mutation", "blockers"),
+    [
+        ("replacement", ["replacement blocker"]),
+        ("removal", []),
+        (
+            "extra",
+            [
+                VALIDATOR.G0_T04_G4_PREMATURE_BLOCKER,
+                "unexpected extra blocker",
+            ],
+        ),
+    ],
+)
+def test_g0_t04_generation4_premature_recovery_rejects_blocker_drift(
+    tmp_path: Path,
+    mutation: str,
+    blockers: list[str],
+) -> None:
+    repo, implementation, status = make_generation4_premature_recovery_repo(
+        tmp_path
+    )
+    status["active_tasks"][0].update(
+        state="awaiting_review",
+        transition={"from": "in_progress", "to": "awaiting_review"},
+    )
+    status["evidence"]["implementation_sha"] = implementation
+    status["blockers"] = blockers
+    (repo / "PROJECT_STATUS.yaml").write_text(
+        json.dumps(status, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    hostile = commit(repo, f"hostile premature blocker {mutation}")
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, hostile)
+    assert any(
+        "must retain the exact premature-main CI blocker" in error
+        for error in errors
+    )
+
+
+def test_g0_t04_generation4_premature_in_progress_rejects_blocker(
+    tmp_path: Path,
+) -> None:
+    repo, implementation, status = make_generation4_premature_recovery_repo(
+        tmp_path
+    )
+    status["blockers"] = [VALIDATOR.G0_T04_G4_PREMATURE_BLOCKER]
+    (repo / "PROJECT_STATUS.yaml").write_text(
+        json.dumps(status, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    hostile = commit(repo, "hostile premature in-progress blocker")
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, hostile)
+    assert any("must retain exact empty blockers" in error for error in errors)
+    assert implementation != hostile
+
+
+def test_g0_t04_generation4_premature_recovery_persists_blocker_through_acceptance(
+    tmp_path: Path,
+) -> None:
+    repo, implementation, status = make_generation4_premature_recovery_repo(
+        tmp_path
+    )
+    status["active_tasks"][0].update(
+        state="awaiting_review",
+        transition={"from": "in_progress", "to": "awaiting_review"},
+    )
+    status["evidence"]["implementation_sha"] = implementation
+    status["blockers"] = [VALIDATOR.G0_T04_G4_PREMATURE_BLOCKER]
+    (repo / "PROJECT_STATUS.yaml").write_text(
+        json.dumps(status, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    delivery = commit(repo, "deliver premature recovery with exact blocker")
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, delivery) == []
+
+    status["active_tasks"][0].update(
+        state="accepted_pending_merge",
+        transition={"from": "awaiting_review", "to": "accepted_pending_merge"},
+    )
+    (repo / "PROJECT_STATUS.yaml").write_text(
+        json.dumps(status, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    accepted = commit(repo, "accept premature recovery with blocker retained")
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, accepted) == []
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "f",
+        "parents",
+        "tree",
+        "main_run",
+        "pr_run",
+        "reviews",
+        "status_blob",
+        "status_digest",
+    ],
+)
+def test_g0_t04_generation4_premature_receipt_rejects_identity_drift(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    repo, implementation, status = make_generation4_premature_recovery_repo(
+        tmp_path
+    )
+    receipt_path = repo / VALIDATOR.G0_T04_G4_PREMATURE_RECEIPT_PATH
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    if mutation == "f":
+        receipt["premature_main"]["commit_sha"] = "f" * 40
+    elif mutation == "parents":
+        receipt["premature_main"]["ordered_parents"].reverse()
+    elif mutation == "tree":
+        receipt["premature_main"]["tree_sha"] = "f" * 40
+    elif mutation == "main_run":
+        receipt["premature_main"]["main_ci"]["run_id"] = "30028739789"
+    elif mutation == "pr_run":
+        receipt["premature_main"]["pull_request_ci"]["run_id"] = "30028693654"
+    elif mutation == "reviews":
+        receipt["premature_main"]["reviews"]["count"] = 1
+    elif mutation == "status_blob":
+        receipt["premature_main"]["project_status"]["blob_sha"] = "f" * 40
+    else:
+        receipt["premature_main"]["project_status"]["canonical_sha256"] = "f" * 64
+    write_digest_json(receipt_path, receipt)
+    hostile = commit(repo, f"hostile premature receipt {mutation}")
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, hostile)
+    assert implementation != hostile
+
+
+def test_g0_t04_generation4_premature_recovery_requires_all_seven_paths(
+    tmp_path: Path,
+) -> None:
+    repo, implementation, status = make_generation4_premature_recovery_repo(
+        tmp_path,
+        missing_required="tests/test_g0_project_status.py",
+    )
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, implementation)
+    assert any("required scope drifted" in error for error in errors)
+
+
+def test_g0_t04_generation4_premature_receipt_bytes_are_immutable(
+    tmp_path: Path,
+) -> None:
+    repo, _, status = make_generation4_premature_recovery_repo(tmp_path)
+    receipt_path = repo / VALIDATOR.G0_T04_G4_PREMATURE_RECEIPT_PATH
+    receipt_path.write_bytes(receipt_path.read_bytes() + b"\n")
+    hostile = commit(repo, "hostile premature receipt bytes")
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, hostile)
+    assert any("bytes or digest drifted" in error for error in errors)
+
+
+def test_g0_t04_generation4_premature_recovery_rejects_scope_and_merge_import(
+    tmp_path: Path,
+) -> None:
+    repo, implementation, status = make_generation4_premature_recovery_repo(
+        tmp_path
+    )
+    (repo / "forbidden.txt").write_text("scope drift\n", encoding="utf-8")
+    out_of_scope = commit(repo, "hostile premature recovery scope")
+    assert any(
+        "required scope drifted" in error
+        for error in VALIDATOR._g0_t04_g4_route_errors(
+            status,
+            repo,
+            out_of_scope,
+        )
+    )
+    tree = git(repo, "rev-parse", f"{implementation}^{{tree}}")
+    imported = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        implementation,
+        "-p",
+        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
+        "-m",
+        "hostile premature recovery merge import",
+    )
+    assert any(
+        "strict single-parent" in error
+        for error in VALIDATOR._g0_t04_g4_route_errors(status, repo, imported)
+    )
+
+
+def test_g0_t04_generation4_ordinary_in_progress_merge_is_not_a_bridge() -> None:
+    errors = VALIDATOR._g0_t04_g4_merge_topology_errors(
+        ROOT,
+        VALIDATOR.G0_T04_G4_PREMATURE_MAIN,
+    )
+    assert any("first parent" in error for error in errors)
+    assert any("accepted recovery" in error for error in errors)
+
+
+@pytest.mark.parametrize("mutation", ["first", "second", "tree"])
+def test_g0_t04_generation4_recovery_bridge_rejects_hostile_topology(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    repo, implementation, _ = make_generation4_premature_recovery_repo(tmp_path)
+    first = VALIDATOR.G0_T04_G4_PREMATURE_MAIN
+    second = implementation
+    tree = git(repo, "rev-parse", f"{second}^{{tree}}")
+    if mutation == "first":
+        first = VALIDATOR.G0_T04_G4_BLOCKED_MAIN
+    elif mutation == "second":
+        second = VALIDATOR.G0_T04_G4_BLOCKED_MAIN
+    else:
+        tree = git(
+            repo,
+            "rev-parse",
+            f"{VALIDATOR.G0_T04_G4_PREMATURE_MAIN}^{{tree}}",
+        )
+    bridge = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        first,
+        "-p",
+        second,
+        "-m",
+        f"hostile recovery bridge {mutation}",
+    )
+    errors = VALIDATOR._g0_t04_g4_merge_topology_errors(repo, bridge)
+    if mutation == "first":
+        assert any("first parent" in error for error in errors)
+    elif mutation == "second":
+        assert any("accepted recovery" in error for error in errors)
+    else:
+        assert any("tree must equal" in error for error in errors)

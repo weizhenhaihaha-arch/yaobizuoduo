@@ -49,3 +49,17 @@ generation 2 divergence reconciliation。G2 永不在本授权内启动。
 任何未知路径、父节点/tree/run/review/blob/digest/order/ledger 漂移，或任何
 市场 API、凭证、账户、订单、交易、付费资源、部署、发布、本机系统修改需求，
 都必须 fail-closed。
+
+## PR #26 过早合并恢复
+
+PR #26 把仍为 `in_progress` 的 `c22bc286…` 过早合并为 F
+`8a7b8aca2b59a5598f0e721f557c06a008f362e0`。F 的 ordered parents 固定为
+`[414fa392…, c22bc286…]`，tree 固定为 `930c412…`。PR exact-head run
+`30028693653` 只作为异常历史；push/main failure run `30028739788` 是当前
+恢复 blocker，二者都不是 acceptance。
+
+当前只允许从 F 开始严格单父的同卡恢复实现与 delivery。delivery 必须保持
+`awaiting_review`、candidate 隐式、CI `not_run`、双审 pending，并保留精确
+failure receipt/blocker。普通 `in_progress` merge 继续拒绝。未来 bridge
+只能是 `[F, accepted recovery]` 且 tree 等于 second parent；本切片不创建
+acceptance、bridge、PR、merge 或任何后续卡。
