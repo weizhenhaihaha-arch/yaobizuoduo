@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `2`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -148,3 +148,15 @@ reviews, blockers, worktree state, and repository/external memory updates.
 - Frozen order: `G0-T05` -> `G1-T01`
 - Package state and first-card state: `not_authorized`
 - Review state: awaiting new exact delivery-HEAD CI and independent dual review.
+
+## Generation 2 review result
+
+- Exact candidate:
+  `6bc50423fe7aee0f20ef9fb64d3f9953326c99cf`
+- Code/security: `REQUEST CHANGES`
+- Architecture/route: `BLOCK`
+- Full regression exposed an old generic G1 fixture that has no Package A
+  manifest in either HEAD or its authorization baseline; generation 2 wrongly
+  forced it through Package A persistence checks.
+- Repair must preserve OR semantics: enter persistence validation when HEAD or
+  baseline carries Package A, and skip only when both are absent.
