@@ -1631,6 +1631,19 @@ def _is_g0_t04_g4_status(status: dict[str, Any]) -> bool:
         return False
 
 
+def _git_blob_oid(root: Path, subject: str, path: str) -> str | None:
+    ok, entry = _git(root, "ls-tree", subject, "--", path)
+    fields = entry.split(None, 3) if ok else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != path
+    ):
+        return None
+    return fields[2]
+
+
 def _g0_t04_g4_authorization_parent_errors(
     status: dict[str, Any],
     parent: dict[str, Any],
