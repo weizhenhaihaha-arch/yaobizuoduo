@@ -253,6 +253,9 @@ G0_T04_G4_PREMATURE_RECEIPT_VERSION = (
 G0_T04_G4_MERGED_VERIFICATION_RECEIPT_VERSION = (
     "g0-t04-generation-4-premature-merge-recovery.v2"
 )
+G0_T04_G4_FINALIZATION_CLOSE_RECEIPT_VERSION = (
+    "g0-t04-generation-4-premature-merge-recovery.v3"
+)
 G0_T04_G4_RECOVERY_CANDIDATE = (
     "388a75b18f37ddd970a37938dba8b955dc95e719"
 )
@@ -270,6 +273,13 @@ G0_T04_G4_RECOVERY_ACCEPTED_TREE = (
 )
 G0_T04_G4_RECOVERY_BRANCH_REF = (
     "refs/heads/codex/g0-t04-g4-premature-merge-recovery"
+)
+G0_T04_G4_MERGED_VERIFICATION = (
+    "80effc864ce6788ebf6be8485ca1273ae52de538"
+)
+G0_T04_G4_MERGED_VERIFICATION_RUN = "30039415469"
+G0_T04_G4_MERGED_VERIFICATION_BRANCH_REF = (
+    "refs/heads/codex/g0-t04-g4-merged-verification"
 )
 G0_T04_G4_PREMATURE_BLOCKER = (
     "premature_merge_main_ci_failure "
@@ -1993,6 +2003,49 @@ def _g0_t04_g4_merged_verification_receipt() -> dict[str, Any]:
     return receipt
 
 
+def _g0_t04_g4_finalization_close_receipt() -> dict[str, Any]:
+    receipt = copy.deepcopy(_g0_t04_g4_merged_verification_receipt())
+    receipt["schema_version"] = G0_T04_G4_FINALIZATION_CLOSE_RECEIPT_VERSION
+    receipt["finalization_close"] = {
+        "finalization_subject": {
+            "commit_sha": G0_T04_G4_MERGED_VERIFICATION,
+            "ci": _g0_t04_g4_success_ci_record(
+                event="pull_request",
+                ref=G0_T04_G4_MERGED_VERIFICATION_BRANCH_REF,
+                subject_sha=G0_T04_G4_MERGED_VERIFICATION,
+                run_id=G0_T04_G4_MERGED_VERIFICATION_RUN,
+            ),
+        },
+        "close_record": {
+            "parent_sha": G0_T04_G4_MERGED_VERIFICATION,
+            "state": "closed",
+            "transition": {
+                "from": "merged_verified",
+                "to": "closed",
+            },
+            "changed_paths": sorted(G0_T04_G4_PREMATURE_ALLOWED),
+        },
+        "future_terminal_bridge": {
+            "ordered_parents": [
+                G0_T04_G4_RECOVERY_MERGED_MAIN,
+                "exact_finalization_close_record",
+            ],
+            "tree_rule": "merge_tree_equals_exact_close_record_tree",
+            "generic_closed_merge_authority": False,
+        },
+        "scope": {
+            "package_activation_authorized": False,
+            "g0_t05_authorized": False,
+            "g1_authorized": False,
+            "g2_authorized": False,
+            "product_or_network_change_authorized": False,
+        },
+    }
+    receipt.pop("payload_sha256")
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
+
+
 def _g0_t04_g4_premature_recovery_receipt_errors(
     root: Path, subject_sha: str
 ) -> list[str]:
@@ -2241,6 +2294,8 @@ def _g0_t04_g4_merged_verification_errors(
     status: dict[str, Any],
     root: Path,
     head: str,
+    *,
+    require_current_main: bool = True,
 ) -> list[str]:
     errors: list[str] = []
     ok_head, head_parents = _git(
@@ -2299,7 +2354,7 @@ def _g0_t04_g4_merged_verification_errors(
         "--verify",
         "refs/remotes/origin/main",
     )
-    if (
+    if require_current_main and (
         not ok_main
         or not ok_remote
         or main != G0_T04_G4_RECOVERY_MERGED_MAIN
@@ -2309,6 +2364,236 @@ def _g0_t04_g4_merged_verification_errors(
             "$: G0-T04 generation-4 merged verification requires "
             "exact local and fetched merged main"
         )
+    return errors
+
+
+def _g0_t04_g4_finalization_close_receipt_errors(
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    ok_entry, entry = _git(
+        root,
+        "ls-tree",
+        subject_sha,
+        "--",
+        G0_T04_G4_PREMATURE_RECEIPT_PATH,
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != G0_T04_G4_PREMATURE_RECEIPT_PATH
+    ):
+        return [
+            "$: G0-T04 generation-4 finalization-close receipt "
+            "must be an exact committed 100644 blob"
+        ]
+    ok_bytes, actual = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{G0_T04_G4_PREMATURE_RECEIPT_PATH}",
+    )
+    expected = (
+        json.dumps(
+            _g0_t04_g4_finalization_close_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    if not ok_bytes or actual != expected:
+        return [
+            "$: G0-T04 generation-4 finalization-close receipt "
+            "bytes, CI evidence, or digest drifted"
+        ]
+    return []
+
+
+def _g0_t04_g4_finalization_close_status_errors(
+    status: dict[str, Any],
+    verification_status: dict[str, Any],
+) -> list[str]:
+    expected = copy.deepcopy(verification_status)
+    expected["active_tasks"][0].update(
+        state="closed",
+        transition={"from": "merged_verified", "to": "closed"},
+    )
+    expected["evidence"]["finalization"] = {
+        "commit_sha": G0_T04_G4_MERGED_VERIFICATION,
+        "d0_ci": {
+            "status": "success",
+            "subject_sha": G0_T04_G4_MERGED_VERIFICATION,
+            "run_id": G0_T04_G4_MERGED_VERIFICATION_RUN,
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                f"actions/runs/{G0_T04_G4_MERGED_VERIFICATION_RUN}"
+            ),
+        },
+    }
+    if status != expected:
+        return [
+            "$: G0-T04 generation-4 finalization-close status must be "
+            "the exact evidence-bound projection of merged verification"
+        ]
+    return []
+
+
+def _g0_t04_g4_finalization_close_errors(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    *,
+    require_current_main: bool = True,
+) -> list[str]:
+    errors: list[str] = []
+    ok_head, head_parents = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        head,
+    )
+    if (head_parents.split() if ok_head else []) != [
+        head,
+        G0_T04_G4_MERGED_VERIFICATION,
+    ]:
+        errors.append(
+            "$: G0-T04 generation-4 finalization-close record must be "
+            "the strict single-parent child of exact merged verification"
+        )
+    changed = _g0_t03_commit_changed_paths(
+        root,
+        G0_T04_G4_MERGED_VERIFICATION,
+        head,
+    )
+    if changed != G0_T04_G4_PREMATURE_ALLOWED:
+        errors.append(
+            "$: G0-T04 generation-4 finalization-close required "
+            "seven-path scope drifted"
+        )
+    verification_status = _status_at(
+        root,
+        G0_T04_G4_MERGED_VERIFICATION,
+    )
+    if type(verification_status) is not dict:
+        errors.append(
+            "$: G0-T04 generation-4 merged-verification status is unavailable"
+        )
+    else:
+        errors.extend(
+            _g0_t04_g4_merged_verification_errors(
+                verification_status,
+                root,
+                G0_T04_G4_MERGED_VERIFICATION,
+                require_current_main=require_current_main,
+            )
+        )
+        errors.extend(
+            _g0_t04_g4_finalization_close_status_errors(
+                status,
+                verification_status,
+            )
+        )
+    errors.extend(_g0_t04_g4_finalization_close_receipt_errors(root, head))
+    return errors
+
+
+def _g0_t04_g4_final_close_bridge_errors(
+    root: Path,
+    merge_sha: str,
+    close_sha: str,
+) -> list[str]:
+    errors: list[str] = []
+    ok_merge, parents = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        merge_sha,
+    )
+    if (parents.split() if ok_merge else []) != [
+        merge_sha,
+        G0_T04_G4_RECOVERY_MERGED_MAIN,
+        close_sha,
+    ]:
+        errors.append(
+            "$: G0-T04 generation-4 terminal bridge ordered parents drifted"
+        )
+    ok_merge_tree, merge_tree = _git(
+        root,
+        "rev-parse",
+        f"{merge_sha}^{{tree}}",
+    )
+    ok_close_tree, close_tree = _git(
+        root,
+        "rev-parse",
+        f"{close_sha}^{{tree}}",
+    )
+    if (
+        not ok_merge_tree
+        or not ok_close_tree
+        or merge_tree != close_tree
+    ):
+        errors.append(
+            "$: G0-T04 generation-4 terminal bridge tree must equal "
+            "the exact close-record tree"
+        )
+    return errors
+
+
+def _g0_t04_g4_terminal_bridge_route_errors(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    close_sha: str,
+    *,
+    require_canonical_main: bool,
+) -> list[str]:
+    errors: list[str] = []
+    close_status = _status_at(root, close_sha)
+    if type(close_status) is not dict or close_status != status:
+        errors.append(
+            "$: G0-T04 generation-4 terminal bridge status must exactly "
+            "equal its close-record second parent"
+        )
+    else:
+        errors.extend(
+            _g0_t04_g4_finalization_close_errors(
+                close_status,
+                root,
+                close_sha,
+                require_current_main=False,
+            )
+        )
+    errors.extend(
+        _g0_t04_g4_final_close_bridge_errors(root, head, close_sha)
+    )
+    if require_canonical_main:
+        ok_main, main = _git(
+            root,
+            "rev-parse",
+            "--verify",
+            "refs/heads/main",
+        )
+        ok_remote, remote = _git(
+            root,
+            "rev-parse",
+            "--verify",
+            "refs/remotes/origin/main",
+        )
+        if (
+            not ok_main
+            or not ok_remote
+            or main != head
+            or remote != head
+        ):
+            errors.append(
+                "$: G0-T04 generation-4 terminal bridge requires exact "
+                "local and fetched terminal main"
+            )
     return errors
 
 
@@ -2493,6 +2778,35 @@ def _g0_t04_g4_route_errors(
     except (KeyError, IndexError, TypeError):
         is_generation_4_identity = False
         task = {}
+    if (
+        is_generation_4_identity
+        and task.get("state") == "closed"
+        and task.get("transition")
+        == {"from": "merged_verified", "to": "closed"}
+    ):
+        ok_parents, parents_text = _git(
+            root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            head,
+        )
+        parts = parents_text.split() if ok_parents else []
+        if len(parts) == 2:
+            return _g0_t04_g4_finalization_close_errors(status, root, head)
+        if len(parts) == 3:
+            return _g0_t04_g4_terminal_bridge_route_errors(
+                status,
+                root,
+                head,
+                parts[2],
+                require_canonical_main=True,
+            )
+        return [
+            "$: G0-T04 generation-4 closed route must be the exact "
+            "single-parent close record or exact two-parent terminal bridge"
+        ]
     if (
         is_generation_4_identity
         and task.get("state") == "merged_verified"
@@ -7081,6 +7395,35 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
+    if (
+        _is_g0_t04_g4_status(status)
+        and task["state"] == "closed"
+        and task["transition"]
+        == {"from": "merged_verified", "to": "closed"}
+    ):
+        ok_terminal, terminal_parents_text = _git(
+            root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            head,
+        )
+        terminal_parts = (
+            terminal_parents_text.split() if ok_terminal else []
+        )
+        if len(terminal_parts) == 3:
+            close_sha = terminal_parts[2]
+            terminal_errors = _g0_t04_g4_terminal_bridge_route_errors(
+                status,
+                root,
+                head,
+                close_sha,
+                require_canonical_main=require_canonical_main,
+            )
+            if terminal_errors:
+                return None, terminal_errors
+            return close_sha, []
     repair_governed, repair_errors = (
         _canonical_g0_t04_post_merge_repair_bridge(
             status,

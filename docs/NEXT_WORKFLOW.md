@@ -65,12 +65,16 @@ architecture/route `CLEAR`。Acceptance
 `30037270342`；authoritative main
 `1419f7c77ff102fd68eb9583f5ec5c3b196ae4be` 的 ordered parents 精确为
 `[8a7b8aca…, 9652fabb…]`，tree 等于 second parent，并通过 push/main run
-`30037311721`。因此当前只推进到 `merged_verified`，sole failed-main
-blocker 已按精确证据清除。
+`30037311721`，因此先推进到 `merged_verified`，sole failed-main blocker
+已按精确证据清除。Finalization subject
+`80effc864ce6788ebf6be8485ca1273ae52de538` 随后通过 exact pull-request
+run `30039415469`；当前严格单父 close record 只执行
+`merged_verified -> closed`。
 
 恢复 implementation I 已固定为
 `0a752ac8f14bafb42a18922d8155944612d6d21c`；reviewed candidate 固定为
-`388a75b18f37ddd970a37938dba8b955dc95e719`。Closure 与 merged-main
-evidence 已建立；finalization 仍为 null/`not_run`。下一步只能是同一
-G0-T04 的独立 finalization/close 证据链；Package A、G0-T05、G1、G2
-以及产品、联网、凭证、交易、部署和发布仍未授权。
+`388a75b18f37ddd970a37938dba8b955dc95e719`。Closure、merged-main 与
+finalization evidence 均已建立。未来 terminal bridge 只能使用 ordered
+parents `[1419f7c77ff102fd68eb9583f5ec5c3b196ae4be, exact-close-record]`
+且 merge tree 等于 close-record tree；普通 closed merge 不具权威。
+Package A、G0-T05、G1、G2 以及产品、联网、凭证、交易、部署和发布仍未授权。
