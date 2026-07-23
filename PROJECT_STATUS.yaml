@@ -62,9 +62,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [
-    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=b1544c168cf3acf9e0ce0c1c7e3785041c02e87c run_id=29909220290 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29909220290 conclusion=failure"
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G0", "task_id": "G0-T04", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

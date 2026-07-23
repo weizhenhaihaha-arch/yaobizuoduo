@@ -1,0 +1,64 @@
+{
+  "schema_version": "g0-t03-post-recovery-status-reconciliation.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T03",
+  "candidate_generation": 3,
+  "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+  "next_authorization": {
+    "gate": "G0",
+    "task_id": "G0-T04",
+    "state": "not_authorized"
+  },
+  "historical_failure": {
+    "repository": "weizhenhaihaha-arch/yaobizuoduo",
+    "event": "push",
+    "ref": "refs/heads/main",
+    "subject_sha": "b1544c168cf3acf9e0ce0c1c7e3785041c02e87c",
+    "run_id": "29909220290",
+    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29909220290",
+    "status": "completed",
+    "conclusion": "failure",
+    "retention": "immutable_history"
+  },
+  "recovered_main": {
+    "commit_sha": "02e05d1f2d68a9a1c89fda9c8636e2263fc48053",
+    "ordered_parents": [
+      "b1544c168cf3acf9e0ce0c1c7e3785041c02e87c",
+      "ddd69c2c8174837e12d186fd12252ccb6f13b24e"
+    ],
+    "tree_sha": "2855cb543087a9dbee1f2c1fad5400e3a79b3573",
+    "push_run_id": "29929973216",
+    "push_run_url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29929973216",
+    "push_conclusion": "success",
+    "pull_request": 10,
+    "code_security": "approve",
+    "architecture": "clear"
+  },
+  "planning_recovery_main": {
+    "commit_sha": "c11eae14986de8bb5f387e3064680ce48d2c284b",
+    "ordered_parents": [
+      "e1d251c35bbfc128990be4f9e3d1b851a3146f12",
+      "7bbe1e291833010f01e35ac4c46d6dc512b1f2c6"
+    ],
+    "tree_sha": "d9f639b5d3261a8621c26a212108884a92dbbffc",
+    "push_run_id": "29956605323",
+    "push_run_url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29956605323",
+    "push_conclusion": "success",
+    "recovery_pull_request": 12,
+    "recovery_head_sha": "7bbe1e291833010f01e35ac4c46d6dc512b1f2c6",
+    "recovery_pr_run_id": "29936794730",
+    "recovery_pr_conclusion": "success"
+  },
+  "ruleset": {
+    "id": 19526291,
+    "readback_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+  },
+  "blocker_reconciliation": {
+    "removed_from_current": [
+      "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=b1544c168cf3acf9e0ce0c1c7e3785041c02e87c run_id=29909220290 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29909220290 conclusion=failure"
+    ],
+    "current_blockers": [],
+    "reason": "exact_recovered_main_and_planning_recovery_push_runs_succeeded"
+  },
+  "payload_sha256": "03a2a4f6ec2ae824f7a66b3c55566dd69c379eb0b0ae7b7ef5d5d9f395a6a270"
+}

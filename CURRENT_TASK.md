@@ -337,3 +337,35 @@ commands/results, PR/run, tests, blockers, worktree state, and memory update.
   `29909220290` remains the sole blocker, and G0-T04 remains `not_authorized`.
   This repair grants no status reconciliation, live data, credentials, orders,
   trading, deployment, release, or local-preview authority.
+
+## G0-T03 post-recovery status reconciliation (authorized 2026-07-23)
+
+- The user explicitly authorized only the minimal G0-T03 post-recovery status
+  reconciliation from authoritative main
+  `c11eae14986de8bb5f387e3064680ce48d2c284b`. G0-T04 remains
+  `not_authorized`; no business logic, ruleset mutation, maturity increase,
+  network collection, credentials, trading, deployment, release, or local
+  preview work is authorized.
+- Failed push/main subject `b1544c168cf3acf9e0ce0c1c7e3785041c02e87c`
+  and run `29909220290` remain immutable historical evidence. That failure is
+  removed only from the mutable current blocker list because exact recovery
+  main `02e05d1f2d68a9a1c89fda9c8636e2263fc48053` passed push run
+  `29929973216`, PR #10 ended code/security `APPROVE` and architecture `CLEAR`,
+  and planning recovery main `c11eae14986de8bb5f387e3064680ce48d2c284b`
+  passed push run `29956605323`.
+- The reconciliation evidence also binds ruleset `19526291` and readback digest
+  `73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1`.
+  Only one direct reconciliation child of exact `c11eae1` and a future merge
+  `[c11eae1, exact reconciliation child]` with second-parent-equal tree are
+  valid. Identity, history, blocker, status, generation, maturity,
+  next-authorization, and changed-path substitutions fail closed.
+- Delivery stops at a draft pull request. It does not merge itself or widen the
+  route; exact PR-head CI and independent code/security plus architecture review
+  remain external acceptance gates.
+- Local delivery verification passed the canonical repository-bound validator,
+  16 focused reconciliation tests, all 341 non-transport Python tests, 10
+  frontend tests, TypeScript project compilation, Vite production build, Python
+  compilation, and whitespace checks. The frontend commands used the bundled
+  Cursor Node 22 runtime because the bundled ChatGPT Node 24 process could not
+  load the existing Rollup native module under macOS Team-ID enforcement; no
+  dependency, lockfile, or source mutation was used to bypass that host issue.
