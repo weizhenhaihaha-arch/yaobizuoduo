@@ -46,6 +46,14 @@ G0_T04_CLOSURE = "bdf6fbca71b29da79801c1be7a4cdd14f103ce52"
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
 G0_T04_ANOMALY_CANDIDATE = "6541189bbdacc870de5691d07991b9103ee2c763"
+G0_T04_G4_AUTHORIZATION = "de070276e53ec75f0cfd864a02d6d05236784eb8"
+G0_T04_G4_START = "c7be2b2f07ef171e9d1535e29d93aa6beadf348a"
+G0_T04_G4_BLOCKED_MAIN = "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87"
+G0_T04_G4_BASELINE = "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
+G0_T04_G4_ROUTE_SEAL = ROOT / "evidence/g0-t04/generation-4-route-seal.json"
+G0_T04_G4_ROUTE_PAYLOAD = (
+    "231523f99b2592fd449c9bf8879e3b9d57763c91187287ae91375736309a5f22"
+)
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -3989,3 +3997,61 @@ def test_g0_t04_pr15_pr22_same_tree_seal_identity_is_external_gate(
         same_tree_seal,
         require_current_main=False,
     ) == []
+
+
+def test_g0_t04_generation4_authorization_and_route_seal_are_exact() -> None:
+    assert git(
+        ROOT, "rev-list", "--parents", "-n", "1", G0_T04_G4_AUTHORIZATION
+    ).split() == [
+        G0_T04_G4_AUTHORIZATION,
+        G0_T04_G4_BASELINE,
+        G0_T04_G4_BLOCKED_MAIN,
+    ]
+    assert git(
+        ROOT, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
+    ).split() == [G0_T04_G4_START, G0_T04_G4_AUTHORIZATION]
+    seal = json.loads(G0_T04_G4_ROUTE_SEAL.read_text(encoding="utf-8"))
+    supplied = seal.pop("payload_sha256")
+    computed = hashlib.sha256(
+        json.dumps(
+            seal, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+    ).hexdigest()
+    assert supplied == computed == G0_T04_G4_ROUTE_PAYLOAD
+    assert seal["authorization"] == {
+        "sha": G0_T04_G4_AUTHORIZATION,
+        "ordered_parents": [G0_T04_G4_BASELINE, G0_T04_G4_BLOCKED_MAIN],
+        "start_sha": G0_T04_G4_START,
+    }
+    assert seal["protected_main_bridge"]["first_parent"] == G0_T04_G4_BLOCKED_MAIN
+    assert seal["immutable_history"]["activation_present"] is False
+    assert seal["continuation"]["g2_authorized"] is False
+
+
+@pytest.mark.parametrize("mutation", ["parents", "tree", "substitution"])
+def test_g0_t04_generation4_future_main_bridge_rejects_hostile_topology(
+    mutation: str,
+) -> None:
+    governed = git(ROOT, "rev-parse", "HEAD")
+    governed_tree = git(ROOT, "rev-parse", f"{governed}^{{tree}}")
+    first_parent = G0_T04_G4_BLOCKED_MAIN
+    second_parent = governed
+    tree = governed_tree
+    if mutation == "parents":
+        first_parent, second_parent = second_parent, first_parent
+    elif mutation == "tree":
+        tree = git(ROOT, "rev-parse", f"{G0_T04_G4_BLOCKED_MAIN}^{{tree}}")
+    else:
+        second_parent = G0_T04_G4_BLOCKED_MAIN
+    merged = git(
+        ROOT,
+        "commit-tree",
+        tree,
+        "-p",
+        first_parent,
+        "-p",
+        second_parent,
+        "-m",
+        f"hostile generation-4 bridge {mutation}",
+    )
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, merged)

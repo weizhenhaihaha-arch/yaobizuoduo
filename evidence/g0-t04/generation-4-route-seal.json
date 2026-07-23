@@ -1,0 +1,55 @@
+{
+  "schema_version": "g0-t04-generation-4-route-seal.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T04",
+  "candidate_generation": 4,
+  "authorization": {
+    "sha": "de070276e53ec75f0cfd864a02d6d05236784eb8",
+    "ordered_parents": [
+      "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
+      "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87"
+    ],
+    "start_sha": "c7be2b2f07ef171e9d1535e29d93aa6beadf348a"
+  },
+  "terminal_blocked_history": {
+    "sha": "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87",
+    "candidate_generation": 3,
+    "blocker_count": 1
+  },
+  "immutable_history": {
+    "anomaly_receipt_blob": "c71560939c1b6fd0c6f038c3fe723df178fa2596",
+    "anomaly_seal_blob": "382331a1b6293f6174d52102422a10a340cbf077",
+    "package_manifest_blob": "f523c793a58d27e8ffd79da01048c8cd93aaa315",
+    "package_schema_blob": "132656bcda439c20a2ade78d30116c49706de7b3",
+    "package_payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+    "activation_present": false
+  },
+  "owner_authority": {
+    "package_payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+    "fresh_activation_only_after_new_g0_t04_close": true,
+    "old_activation_reuse_forbidden": true
+  },
+  "protected_main_bridge": {
+    "first_parent": "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87",
+    "second_parent_role": "accepted_generation_4_closure",
+    "tree_rule": "merge_tree_equals_second_parent_tree"
+  },
+  "continuation": {
+    "g0_t05_generation_rule": "smallest_unused_integer_strictly_greater_than_all_historical_g0_t05_generations",
+    "g1_t01_generation": 2,
+    "g1_blocked_parent": "3a27f530b338ece78ae90ffd895787e5a10616fc",
+    "g1_merge_base": "4f358cf42b9a8e0f741563425fc26cf532df98fb",
+    "g2_authorized": false
+  },
+  "allowed_paths": [
+    "CURRENT_TASK.md",
+    "PROJECT_MEMORY.md",
+    "PROJECT_STATUS.yaml",
+    "docs/NEXT_WORKFLOW.md",
+    "evidence/g0-t04/generation-4-route-seal.json",
+    "evidence/g0-t04/pr15-pr22-recovery-seal.json",
+    "scripts/validate_project_status.py",
+    "tests/test_g0_project_status.py"
+  ],
+  "payload_sha256": "231523f99b2592fd449c9bf8879e3b9d57763c91187287ae91375736309a5f22"
+}
