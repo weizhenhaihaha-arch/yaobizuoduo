@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `2`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -132,3 +132,19 @@ reviews, blockers, worktree state, and repository/external memory updates.
    symlink, executable, submodule, tree, or external-byte substitution.
 4. Persist manifest/schema/digest/activation and per-card allowlist validation
    after G0-T04, including G0-T05 authorized/in-progress drift rejection.
+
+## Generation 2 delivered planning identity
+
+- Implementation SHA:
+  `e385984a25ac06a6db26608a46f9ab6549add691`
+- Manifest/schema: `governance/packages/package-a.manifest.json` /
+  `package-a-manifest.v2`
+- Schema SHA-256:
+  `5ebc757f76c58424e88fa6618c806c1bb73ad9dfa9bc09302481e5206c94ceda`
+- Normalized payload SHA-256:
+  `815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27`
+- Superseded payload SHA-256:
+  `a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff`
+- Frozen order: `G0-T05` -> `G1-T01`
+- Package state and first-card state: `not_authorized`
+- Review state: awaiting new exact delivery-HEAD CI and independent dual review.
