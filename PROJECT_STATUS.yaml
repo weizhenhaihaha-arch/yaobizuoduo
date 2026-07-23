@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T04",
       "risk": "D0",
-      "state": "awaiting_review",
-      "transition": {"from": "in_progress", "to": "awaiting_review"},
+      "state": "accepted_pending_merge",
+      "transition": {"from": "awaiting_review", "to": "accepted_pending_merge"},
       "candidate_generation": 3
     }
   ],
@@ -34,9 +34,9 @@
     "authorization_baseline_sha": "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
     "implementation_sha": "57d65f47709b4f683e4326051c737ed037b15b83",
     "candidate": {
-      "commit_sha": null,
+      "commit_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8",
       "local_verification": {"status": "success", "subject": "delivery_head"},
-      "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
+      "ci": {"status": "success", "subject_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8", "run_id": "29987891035", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29987891035"}
     },
     "closure": {
       "commit_sha": null,
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "approve",
+    "architecture": "clear",
+    "reviewed_candidate_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8"
   },
   "bootstrap_exception": null,
   "capability": {

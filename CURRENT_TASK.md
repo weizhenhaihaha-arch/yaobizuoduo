@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `accepted_pending_merge`
 - Candidate generation: `3`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -191,5 +191,17 @@ reviews, blockers, worktree state, and repository/external memory updates.
   manifest/schema deletion, drift, activation substitution, and allowlist
   escape.
 - Package state and first-card state remain `not_authorized`.
-- Review state: awaiting exact delivery-HEAD verification and independent
-  code/security plus architecture/route review.
+- Exact PR-head CI: run `29987891035`, event `pull_request`, subject
+  `be45d7fee1f5e4a34b14bd035539d5a3a462dad8`, stable check
+  `G0 / exact-head`, terminal `success`.
+- Main Codex exact-HEAD verification: canonical validator, 22 focused
+  Package A tests, 362 non-transport Python tests, 10 frontend tests,
+  TypeScript/Vite production build, compilation, changed-path allowlist,
+  committed `100644 blob` identity, secret scan, and live ruleset readback all
+  passed.
+- Independent code/security: `APPROVE`.
+- Independent architecture/route: `CLEAR`.
+- Ruleset `19526291`, baseline/main, manifest/schema digests, Package A
+  inactive state, and forbidden capability boundaries remained unchanged.
+- This acceptance authorizes only the automatic merge closure for G0-T04. It
+  does not activate Package A or authorize G0-T05/G1.
