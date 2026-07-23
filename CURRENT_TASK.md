@@ -5,8 +5,8 @@
 - Task ID: `G0-T05`
 - Gate: G0 governance handoff
 - Risk: `D0`
-- Status: `returned`
-- Candidate generation: `1`
+- Status: `in_progress`
+- Candidate generation: `2`
 - Executor: Codex under the confirmed immutable Package A
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
 - Authorization: product owner confirmed the exact Package A payload digest on 2026-07-23 Asia/Shanghai
