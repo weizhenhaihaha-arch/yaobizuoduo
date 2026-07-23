@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 governance anomaly recovery
 - Risk: `D0`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `4`
 - Baseline: `1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f`
 - Exact terminal-blocked main:
