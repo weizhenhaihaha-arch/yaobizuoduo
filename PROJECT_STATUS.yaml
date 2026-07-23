@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T05",
       "risk": "D0",
-      "state": "merged_verified",
-      "transition": {"from": "accepted_pending_merge", "to": "merged_verified"},
+      "state": "closed",
+      "transition": {"from": "merged_verified", "to": "closed"},
       "candidate_generation": 2
     }
   ],
@@ -47,8 +47,8 @@
       "ci": {"status": "success", "subject_sha": "12034455e52d70c94a502136661b5bf7500c5f77", "run_id": "29998136427", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29998136427"}
     },
     "finalization": {
-      "commit_sha": null,
-      "d0_ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "d0cbc0fb7068e07925bd2decb18c06940105d79b",
+      "d0_ci": {"status": "success", "subject_sha": "d0cbc0fb7068e07925bd2decb18c06940105d79b", "run_id": "29998286908", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29998286908"}
     }
   },
   "review": {
