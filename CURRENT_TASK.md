@@ -5,8 +5,8 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `returned`
-- Candidate generation: `2`
+- Status: `in_progress`
+- Candidate generation: `3`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
 - Authorization: product owner explicitly authorized this planning-only card on 2026-07-23 Asia/Shanghai
@@ -160,3 +160,15 @@ reviews, blockers, worktree state, and repository/external memory updates.
   forced it through Package A persistence checks.
 - Repair must preserve OR semantics: enter persistence validation when HEAD or
   baseline carries Package A, and skip only when both are absent.
+
+## Generation 3 repair scope
+
+- Preserve the complete generation-2 Package A v2 manifest and all four review
+  repairs unchanged.
+- Treat a G0-T05/G1-T01 history as Package A only when its exact HEAD or
+  authorization baseline carries the Package A manifest.
+- If both are absent, preserve compatibility with pre-Package-A generic
+  fixtures.
+- If baseline carries Package A but HEAD deletes manifest or schema, continue
+  validation and fail closed.
+- Retain drift, activation, and per-card allowlist rejection.
