@@ -867,6 +867,46 @@ def make_g0_t04_post_merge_repair(
     return repo, status, first, final
 
 
+def make_g0_t04_post_merge_repair_merge(
+    tmp_path: Path, mutation: str | None = None
+) -> tuple[Path, dict, str, str]:
+    repair_mutation = (
+        mutation
+        if mutation in {"ordinary", "status", "package", "activation"}
+        else None
+    )
+    repo, _, _, repair = make_g0_t04_post_merge_repair(
+        tmp_path, repair_mutation
+    )
+    first_parent = (
+        G0_T04_ANOMALY_SEAL
+        if mutation == "wrong_first"
+        else G0_T04_ANOMALY_MERGE
+    )
+    second_parent = (
+        G0_T04_ANOMALY_SEAL if mutation == "wrong_second" else repair
+    )
+    tree_parent = (
+        G0_T04_ANOMALY_MERGE if mutation == "wrong_tree" else second_parent
+    )
+    merge = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{tree_parent}^{{tree}}"),
+        "-p",
+        first_parent,
+        "-p",
+        second_parent,
+        "-m",
+        "merge exact F-rooted G0-T04 fixture repair",
+    )
+    git(repo, "reset", "--hard", merge)
+    git(repo, "update-ref", "refs/heads/main", merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", merge)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text())
+    return repo, status, repair, merge
+
+
 def make_g0_t04_recovery(
     tmp_path: Path,
     *,
@@ -4097,3 +4137,38 @@ def test_g0_t04_post_merge_repair_rejects_scope_and_authority_drift(
         require_current_main=False,
     )
     assert errors
+
+
+def test_g0_t04_post_merge_repair_merge_is_canonical(tmp_path: Path) -> None:
+    repo, status, repair, merge = make_g0_t04_post_merge_repair_merge(tmp_path)
+    schema = VALIDATOR._schema_at(repo, merge)
+    assert schema is not None
+    assert VALIDATOR._canonical_g0_t04_post_merge_repair_bridge(
+        status,
+        repo,
+        merge,
+        schema,
+        require_canonical_main=True,
+    ) == (repair, [])
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "wrong_first",
+        "wrong_second",
+        "wrong_tree",
+        "ordinary",
+        "status",
+        "package",
+        "activation",
+    ],
+)
+def test_g0_t04_post_merge_repair_merge_rejects_substitutions(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo, _, _, _ = make_g0_t04_post_merge_repair_merge(tmp_path, mutation)
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1, result.stdout
