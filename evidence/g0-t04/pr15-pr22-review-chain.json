@@ -1,0 +1,118 @@
+{
+  "schema_version": "g0-t04-review-chain.v2",
+  "task_id": "G0-T04",
+  "pr15": {
+    "head": "06feb30d43360ef732242f1be4ad02478823f47a",
+    "merge": "8d87f58e690a2ea7fac74d432495c8873d5a9d87",
+    "parents": [
+      "11040ca0d8ea17ba1bc47641705aa95c2cba6a75",
+      "06feb30d43360ef732242f1be4ad02478823f47a"
+    ],
+    "tree": "4b7404240a4f81282764059b63be906fec5da377",
+    "reviews": [],
+    "pr_run": "29990406421",
+    "push_run": "29991346572"
+  },
+  "pr17": {
+    "head": "b7a2e3fa15d09de15293a384e58bf4575e0cdeca",
+    "merge": "3e8e286a208ee12c47d06d8300af20f7f784333d",
+    "parents": [
+      "8d87f58e690a2ea7fac74d432495c8873d5a9d87",
+      "b7a2e3fa15d09de15293a384e58bf4575e0cdeca"
+    ],
+    "tree": "836812adac03a65bf5d540250de4f9f753a50b09",
+    "reviews": [],
+    "checks": [
+      "29991698100",
+      "29991698097"
+    ]
+  },
+  "pr19": {
+    "head": "f3e4d5b83e0ee763c61dba1d399104e38883300c",
+    "merge": "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373",
+    "parents": [
+      "3e8e286a208ee12c47d06d8300af20f7f784333d",
+      "f3e4d5b83e0ee763c61dba1d399104e38883300c"
+    ],
+    "tree": "8f6005545a3c19f583b6cf18e4380d09fd90686e",
+    "reviews": [],
+    "checks": [
+      "29992496446",
+      "29992525232",
+      "29992552022",
+      "29992604142",
+      "29992606714"
+    ],
+    "push_run": "29992685457"
+  },
+  "pr20": {
+    "head": "1851eff8974a2263152dd1e31b7191712f40b0d3",
+    "merge": "12034455e52d70c94a502136661b5bf7500c5f77",
+    "parents": [
+      "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373",
+      "1851eff8974a2263152dd1e31b7191712f40b0d3"
+    ],
+    "tree": "474326cdee26fc799d83c4bba316a4d95609cb70",
+    "reviews": [],
+    "pr_run": "29998102619",
+    "push_run": "29998136427"
+  },
+  "pr21": {
+    "head": "d0cbc0fb7068e07925bd2decb18c06940105d79b",
+    "merge": "be322ab4c03cff0d1b6600945d463c791433e96a",
+    "parents": [
+      "12034455e52d70c94a502136661b5bf7500c5f77",
+      "d0cbc0fb7068e07925bd2decb18c06940105d79b"
+    ],
+    "tree": "4990a1fd1f5b8fafc8b1ec1fd2cf07c12020af92",
+    "reviews": [],
+    "pr_run": "29998286908",
+    "push_run": "29998320978"
+  },
+  "pr22": {
+    "head": "d194462439d0c5dd5d01aa226aeceeaac8cec656",
+    "merge": "4f358cf42b9a8e0f741563425fc26cf532df98fb",
+    "parents": [
+      "be322ab4c03cff0d1b6600945d463c791433e96a",
+      "d194462439d0c5dd5d01aa226aeceeaac8cec656"
+    ],
+    "tree": "3e8dcb668de2c004f5ee439d8d6fa4e4233359e3",
+    "reviews": [],
+    "pr_run": "29998431313",
+    "push_run": "29998455189"
+  },
+  "invalid_assertions": {
+    "product_owner_confirmation": "not_observed",
+    "package_a_activation": "not_authorized",
+    "g0_t05": "not_authorized",
+    "g1_t01": "not_authorized",
+    "activation_path": "evidence/g0-t05/package-a-activation.json",
+    "activation_blob": "c061d55218098fd5957ef75d40cb855635371bb6",
+    "activation_sha256": "884afa51508d70f1406646a4743aca1935eeced41f5222fc91e37164db8546a6"
+  },
+  "independent_review": {
+    "code_security": "request_changes",
+    "architecture_route": "block",
+    "p1": "2_failed_tests_missing_frozen_refs"
+  },
+  "ruleset": {
+    "id": 19526291,
+    "readback_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1",
+    "required_review_count": 0,
+    "required_status_check": "G0 / exact-head",
+    "bypass_actors": []
+  },
+  "package_a": {
+    "manifest_blob": "f523c793a58d27e8ffd79da01048c8cd93aaa315",
+    "manifest_sha256": "ae99c3ea471402c156c189067a771ca3b903380c9e8b4f64c0bf9e83096050a6",
+    "schema_blob": "132656bcda439c20a2ade78d30116c49706de7b3",
+    "schema_sha256": "5ebc757f76c58424e88fa6618c806c1bb73ad9dfa9bc09302481e5206c94ceda",
+    "payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+    "ordered_task_ids": [
+      "G0-T05",
+      "G1-T01"
+    ],
+    "state": "not_authorized"
+  },
+  "payload_sha256": "52740d951f85f4a25d30cda2d1787e294c0227c98f4c5c34e66deff75b58e2f8"
+}
