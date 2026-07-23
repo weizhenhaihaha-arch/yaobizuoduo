@@ -56,7 +56,7 @@ G0_T04_G4_ROUTE_SEAL = (
     ROOT / "evidence/g0-t04/generation-4-main-drift-seal.json"
 )
 G0_T04_G4_ROUTE_PAYLOAD = (
-    "e967269715204baa8b52ee09d3d62cf809d35b6c18e6a175316a0a51dbc9fb9f"
+    "40af99e4a08e06914b0df4908adc8eb9695b25e46aaa0385fcd95681aef635e7"
 )
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
@@ -4228,6 +4228,25 @@ def test_g0_t04_generation4_main_drift_authorization_and_seal_are_exact() -> Non
         "45e714f9e099774ac0c4885f77523fb73c2d313d"
     )
     assert seal["abandoned_off_main_route"]["reusable"] is False
+    assert seal["discarded_competing_route"] == {
+        "state": "tombstoned_non_authoritative",
+        "authorization_sha": VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        "authorization_ordered_parents": [
+            G0_T04_G4_BASELINE,
+            G0_T04_G4_BLOCKED_MAIN,
+        ],
+        "authorization_tree": "11098e342e3706e47ff74ddea7f6515475339a89",
+        "authorization_message": "Authorize G0-T04 generation 4",
+        "start_sha": VALIDATOR.G0_T04_G4_COMPETING_START,
+        "start_parent": VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
+        "start_message": "Start G0-T04 generation 4 implementation",
+        "governed_parent_eligible": False,
+        "import_allowed": False,
+    }
+    assert seal["canonical_lineage"][
+        "excluded_ancestor_or_import_shas"
+    ] == list(VALIDATOR.G0_T04_G4_EXCLUDED_ROUTE_NODES)
     assert seal["protected_main_bridge"]["first_parent"] == G0_T04_G4_BLOCKED_MAIN
     assert seal["continuation"]["g2_authorized"] is False
 
@@ -4262,7 +4281,16 @@ def test_g0_t04_generation4_main_drift_bridge_rejects_hostile_topology(
 
 
 @pytest.mark.parametrize(
-    "mutation", ["pr24", "abandoned", "package", "activation", "allowlist"]
+    "mutation",
+    [
+        "pr24",
+        "abandoned",
+        "competing",
+        "lineage",
+        "package",
+        "activation",
+        "allowlist",
+    ],
 )
 def test_g0_t04_generation4_main_drift_seal_rejects_substitutions(
     tmp_path: Path, mutation: str
@@ -4279,12 +4307,17 @@ def test_g0_t04_generation4_main_drift_seal_rejects_substitutions(
         "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
     )
     seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
-    if mutation in {"pr24", "abandoned"}:
+    shutil.copy2(G0_T04_G4_ROUTE_SEAL, seal_path)
+    if mutation in {"pr24", "abandoned", "competing", "lineage"}:
         seal = json.loads(seal_path.read_text(encoding="utf-8"))
         if mutation == "pr24":
             seal["pr24_main_drift"]["exact_head_run_id"] = "30014856792"
-        else:
+        elif mutation == "abandoned":
             seal["abandoned_off_main_route"]["reusable"] = True
+        elif mutation == "competing":
+            seal["discarded_competing_route"]["import_allowed"] = True
+        else:
+            seal["canonical_lineage"]["merge_imports_allowed"] = True
         write_digest_json(seal_path, seal)
     elif mutation == "package":
         with (repo / "governance/packages/package-a.manifest.json").open("a") as handle:
@@ -4300,3 +4333,90 @@ def test_g0_t04_generation4_main_drift_seal_rejects_substitutions(
     subject = commit(repo, f"hostile generation-4 main-drift {mutation}")
     status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
     assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+
+
+@pytest.mark.parametrize(
+    "discarded_tip",
+    [
+        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
+        VALIDATOR.G0_T04_G4_COMPETING_START,
+    ],
+)
+def test_g0_t04_generation4_same_tree_discarded_route_import_is_rejected(
+    discarded_tip: str,
+) -> None:
+    canonical = git(ROOT, "rev-parse", "HEAD")
+    canonical_tree = git(ROOT, "rev-parse", f"{canonical}^{{tree}}")
+    imported = git(
+        ROOT,
+        "commit-tree",
+        canonical_tree,
+        "-p",
+        canonical,
+        "-p",
+        discarded_tip,
+        "-m",
+        "hostile same-tree discarded-route import",
+    )
+    assert VALIDATOR._g0_t04_g4_canonical_lineage_errors(ROOT, imported)
+    protected_main = git(
+        ROOT,
+        "commit-tree",
+        canonical_tree,
+        "-p",
+        G0_T04_G4_BLOCKED_MAIN,
+        "-p",
+        imported,
+        "-m",
+        "hostile protected-main bridge importing discarded route",
+    )
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, protected_main)
+
+
+@pytest.mark.parametrize(
+    "forbidden_governed_parent",
+    list(VALIDATOR.G0_T04_G4_EXCLUDED_ROUTE_NODES),
+)
+def test_g0_t04_generation4_discarded_node_cannot_be_governed_parent(
+    forbidden_governed_parent: str,
+) -> None:
+    tree = git(ROOT, "rev-parse", f"{forbidden_governed_parent}^{{tree}}")
+    merged = git(
+        ROOT,
+        "commit-tree",
+        tree,
+        "-p",
+        G0_T04_G4_BLOCKED_MAIN,
+        "-p",
+        forbidden_governed_parent,
+        "-m",
+        "hostile discarded governed parent",
+    )
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, merged)
+
+
+def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "g0-t04-generation4-committed-seal"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
+    valid_bytes = G0_T04_G4_ROUTE_SEAL.read_bytes()
+    seal_path.write_bytes(valid_bytes)
+    valid_subject = commit(repo, "install current valid generation-4 seal")
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+
+    hostile = json.loads(valid_bytes.decode("utf-8"))
+    hostile["discarded_competing_route"]["import_allowed"] = True
+    write_digest_json(seal_path, hostile)
+    invalid_subject = commit(repo, "commit invalid generation-4 seal")
+    seal_path.write_bytes(valid_bytes)
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, invalid_subject)
+
+    git(repo, "reset", "--hard", valid_subject)
+    hostile = json.loads(valid_bytes.decode("utf-8"))
+    hostile["discarded_competing_route"]["import_allowed"] = True
+    write_digest_json(seal_path, hostile)
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, valid_subject) == []

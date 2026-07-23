@@ -37,6 +37,35 @@
     "ci_status": "not_run",
     "reusable": false
   },
+  "discarded_competing_route": {
+    "state": "tombstoned_non_authoritative",
+    "authorization_sha": "046414bea45316f01e3d3e7b556b4c06d489c03b",
+    "authorization_ordered_parents": [
+      "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
+      "414fa392026c71b01378c64cbf62cb6b304b2eed"
+    ],
+    "authorization_tree": "11098e342e3706e47ff74ddea7f6515475339a89",
+    "authorization_message": "Authorize G0-T04 generation 4",
+    "start_sha": "906cb1124f60f83c4bcdeaf0d2a47e1c6d4332d7",
+    "start_parent": "046414bea45316f01e3d3e7b556b4c06d489c03b",
+    "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
+    "start_message": "Start G0-T04 generation 4 implementation",
+    "governed_parent_eligible": false,
+    "import_allowed": false
+  },
+  "canonical_lineage": {
+    "authorization_sha": "376aa67c5abf81aaf037b21fd833474bf704395d",
+    "start_sha": "39a50d9ea1d97e2fe3925ffa355eb787165bc1d6",
+    "post_authorization_rule": "strict_single_parent_only",
+    "merge_imports_allowed": false,
+    "excluded_ancestor_or_import_shas": [
+      "de070276e53ec75f0cfd864a02d6d05236784eb8",
+      "c7be2b2f07ef171e9d1535e29d93aa6beadf348a",
+      "45e714f9e099774ac0c4885f77523fb73c2d313d",
+      "046414bea45316f01e3d3e7b556b4c06d489c03b",
+      "906cb1124f60f83c4bcdeaf0d2a47e1c6d4332d7"
+    ]
+  },
   "immutable_history": {
     "anomaly_receipt_blob": "c71560939c1b6fd0c6f038c3fe723df178fa2596",
     "anomaly_seal_blob": "382331a1b6293f6174d52102422a10a340cbf077",
@@ -74,5 +103,5 @@
     "scripts/validate_project_status.py",
     "tests/test_g0_project_status.py"
   ],
-  "payload_sha256": "e967269715204baa8b52ee09d3d62cf809d35b6c18e6a175316a0a51dbc9fb9f"
+  "payload_sha256": "40af99e4a08e06914b0df4908adc8eb9695b25e46aaa0385fcd95681aef635e7"
 }

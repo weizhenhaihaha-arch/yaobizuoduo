@@ -210,12 +210,21 @@ G0_T04_G4_PR24_RUN = "30014856791"
 G0_T04_G4_ABANDONED_AUTH = "de070276e53ec75f0cfd864a02d6d05236784eb8"
 G0_T04_G4_ABANDONED_START = "c7be2b2f07ef171e9d1535e29d93aa6beadf348a"
 G0_T04_G4_ABANDONED_CANDIDATE = "45e714f9e099774ac0c4885f77523fb73c2d313d"
+G0_T04_G4_COMPETING_AUTH = "046414bea45316f01e3d3e7b556b4c06d489c03b"
+G0_T04_G4_COMPETING_START = "906cb1124f60f83c4bcdeaf0d2a47e1c6d4332d7"
+G0_T04_G4_EXCLUDED_ROUTE_NODES = (
+    G0_T04_G4_ABANDONED_AUTH,
+    G0_T04_G4_ABANDONED_START,
+    G0_T04_G4_ABANDONED_CANDIDATE,
+    G0_T04_G4_COMPETING_AUTH,
+    G0_T04_G4_COMPETING_START,
+)
 G0_T04_G4_ROUTE_SEAL_PATH = (
     "evidence/g0-t04/generation-4-main-drift-seal.json"
 )
 G0_T04_G4_ROUTE_SEAL_VERSION = "g0-t04-generation-4-main-drift-seal.v1"
 G0_T04_G4_ROUTE_SEAL_PAYLOAD = (
-    "e967269715204baa8b52ee09d3d62cf809d35b6c18e6a175316a0a51dbc9fb9f"
+    "40af99e4a08e06914b0df4908adc8eb9695b25e46aaa0385fcd95681aef635e7"
 )
 G0_T04_G4_G1_BLOCKED = "3a27f530b338ece78ae90ffd895787e5a10616fc"
 G0_T04_G4_G1_MERGE_BASE = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
@@ -1757,24 +1766,38 @@ def _g0_t04_g4_route_errors(
     if not _is_g0_t04_g4_status(status):
         return []
     errors: list[str] = []
-    seal_path = root / G0_T04_G4_ROUTE_SEAL_PATH
-    if not seal_path.is_file() or seal_path.is_symlink():
-        return ["$: G0-T04 generation-4 main-drift seal is missing"]
     ok_entry, entry = _git(
         root, "ls-tree", head, "--", G0_T04_G4_ROUTE_SEAL_PATH
     )
     fields = entry.split(None, 3) if ok_entry else []
-    if len(fields) != 4 or fields[0] != "100644" or fields[1] != "blob":
-        errors.append(
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != G0_T04_G4_ROUTE_SEAL_PATH
+    ):
+        return [
             "$: G0-T04 generation-4 main-drift seal must be a committed 100644 blob"
-        )
+        ]
+    ok_seal, seal_bytes = _git_bytes(
+        root, "show", f"{head}:{G0_T04_G4_ROUTE_SEAL_PATH}"
+    )
+    if not ok_seal:
+        return ["$: G0-T04 generation-4 main-drift seal Git blob is unreadable"]
     try:
         seal = json.loads(
-            seal_path.read_text(encoding="utf-8"),
+            seal_bytes.decode("utf-8"),
             object_pairs_hook=_reject_duplicate_keys,
         )
-    except (OSError, UnicodeError, json.JSONDecodeError, ValueError):
+    except (UnicodeError, json.JSONDecodeError, ValueError):
         return errors + ["$: G0-T04 generation-4 main-drift seal is unreadable"]
+    canonical_seal_bytes = (
+        json.dumps(seal, indent=2, ensure_ascii=False) + "\n"
+    ).encode("utf-8")
+    if seal_bytes != canonical_seal_bytes:
+        errors.append(
+            "$: G0-T04 generation-4 main-drift seal Git blob bytes are noncanonical"
+        )
     expected_keys = {
         "schema_version",
         "project",
@@ -1783,6 +1806,8 @@ def _g0_t04_g4_route_errors(
         "authorization",
         "pr24_main_drift",
         "abandoned_off_main_route",
+        "discarded_competing_route",
+        "canonical_lineage",
         "immutable_history",
         "owner_authority",
         "protected_main_bridge",
@@ -1840,6 +1865,33 @@ def _g0_t04_g4_route_errors(
         "reusable": False,
     }:
         errors.append("$: G0-T04 generation-4 abandoned route identity drifted")
+    if seal.get("discarded_competing_route") != {
+        "state": "tombstoned_non_authoritative",
+        "authorization_sha": G0_T04_G4_COMPETING_AUTH,
+        "authorization_ordered_parents": [
+            G0_T04_G4_BASELINE,
+            G0_T04_G4_BLOCKED_MAIN,
+        ],
+        "authorization_tree": "11098e342e3706e47ff74ddea7f6515475339a89",
+        "authorization_message": "Authorize G0-T04 generation 4",
+        "start_sha": G0_T04_G4_COMPETING_START,
+        "start_parent": G0_T04_G4_COMPETING_AUTH,
+        "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
+        "start_message": "Start G0-T04 generation 4 implementation",
+        "governed_parent_eligible": False,
+        "import_allowed": False,
+    }:
+        errors.append("$: G0-T04 generation-4 competing route tombstone drifted")
+    if seal.get("canonical_lineage") != {
+        "authorization_sha": G0_T04_G4_AUTHORIZATION,
+        "start_sha": G0_T04_G4_START,
+        "post_authorization_rule": "strict_single_parent_only",
+        "merge_imports_allowed": False,
+        "excluded_ancestor_or_import_shas": list(
+            G0_T04_G4_EXCLUDED_ROUTE_NODES
+        ),
+    }:
+        errors.append("$: G0-T04 generation-4 canonical lineage exclusions drifted")
     if seal.get("immutable_history") != {
         "anomaly_receipt_blob": "c71560939c1b6fd0c6f038c3fe723df178fa2596",
         "anomaly_seal_blob": "382331a1b6293f6174d52102422a10a340cbf077",
@@ -1923,8 +1975,46 @@ def _g0_t04_g4_route_errors(
         != "ca7aa3b416024ed44f57ab8cfa8de94f39995f04"
     ):
         errors.append("$: G0-T04 generation-4 abandoned route topology drifted")
+    competing_ok, competing_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_AUTH
+    )
+    competing_tree_ok, competing_tree = _git(
+        root, "rev-parse", f"{G0_T04_G4_COMPETING_AUTH}^{{tree}}"
+    )
+    competing_message_ok, competing_message = _git(
+        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_AUTH
+    )
+    competing_start_ok, competing_start_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_START
+    )
+    competing_start_tree_ok, competing_start_tree = _git(
+        root, "rev-parse", f"{G0_T04_G4_COMPETING_START}^{{tree}}"
+    )
+    competing_start_message_ok, competing_start_message = _git(
+        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_START
+    )
+    if (
+        (competing_line.split() if competing_ok else [])
+        != [
+            G0_T04_G4_COMPETING_AUTH,
+            G0_T04_G4_BASELINE,
+            G0_T04_G4_BLOCKED_MAIN,
+        ]
+        or not competing_tree_ok
+        or competing_tree != "11098e342e3706e47ff74ddea7f6515475339a89"
+        or not competing_message_ok
+        or competing_message != "Authorize G0-T04 generation 4"
+        or (competing_start_line.split() if competing_start_ok else [])
+        != [G0_T04_G4_COMPETING_START, G0_T04_G4_COMPETING_AUTH]
+        or not competing_start_tree_ok
+        or competing_start_tree != "0296e60d4cb54cbc509dfd13b0ba54809d848b25"
+        or not competing_start_message_ok
+        or competing_start_message
+        != "Start G0-T04 generation 4 implementation"
+    ):
+        errors.append("$: G0-T04 generation-4 competing route topology drifted")
     changed = _g0_t03_commit_changed_paths(root, G0_T04_G4_AUTHORIZATION, head)
-    if not changed.issubset(G0_T04_G4_ALLOWED):
+    if changed is None or not changed.issubset(G0_T04_G4_ALLOWED):
         errors.append("$: G0-T04 generation-4 cumulative allowlist drifted")
     ok_start, start_parents = _git(
         root, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
@@ -1934,6 +2024,57 @@ def _g0_t04_g4_route_errors(
         G0_T04_G4_AUTHORIZATION,
     ]:
         errors.append("$: G0-T04 generation-4 start lineage drifted")
+    lineage_subject = head
+    ok_head_parents, head_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", head
+    )
+    head_parts = head_parents_text.split() if ok_head_parents else []
+    if len(head_parts) == 3 and head_parts[1] == G0_T04_G4_BLOCKED_MAIN:
+        lineage_subject = head_parts[2]
+    errors.extend(_g0_t04_g4_canonical_lineage_errors(root, lineage_subject))
+    return errors
+
+
+def _g0_t04_g4_canonical_lineage_errors(root: Path, governed_head: str) -> list[str]:
+    """Reject every noncanonical branch import after the exact G4 authorization."""
+    errors: list[str] = []
+    if not _is_ancestor(root, G0_T04_G4_AUTHORIZATION, governed_head):
+        errors.append(
+            "$: G0-T04 generation-4 governed head must descend from exact canonical authorization"
+        )
+        return errors
+    for forbidden_sha in G0_T04_G4_EXCLUDED_ROUTE_NODES:
+        if _is_ancestor(root, forbidden_sha, governed_head):
+            errors.append(
+                "$: G0-T04 generation-4 governed lineage imported a tombstoned noncanonical route"
+            )
+            break
+    ok_lineage, lineage_text = _git(
+        root,
+        "rev-list",
+        "--first-parent",
+        f"{G0_T04_G4_AUTHORIZATION}..{governed_head}",
+    )
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    if not lineage or lineage[-1] != G0_T04_G4_START:
+        errors.append(
+            "$: G0-T04 generation-4 governed lineage must begin at exact canonical start"
+        )
+        return errors
+    expected_parent = G0_T04_G4_AUTHORIZATION
+    for sha in reversed(lineage):
+        ok_parents, parents_text = _git(
+            root, "rev-list", "--parents", "-n", "1", sha
+        )
+        if (parents_text.split() if ok_parents else []) != [
+            sha,
+            expected_parent,
+        ]:
+            errors.append(
+                "$: G0-T04 generation-4 implementation/delivery lineage must remain strict single-parent"
+            )
+            break
+        expected_parent = sha
     return errors
 
 
@@ -1952,6 +2093,7 @@ def _g0_t04_g4_merge_topology_errors(root: Path, head: str) -> list[str]:
         errors.append(
             "$: G0-T04 generation-4 main bridge second parent must descend from exact authorization"
         )
+    errors.extend(_g0_t04_g4_canonical_lineage_errors(root, governed_parent))
     ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
     ok_parent_tree, parent_tree = _git(
         root, "rev-parse", f"{governed_parent}^{{tree}}"
