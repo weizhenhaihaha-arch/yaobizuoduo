@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `merged_verified`
+- Status: `closed`
 - Candidate generation: `3`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -240,3 +240,13 @@ reviews, blockers, worktree state, and repository/external memory updates.
 - Package A remains immutable and `not_authorized`; this record does not
   activate G0-T05, G1, market access, ruleset mutation, deployment, release,
   credentials, or trading.
+
+## Generation 3 final close
+
+- Finalization subject `b7a2e3fa15d09de15293a384e58bf4575e0cdeca`
+  passed exact pull-request CI run `29991698097`.
+- G0-T04 therefore advances from `merged_verified` to `closed`; the Package A
+  manifest, schema, payload digest, ordered task list, and inactive authority
+  state remain unchanged.
+- `next_authorization` remains G0-T05 `not_authorized`. Package A requires one
+  explicit owner confirmation before any package card may activate.
