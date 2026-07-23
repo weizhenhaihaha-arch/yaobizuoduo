@@ -205,3 +205,22 @@ reviews, blockers, worktree state, and repository/external memory updates.
   inactive state, and forbidden capability boundaries remained unchanged.
 - This acceptance authorizes only the automatic merge closure for G0-T04. It
   does not activate Package A or authorize G0-T05/G1.
+
+## Generation 3 merged-main recovery
+
+- PR #14 merged as exact authoritative-main subject
+  `11040ca0d8ea17ba1bc47641705aa95c2cba6a75` with ordered parents
+  `[1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f,
+  bdf6fbca71b29da79801c1be7a4cdd14f103ce52]` and tree
+  `12d85f91119ee802d3f92405ceb619ed18534e4d`.
+- The exact push run `29988167026` failed only in canonical governance
+  validation; candidate run `29987891035` and closure run `29988100257`
+  succeeded.
+- Recovery remains at `accepted_pending_merge` with the exact failed-run
+  blocker. It does not claim `merged_verified` or `closed`.
+- The bounded recovery accepts only a status-identical single-parent repair
+  rooted at the failed merge and a future exact two-parent merge whose first
+  parent is the failed main and whose tree equals its recovery second parent.
+- The Package A manifest/schema/digests/order remain byte-identical and
+  `not_authorized`; G0-T05, G1, market access, ruleset mutation, credentials,
+  trading, deployment, and release remain outside authority.

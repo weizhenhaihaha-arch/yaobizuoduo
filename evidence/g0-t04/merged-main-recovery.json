@@ -1,0 +1,72 @@
+{
+  "schema_version": "g0-t04-merged-main-recovery.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T04",
+  "candidate_generation": 3,
+  "purpose": "bounded_merged_main_ci_recovery",
+  "candidate": {
+    "commit_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8",
+    "ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "pull_request",
+      "check": "G0 / exact-head",
+      "subject_sha": "be45d7fee1f5e4a34b14bd035539d5a3a462dad8",
+      "run_id": "29987891035",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29987891035",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "review": {
+      "code_security": "approve",
+      "architecture": "clear"
+    }
+  },
+  "closure": {
+    "commit_sha": "bdf6fbca71b29da79801c1be7a4cdd14f103ce52",
+    "ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "pull_request",
+      "check": "G0 / exact-head",
+      "subject_sha": "bdf6fbca71b29da79801c1be7a4cdd14f103ce52",
+      "run_id": "29988100257",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29988100257",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  },
+  "failed_main": {
+    "commit_sha": "11040ca0d8ea17ba1bc47641705aa95c2cba6a75",
+    "ordered_parents": [
+      "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
+      "bdf6fbca71b29da79801c1be7a4cdd14f103ce52"
+    ],
+    "tree_sha": "12d85f91119ee802d3f92405ceb619ed18534e4d",
+    "ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "push",
+      "ref": "refs/heads/main",
+      "check": "G0 / exact-head",
+      "subject_sha": "11040ca0d8ea17ba1bc47641705aa95c2cba6a75",
+      "run_id": "29988167026",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29988167026",
+      "status": "completed",
+      "conclusion": "failure"
+    }
+  },
+  "ruleset": {
+    "id": 19526291,
+    "readback_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+  },
+  "package_a": {
+    "manifest_path": "governance/packages/package-a.manifest.json",
+    "schema_path": "schemas/package_a_manifest.schema.json",
+    "schema_sha256": "5ebc757f76c58424e88fa6618c806c1bb73ad9dfa9bc09302481e5206c94ceda",
+    "payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+    "ordered_tasks": [
+      "G0-T05",
+      "G1-T01"
+    ],
+    "state": "not_authorized"
+  },
+  "payload_sha256": "842a66c7c9212f2b675843ef00d1ad68008bc005daa3210e81c564d349ee5e82"
+}
