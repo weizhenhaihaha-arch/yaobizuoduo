@@ -5,7 +5,7 @@
 - Task ID: `G0-T05`
 - Gate: G0 governance handoff
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `1`
 - Executor: Codex under the confirmed immutable Package A
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
