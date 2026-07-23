@@ -43,6 +43,9 @@ G0_T03_PLANNING_HEAD = "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b"
 G0_T03_STATUS_RECONCILIATION_BASE = "c11eae14986de8bb5f387e3064680ce48d2c284b"
 G0_T04_FAILED_MAIN = "11040ca0d8ea17ba1bc47641705aa95c2cba6a75"
 G0_T04_CLOSURE = "bdf6fbca71b29da79801c1be7a4cdd14f103ce52"
+G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
+G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
+G0_T04_ANOMALY_CANDIDATE = "6541189bbdacc870de5691d07991b9103ee2c763"
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -678,6 +681,124 @@ def clone_g0_t04_failed_main(tmp_path: Path) -> Path:
     git(repo, "update-ref", "refs/heads/main", G0_T04_FAILED_MAIN)
     git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_FAILED_MAIN)
     return repo
+
+
+def make_g0_t04_anomaly_recovery(
+    tmp_path: Path, mutation: str | None = None
+) -> tuple[Path, dict, str, str]:
+    repo = tmp_path / "g0-t04-anomaly-recovery"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(
+        repo,
+        "switch",
+        "-c",
+        "g0-t04-anomaly-recovery",
+        G0_T04_ANOMALY_IMPLEMENTATION,
+    )
+    git(repo, "update-ref", "refs/heads/main", G0_T04_ANOMALY_MAIN)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_ANOMALY_MAIN)
+    implementation = G0_T04_ANOMALY_IMPLEMENTATION
+
+    status = VALIDATOR._g0_t04_anomaly_status(repo)
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    receipt = VALIDATOR._g0_t04_anomaly_receipt()
+    if mutation == "receipt":
+        receipt["pr22"]["push_run"] = "29998455190"
+    receipt_path = repo / VALIDATOR.G0_T04_ANOMALY_RECEIPT_PATH
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text(json.dumps(receipt, indent=2, ensure_ascii=False) + "\n")
+    task = status["active_tasks"][0]
+    (repo / "CURRENT_TASK.md").write_text(
+        "# G0-T04 anomaly recovery\n\n"
+        f"- Task ID: `{task['task_id']}`\n"
+        f"- Gate: {status['current_gate']} governance recovery\n"
+        f"- Risk: `{task['risk']}`\n"
+        f"- Status: `{task['state']}`\n"
+        f"- Baseline: `{status['evidence']['authorization_baseline_sha']}`\n",
+        encoding="utf-8",
+    )
+    (repo / "PROJECT_MEMORY.md").write_text(
+        (repo / "PROJECT_MEMORY.md").read_text(encoding="utf-8")
+        + "\n- PR15-PR22 anomaly recovery remains the only active G0-T04 slice.\n",
+        encoding="utf-8",
+    )
+    (repo / "docs" / "NEXT_WORKFLOW.md").write_text(
+        "# Next workflow\n\nG0-T05 and G1 remain not authorized.\n",
+        encoding="utf-8",
+    )
+    activation = repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
+    if mutation != "activation":
+        activation.unlink()
+    if mutation == "ordinary":
+        (repo / "ordinary.txt").write_text("scope escape\n", encoding="utf-8")
+    delivery = commit(repo, "record exact G0-T04 anomaly recovery")
+    return repo, status, implementation, delivery
+
+
+def make_g0_t04_anomaly_seal(
+    tmp_path: Path, mutation: str | None = None
+) -> tuple[Path, dict, str]:
+    repo = tmp_path / f"g0-t04-anomaly-seal-{mutation or 'valid'}"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    git(repo, "switch", "-c", "g0-t04-anomaly-seal", G0_T04_ANOMALY_CANDIDATE)
+    git(repo, "update-ref", "refs/heads/main", G0_T04_ANOMALY_MAIN)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_ANOMALY_MAIN)
+    status = VALIDATOR._g0_t04_anomaly_seal_status(repo)
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    seal = VALIDATOR._g0_t04_anomaly_seal()
+    if mutation == "receipt":
+        seal["anomaly_receipt"]["payload_sha256"] = "0" * 64
+        seal["payload_sha256"] = VALIDATOR._payload_digest(seal)
+    elif mutation == "ci":
+        seal["candidate"]["ci"]["run_id"] = "30005396034"
+        seal["candidate"]["ci"]["url"] = (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30005396034"
+        )
+        seal["payload_sha256"] = VALIDATOR._payload_digest(seal)
+    elif mutation == "review":
+        seal["review"]["architecture"]["decision"] = "watch"
+        seal["payload_sha256"] = VALIDATOR._payload_digest(seal)
+    seal_path = repo / VALIDATOR.G0_T04_ANOMALY_SEAL_PATH
+    seal_path.parent.mkdir(parents=True, exist_ok=True)
+    seal_path.write_text(json.dumps(seal, indent=2, ensure_ascii=False) + "\n")
+    shutil.copy2(SCRIPT, repo / "scripts/validate_project_status.py")
+    shutil.copy2(ROOT / "tests/test_g0_project_status.py", repo / "tests/test_g0_project_status.py")
+    shutil.copy2(ROOT / "CURRENT_TASK.md", repo / "CURRENT_TASK.md")
+    shutil.copy2(ROOT / "PROJECT_MEMORY.md", repo / "PROJECT_MEMORY.md")
+    shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
+    if mutation == "package":
+        with (repo / "governance/packages/package-a.manifest.json").open("a") as handle:
+            handle.write("\n")
+    elif mutation == "activation":
+        activation = repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
+        activation.parent.mkdir(parents=True, exist_ok=True)
+        activation.write_text("{}\n")
+    elif mutation == "allowlist":
+        (repo / "forbidden-seal-change.txt").write_text("scope escape\n")
+    seal_sha = commit(repo, "seal exact reviewed G0-T04 anomaly candidate")
+    if mutation == "parent":
+        seal_sha = git(
+            repo,
+            "commit-tree",
+            git(repo, "rev-parse", f"{seal_sha}^{{tree}}"),
+            "-p",
+            G0_T04_ANOMALY_MAIN,
+            "-m",
+            "forge seal parent",
+        )
+    return repo, status, seal_sha
 
 
 def make_g0_t04_recovery(
@@ -3498,3 +3619,373 @@ def test_g0_t04_recovery_rejects_topology_and_evidence_substitution(
     assert errors
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1
+
+
+def test_g0_t04_pr15_pr22_anomaly_two_stage_is_canonical(tmp_path: Path) -> None:
+    repo, status, implementation, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    parent = VALIDATOR._status_at(repo, implementation)
+    assert parent is not None
+    assert VALIDATOR._g0_t04_anomaly_parent_errors(
+        status,
+        parent,
+        implementation,
+        repo,
+        delivery,
+        require_current_main=True,
+    ) == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+def test_g0_t04_pr15_pr22_live_main_strict_history_replayable(
+    tmp_path: Path,
+) -> None:
+    repo, status, implementation, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    parent = VALIDATOR._status_at(repo, implementation)
+    assert parent is not None
+    git(repo, "update-ref", "refs/heads/main", G0_T04_FAILED_MAIN)
+    live = VALIDATOR._g0_t04_anomaly_parent_errors(
+        status,
+        parent,
+        implementation,
+        repo,
+        delivery,
+        require_current_main=True,
+    )
+    history = VALIDATOR._g0_t04_anomaly_parent_errors(
+        status,
+        parent,
+        implementation,
+        repo,
+        delivery,
+        require_current_main=False,
+    )
+    assert any("exact current main" in error for error in live)
+    assert not any("exact current main" in error for error in history)
+
+
+@pytest.mark.parametrize("mutation", ["receipt", "activation", "ordinary"])
+def test_g0_t04_pr15_pr22_rejects_evidence_activation_and_allowlist_drift(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo, status, _, delivery = make_g0_t04_anomaly_recovery(tmp_path, mutation)
+    errors = VALIDATOR._g0_t04_anomaly_delivery_errors(
+        status, repo, delivery, require_current_main=False
+    )
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_merge_bridge_rejects_parent_and_tree_drift(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    obsolete_direct = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        delivery,
+        "-m",
+        "obsolete direct recovery merge",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, obsolete_direct, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+    swapped = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        delivery,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-m",
+        "swapped recovery merge",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, swapped, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_merge_rejects_delivery_skipping_exact_implementation(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    skipped = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-m",
+        "content-identical delivery skipping implementation",
+    )
+    merged = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        skipped,
+        "-m",
+        "merge skipped delivery",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_merge_rejects_substituted_implementation_same_tree(
+    tmp_path: Path,
+) -> None:
+    repo, status, implementation, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    implementation_tree = git(repo, "rev-parse", f"{implementation}^{{tree}}")
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    substituted_implementation = git(
+        repo,
+        "commit-tree",
+        implementation_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-m",
+        "substituted implementation with identical tree",
+    )
+    substituted_delivery = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        substituted_implementation,
+        "-m",
+        "delivery from substituted implementation",
+    )
+    merged = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        substituted_delivery,
+        "-m",
+        "merge substituted implementation lineage",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_merge_rejects_non_delivery_second_parent_lineage(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    wrapper = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        delivery,
+        "-m",
+        "content-identical wrapper after exact delivery",
+    )
+    merged = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        wrapper,
+        "-m",
+        "merge non-delivery lineage",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_stage2_seal_and_future_bridge_are_canonical(
+    tmp_path: Path,
+) -> None:
+    repo, status, seal = make_g0_t04_anomaly_seal(tmp_path)
+    parent = VALIDATOR._status_at(repo, G0_T04_ANOMALY_CANDIDATE)
+    assert parent is not None
+    assert VALIDATOR._g0_t04_anomaly_seal_parent_errors(
+        status,
+        parent,
+        G0_T04_ANOMALY_CANDIDATE,
+        repo,
+        seal,
+        require_current_main=True,
+    ) == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+    seal_tree = git(repo, "rev-parse", f"{seal}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        seal_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        seal,
+        "-m",
+        "merge exact reviewed anomaly seal",
+    )
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed == seal
+    assert errors == []
+
+
+def test_g0_t04_pr15_pr22_direct_candidate_merge_is_rejected_after_seal_route(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        delivery,
+        "-m",
+        "obsolete direct candidate merge",
+    )
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["parent", "receipt", "ci", "review", "package", "activation", "allowlist"],
+)
+def test_g0_t04_pr15_pr22_stage2_seal_rejects_drift(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo, status, seal = make_g0_t04_anomaly_seal(tmp_path, mutation)
+    parent = VALIDATOR._status_at(repo, G0_T04_ANOMALY_CANDIDATE)
+    assert parent is not None
+    errors = VALIDATOR._g0_t04_anomaly_seal_parent_errors(
+        status,
+        parent,
+        G0_T04_ANOMALY_CANDIDATE,
+        repo,
+        seal,
+        require_current_main=False,
+    )
+    assert errors
+
+
+@pytest.mark.parametrize("mutation", ["parents", "tree"])
+def test_g0_t04_pr15_pr22_stage2_merge_rejects_topology_drift(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo, status, seal = make_g0_t04_anomaly_seal(tmp_path)
+    seal_tree = git(repo, "rev-parse", f"{seal}^{{tree}}")
+    if mutation == "parents":
+        parents = (seal, G0_T04_ANOMALY_MAIN)
+        tree = seal_tree
+    else:
+        parents = (G0_T04_ANOMALY_MAIN, seal)
+        tree = git(repo, "rev-parse", f"{G0_T04_ANOMALY_MAIN}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        parents[0],
+        "-p",
+        parents[1],
+        "-m",
+        "forged stage2 seal merge",
+    )
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_stage2_seal_live_main_strict_history_replayable(
+    tmp_path: Path,
+) -> None:
+    repo, status, seal = make_g0_t04_anomaly_seal(tmp_path)
+    parent = VALIDATOR._status_at(repo, G0_T04_ANOMALY_CANDIDATE)
+    assert parent is not None
+    git(repo, "update-ref", "refs/heads/main", G0_T04_ANOMALY_CANDIDATE)
+    live = VALIDATOR._g0_t04_anomaly_seal_parent_errors(
+        status,
+        parent,
+        G0_T04_ANOMALY_CANDIDATE,
+        repo,
+        seal,
+        require_current_main=True,
+    )
+    history = VALIDATOR._g0_t04_anomaly_seal_parent_errors(
+        status,
+        parent,
+        G0_T04_ANOMALY_CANDIDATE,
+        repo,
+        seal,
+        require_current_main=False,
+    )
+    assert any("exact current main" in error for error in live)
+    assert not any("exact current main" in error for error in history)
+
+
+def test_g0_t04_pr15_pr22_same_tree_seal_identity_is_external_gate(
+    tmp_path: Path,
+) -> None:
+    repo, status, seal = make_g0_t04_anomaly_seal(tmp_path)
+    same_tree_seal = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{seal}^{{tree}}"),
+        "-p",
+        G0_T04_ANOMALY_CANDIDATE,
+        "-m",
+        "same-tree seal requiring the same external gate",
+    )
+    parent = VALIDATOR._status_at(repo, G0_T04_ANOMALY_CANDIDATE)
+    assert parent is not None
+    # A commit cannot attest its own future SHA. Code binds exact parent/tree/bytes;
+    # exact S identity is established only by the later external CI/review gate.
+    assert VALIDATOR._g0_t04_anomaly_seal_parent_errors(
+        status,
+        parent,
+        G0_T04_ANOMALY_CANDIDATE,
+        repo,
+        same_tree_seal,
+        require_current_main=False,
+    ) == []
