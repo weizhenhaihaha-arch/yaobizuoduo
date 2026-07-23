@@ -3365,6 +3365,37 @@ def test_exact_g0_t04_failed_main_and_recovery_record_are_accepted(
     assert VALIDATOR._is_g0_t04_post_merge_recovery_status(status)
 
 
+def test_g0_t04_recovery_historical_validation_ignores_advanced_main(
+    tmp_path: Path,
+) -> None:
+    repo, status, recovery = make_g0_t04_recovery(tmp_path)
+    parent = VALIDATOR._status_at(repo, G0_T04_FAILED_MAIN)
+    assert isinstance(parent, dict)
+    git(repo, "update-ref", "refs/heads/main", G0_T04_CLOSURE)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_CLOSURE)
+
+    live_errors = VALIDATOR._g0_t04_recovery_parent_errors(
+        status,
+        parent,
+        G0_T04_FAILED_MAIN,
+        repo,
+        recovery,
+        require_current_main=True,
+    )
+    historical_errors = VALIDATOR._g0_t04_recovery_parent_errors(
+        status,
+        parent,
+        G0_T04_FAILED_MAIN,
+        repo,
+        recovery,
+        require_current_main=False,
+    )
+
+    assert live_errors is not None
+    assert any("authoritative main" in item for item in live_errors)
+    assert historical_errors == []
+
+
 def test_exact_g0_t04_recovery_merge_is_accepted(tmp_path: Path) -> None:
     repo, status, recovery = make_g0_t04_recovery(tmp_path)
     tree = git(repo, "rev-parse", f"{recovery}^{{tree}}")

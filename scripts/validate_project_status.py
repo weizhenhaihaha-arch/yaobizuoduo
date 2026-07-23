@@ -1563,7 +1563,12 @@ def _parent_status_errors(
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
     recovery_errors = _g0_t04_recovery_parent_errors(
-        status, parent, parent_sha, root, child_sha
+        status,
+        parent,
+        parent_sha,
+        root,
+        child_sha,
+        require_current_main=require_current_main,
     )
     if recovery_errors is not None:
         return recovery_errors
@@ -4223,6 +4228,8 @@ def _g0_t04_recovery_parent_errors(
     parent_sha: str | None,
     root: Path | None,
     child_sha: str | None,
+    *,
+    require_current_main: bool = True,
 ) -> list[str] | None:
     if not _is_g0_t04_post_merge_recovery_status(status):
         return None
@@ -4280,37 +4287,38 @@ def _g0_t04_recovery_parent_errors(
         ok_child, child_blob = _git(root, "rev-parse", f"{child_sha}:{path}")
         if not ok_failed or not ok_child or failed_blob != child_blob:
             errors.append(f"$: G0-T04 recovery changed immutable Package A artifact {path}")
-    ok_main, main_sha = _git(
-        root, "rev-parse", "--verify", status["authoritative_main_ref"]
-    )
-    ok_remote, remote_sha = _git(
-        root, "rev-parse", "--verify", "refs/remotes/origin/main"
-    )
-    main_matches = (
-        ok_main
-        and ok_remote
-        and main_sha == remote_sha == G0_T04_FAILED_MAIN_SHA
-    )
-    if ok_main and ok_remote and main_sha == remote_sha and not main_matches:
-        main_status = _status_at(root, main_sha)
-        main_schema = _schema_at(root, main_sha)
-        if type(main_status) is dict and type(main_schema) is dict:
-            governed, bridge_errors = _canonical_g0_t04_recovery_bridge(
-                main_status,
-                root,
-                main_sha,
-                main_schema,
-                require_canonical_main=False,
-            )
-            main_matches = (
-                governed is not None
-                and not bridge_errors
-                and _is_ancestor(root, child_sha, governed)
-            )
-    if not main_matches:
-        errors.append(
-            "$: G0-T04 recovery requires the exact failed main on local/fetched authoritative main"
+    if require_current_main:
+        ok_main, main_sha = _git(
+            root, "rev-parse", "--verify", status["authoritative_main_ref"]
         )
+        ok_remote, remote_sha = _git(
+            root, "rev-parse", "--verify", "refs/remotes/origin/main"
+        )
+        main_matches = (
+            ok_main
+            and ok_remote
+            and main_sha == remote_sha == G0_T04_FAILED_MAIN_SHA
+        )
+        if ok_main and ok_remote and main_sha == remote_sha and not main_matches:
+            main_status = _status_at(root, main_sha)
+            main_schema = _schema_at(root, main_sha)
+            if type(main_status) is dict and type(main_schema) is dict:
+                governed, bridge_errors = _canonical_g0_t04_recovery_bridge(
+                    main_status,
+                    root,
+                    main_sha,
+                    main_schema,
+                    require_canonical_main=False,
+                )
+                main_matches = (
+                    governed is not None
+                    and not bridge_errors
+                    and _is_ancestor(root, child_sha, governed)
+                )
+        if not main_matches:
+            errors.append(
+                "$: G0-T04 recovery requires the exact failed main on local/fetched authoritative main"
+            )
     return errors
 
 
