@@ -44,6 +44,7 @@ G0_T03_STATUS_RECONCILIATION_BASE = "c11eae14986de8bb5f387e3064680ce48d2c284b"
 G0_T04_FAILED_MAIN = "11040ca0d8ea17ba1bc47641705aa95c2cba6a75"
 G0_T04_CLOSURE = "bdf6fbca71b29da79801c1be7a4cdd14f103ce52"
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
+G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -689,13 +690,16 @@ def make_g0_t04_anomaly_recovery(
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
-    git(repo, "switch", "-c", "g0-t04-anomaly-recovery", G0_T04_ANOMALY_MAIN)
+    git(
+        repo,
+        "switch",
+        "-c",
+        "g0-t04-anomaly-recovery",
+        G0_T04_ANOMALY_IMPLEMENTATION,
+    )
     git(repo, "update-ref", "refs/heads/main", G0_T04_ANOMALY_MAIN)
     git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_ANOMALY_MAIN)
-    for path in ("scripts/validate_project_status.py", "tests/test_g0_project_status.py"):
-        with (repo / path).open("a", encoding="utf-8") as handle:
-            handle.write("\n# exact G0-T04 PR15-PR22 anomaly recovery\n")
-    implementation = commit(repo, "implement exact G0-T04 anomaly recovery")
+    implementation = G0_T04_ANOMALY_IMPLEMENTATION
 
     status = VALIDATOR._g0_t04_anomaly_status(repo)
     write_status(repo / "PROJECT_STATUS.yaml", status)
@@ -3643,6 +3647,115 @@ def test_g0_t04_pr15_pr22_merge_bridge_rejects_parent_and_tree_drift(
     )
     governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
         status, repo, swapped, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_merge_rejects_delivery_skipping_exact_implementation(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    skipped = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-m",
+        "content-identical delivery skipping implementation",
+    )
+    merged = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        skipped,
+        "-m",
+        "merge skipped delivery",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_merge_rejects_substituted_implementation_same_tree(
+    tmp_path: Path,
+) -> None:
+    repo, status, implementation, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    implementation_tree = git(repo, "rev-parse", f"{implementation}^{{tree}}")
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    substituted_implementation = git(
+        repo,
+        "commit-tree",
+        implementation_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-m",
+        "substituted implementation with identical tree",
+    )
+    substituted_delivery = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        substituted_implementation,
+        "-m",
+        "delivery from substituted implementation",
+    )
+    merged = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        substituted_delivery,
+        "-m",
+        "merge substituted implementation lineage",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+
+def test_g0_t04_pr15_pr22_merge_rejects_non_delivery_second_parent_lineage(
+    tmp_path: Path,
+) -> None:
+    repo, status, _, delivery = make_g0_t04_anomaly_recovery(tmp_path)
+    schema = json.loads((repo / "schemas/project_status.schema.json").read_text())
+    delivery_tree = git(repo, "rev-parse", f"{delivery}^{{tree}}")
+    wrapper = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        delivery,
+        "-m",
+        "content-identical wrapper after exact delivery",
+    )
+    merged = git(
+        repo,
+        "commit-tree",
+        delivery_tree,
+        "-p",
+        G0_T04_ANOMALY_MAIN,
+        "-p",
+        wrapper,
+        "-m",
+        "merge non-delivery lineage",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_anomaly_bridge(
+        status, repo, merged, schema, require_canonical_main=False
     )
     assert governed is None
     assert errors

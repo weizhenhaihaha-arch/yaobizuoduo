@@ -159,6 +159,7 @@ PACKAGE_A_ACTIVATION_VERSION = "package-a-activation.v1"
 PACKAGE_A_ORDERED_TASKS = ["G0-T05", "G1-T01"]
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_ORIGIN = "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373"
+G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
 G0_T04_ANOMALY_RECEIPT_PATH = "evidence/g0-t04/pr15-pr22-review-chain.json"
 G0_T04_ANOMALY_BLOCKER = (
     "governance_anomaly current_main=4f358cf42b9a8e0f741563425fc26cf532df98fb "
@@ -4568,10 +4569,13 @@ def _g0_t04_anomaly_parent_errors(
         root, "rev-list", "--parents", "-n", "1", child_sha
     )
     errors: list[str] = []
-    if (parent_line.split() if ok_parent else []) != [
-        parent_sha,
+    if (
+        parent_sha != G0_T04_ANOMALY_IMPLEMENTATION
+        or (parent_line.split() if ok_parent else []) != [
+        G0_T04_ANOMALY_IMPLEMENTATION,
         G0_T04_ANOMALY_MAIN,
-    ]:
+        ]
+    ):
         errors.append("$: G0-T04 anomaly implementation is not direct child of exact main")
     if (child_line.split() if ok_child else []) != [child_sha, parent_sha]:
         errors.append("$: G0-T04 anomaly delivery must directly follow implementation")
@@ -4612,6 +4616,8 @@ def _g0_t04_anomaly_implementation_errors(
     ):
         return None
     errors: list[str] = []
+    if child_sha != G0_T04_ANOMALY_IMPLEMENTATION:
+        errors.append("$: G0-T04 anomaly implementation identity drifted")
     changed = _g0_t03_commit_changed_paths(root, G0_T04_ANOMALY_MAIN, child_sha)
     if changed != {
         "scripts/validate_project_status.py",
@@ -4645,9 +4651,16 @@ def _canonical_g0_t04_anomaly_bridge(
     if len(parts) != 3:
         return None, []
     first_parent, governed = parts[1], parts[2]
-    errors = _g0_t04_anomaly_delivery_errors(
-        status, root, governed, require_current_main=False
+    governed_parent = _status_at(root, G0_T04_ANOMALY_IMPLEMENTATION)
+    parent_errors = _g0_t04_anomaly_parent_errors(
+        status,
+        governed_parent if governed_parent is not None else {},
+        G0_T04_ANOMALY_IMPLEMENTATION,
+        root,
+        governed,
+        require_current_main=False,
     )
+    errors = list(parent_errors or [])
     if first_parent != G0_T04_ANOMALY_MAIN:
         errors.append("$: G0-T04 anomaly merge first parent drifted")
     governed_status = _status_at(root, governed)
