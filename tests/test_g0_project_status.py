@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -39,6 +40,7 @@ G0_T03_FINAL_CLOSE_MERGE = "b1544c168cf3acf9e0ce0c1c7e3785041c02e87c"
 G0_T03_RECOVERED_MAIN = "02e05d1f2d68a9a1c89fda9c8636e2263fc48053"
 G0_T03_PLANNING_HANDOFF = "e1d251c35bbfc128990be4f9e3d1b851a3146f12"
 G0_T03_PLANNING_HEAD = "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b"
+G0_T03_STATUS_RECONCILIATION_BASE = "c11eae14986de8bb5f387e3064680ce48d2c284b"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
 SCHEMA = ROOT / "schemas" / "project_status.schema.json"
 SCHEMA_CONTROL = ROOT / "schemas" / "project_status.schema-migration-control.json"
@@ -62,6 +64,14 @@ def load_valid() -> dict:
 
 def write_status(path: Path, status: dict) -> None:
     path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
+
+
+def write_digest_json(path: Path, value: dict) -> None:
+    payload = {key: item for key, item in value.items() if key != "payload_sha256"}
+    value["payload_sha256"] = hashlib.sha256(
+        json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
+    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def migration_control(decision: str, authority: dict, **overrides: object) -> dict:
@@ -2812,3 +2822,168 @@ def test_generation_continuity_rejects_float_and_bool_identities() -> None:
         child["active_tasks"][0]["candidate_generation"] = forged
         errors = VALIDATOR._parent_status_errors(child, parent, "1" * 40)
         assert "$.active_tasks[0].candidate_generation: continuity requires exact integers" in errors
+
+
+def make_g0_t03_status_reconciliation(
+    tmp_path: Path, mutation: str | None = None
+) -> tuple[Path, dict, str]:
+    repo = tmp_path / f"g0-t03-status-reconciliation-{mutation or 'exact'}"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    git(repo, "switch", "-c", "status-reconciliation", G0_T03_STATUS_RECONCILIATION_BASE)
+    git(repo, "update-ref", "refs/heads/main", G0_T03_STATUS_RECONCILIATION_BASE)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T03_STATUS_RECONCILIATION_BASE)
+
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    status["blockers"] = []
+    if mutation == "generation":
+        status["active_tasks"][0]["candidate_generation"] = 4
+    elif mutation == "maturity":
+        status["capability"]["maturity"] = "INTEGRATION_ACCEPTED"
+    elif mutation == "next_authorization":
+        status["next_authorization"]["state"] = "authorized"
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+
+    shutil.copy2(SCRIPT, repo / "scripts" / "validate_project_status.py")
+    with (repo / "tests" / "test_g0_project_status.py").open("a", encoding="utf-8") as handle:
+        handle.write("\n# post-recovery status reconciliation adversarial regression\n")
+    evidence_path = repo / VALIDATOR.G0_T03_STATUS_RECONCILIATION_PATH
+    evidence_path.parent.mkdir(parents=True, exist_ok=True)
+    evidence = json.loads(
+        (ROOT / VALIDATOR.G0_T03_STATUS_RECONCILIATION_PATH).read_text(encoding="utf-8")
+    )
+    if mutation == "failed_run":
+        evidence["historical_failure"]["run_id"] = "29909220291"
+    elif mutation == "recovered_main":
+        evidence["recovered_main"]["commit_sha"] = G0_T03_FINAL_CLOSE_MERGE
+    elif mutation == "recovered_run":
+        evidence["recovered_main"]["push_run_id"] = "29929973217"
+    elif mutation == "review":
+        evidence["recovered_main"]["code_security"] = "request_changes"
+    elif mutation == "planning_main":
+        evidence["planning_recovery_main"]["commit_sha"] = G0_T03_PLANNING_HANDOFF
+    elif mutation == "planning_run":
+        evidence["planning_recovery_main"]["push_run_id"] = "29956605324"
+    elif mutation == "ruleset":
+        evidence["ruleset"]["id"] = 19526292
+    elif mutation == "history_retention":
+        evidence["historical_failure"]["retention"] = "discarded"
+    elif mutation == "blocker":
+        evidence["blocker_reconciliation"]["removed_from_current"] = []
+    elif mutation == "unknown_field":
+        evidence["unexpected"] = True
+    write_digest_json(evidence_path, evidence)
+    if mutation == "extra_path":
+        (repo / "docs" / "NEXT_WORKFLOW.md").write_text("scope drift\n", encoding="utf-8")
+    candidate = commit(repo, "reconcile exact G0-T03 post-recovery status")
+    return repo, status, candidate
+
+
+def test_g0_t03_status_reconciliation_candidate_and_future_merge_validate(
+    tmp_path: Path,
+) -> None:
+    repo, status, candidate = make_g0_t03_status_reconciliation(tmp_path)
+    assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
+    tree = git(repo, "rev-parse", f"{candidate}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        G0_T03_STATUS_RECONCILIATION_BASE,
+        "-p",
+        candidate,
+        "-m",
+        "merge exact G0-T03 post-recovery status reconciliation",
+    )
+    git(repo, "update-ref", "refs/heads/main", merged)
+    git(repo, "update-ref", "refs/remotes/origin/main", merged)
+    git(repo, "switch", "--detach", merged)
+    governed, errors = VALIDATOR._canonical_g0_t03_status_reconciliation_bridge(
+        status, repo, merged, require_canonical_main=True
+    )
+    assert governed == candidate
+    assert errors == []
+    assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "failed_run",
+        "recovered_main",
+        "recovered_run",
+        "review",
+        "planning_main",
+        "planning_run",
+        "ruleset",
+        "history_retention",
+        "blocker",
+        "unknown_field",
+        "extra_path",
+        "generation",
+        "maturity",
+        "next_authorization",
+    ],
+)
+def test_g0_t03_status_reconciliation_rejects_identity_and_scope_drift(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo, status, candidate = make_g0_t03_status_reconciliation(tmp_path, mutation)
+    errors = VALIDATOR._g0_t03_status_reconciliation_evidence_errors(repo, candidate)
+    errors.extend(
+        VALIDATOR._g0_t03_status_reconciliation_changed_path_errors(repo, candidate)
+    )
+    if mutation in {"generation", "maturity", "next_authorization"}:
+        assert not VALIDATOR._is_g0_t03_status_reconciled(status)
+    else:
+        assert errors
+
+
+def test_g0_t03_status_reconciliation_rejects_ordinary_descendant_and_merge_drift(
+    tmp_path: Path,
+) -> None:
+    repo, status, candidate = make_g0_t03_status_reconciliation(tmp_path)
+    with (repo / "PROJECT_MEMORY.md").open("a", encoding="utf-8") as handle:
+        handle.write("\n- ordinary descendant\n")
+    descendant = commit(repo, "ordinary descendant")
+    assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 1
+
+    candidate_tree = git(repo, "rev-parse", f"{candidate}^{{tree}}")
+    wrong_first = git(
+        repo,
+        "commit-tree",
+        candidate_tree,
+        "-p",
+        G0_T03_RECOVERED_MAIN,
+        "-p",
+        candidate,
+        "-m",
+        "wrong first parent",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t03_status_reconciliation_bridge(
+        status, repo, wrong_first, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+
+    wrong_tree = git(repo, "rev-parse", f"{G0_T03_STATUS_RECONCILIATION_BASE}^{{tree}}")
+    drifted = git(
+        repo,
+        "commit-tree",
+        wrong_tree,
+        "-p",
+        G0_T03_STATUS_RECONCILIATION_BASE,
+        "-p",
+        candidate,
+        "-m",
+        "wrong reconciliation tree",
+    )
+    governed, errors = VALIDATOR._canonical_g0_t03_status_reconciliation_bridge(
+        status, repo, drifted, require_canonical_main=False
+    )
+    assert governed is None
+    assert errors
+    assert descendant != candidate

@@ -99,6 +99,16 @@ G0_T03_PLANNING_HANDOFF_SECOND_PARENT = "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5
 G0_T03_PLANNING_HANDOFF_TREE = "5f0fbfe0f5ec19a6a8c2c7b59f5c07ab5d3f91bc"
 G0_T03_PLANNING_HANDOFF_PR_RUN = "29932171250"
 G0_T03_PLANNING_HANDOFF_MAIN_RUN = "29933844415"
+G0_T03_STATUS_RECONCILIATION_BASE_SHA = "c11eae14986de8bb5f387e3064680ce48d2c284b"
+G0_T03_STATUS_RECONCILIATION_BASE_RUN = "29956605323"
+G0_T03_STATUS_RECONCILIATION_FIRST_PARENT = G0_T03_PLANNING_HANDOFF_SHA
+G0_T03_STATUS_RECONCILIATION_SECOND_PARENT = "7bbe1e291833010f01e35ac4c46d6dc512b1f2c6"
+G0_T03_STATUS_RECONCILIATION_TREE = "d9f639b5d3261a8621c26a212108884a92dbbffc"
+G0_T03_STATUS_RECONCILIATION_PR_RUN = "29936794730"
+G0_T03_STATUS_RECONCILIATION_PATH = "evidence/g0-t03/post-recovery-status-reconciliation.json"
+G0_T03_STATUS_RECONCILIATION_VERSION = "g0-t03-post-recovery-status-reconciliation.v1"
+G0_T03_RULESET_ID = 19526291
+G0_T03_RULESET_EVIDENCE_DIGEST = "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
 MANDATORY_DOCUMENTS = {
     "AGENTS.md",
     "DEVELOPMENT_WORKFLOW.md",
@@ -282,6 +292,7 @@ def _semantic_errors(status: dict[str, Any]) -> list[str]:
         or _is_g0_t03_post_merge_recovery_status(status)
         or _is_g0_t03_recovery_merge_recovery_status(status)
         or _is_g0_t03_final_close_recovery_status(status)
+        or _is_g0_t03_status_reconciled(status)
     )
     if transition["to"] not in TRANSITIONS.get(transition["from"], set()) and not recovery_transition:
         errors.append("$.active_tasks[0].transition: illegal lifecycle transition")
@@ -1181,6 +1192,11 @@ def _parent_status_errors(
     )
     if recovery_errors is not None:
         return recovery_errors
+    reconciliation_errors = _g0_t03_status_reconciliation_parent_errors(
+        status, parent, parent_sha, root, child_sha
+    )
+    if reconciliation_errors is not None:
+        return reconciliation_errors
     final_close_repair_errors = _g0_t03_final_close_repair_parent_errors(
         status, parent, parent_sha, root, child_sha
     )
@@ -2397,6 +2413,288 @@ def _is_g0_t03_final_close_recovery_status(status: dict[str, Any]) -> bool:
         return False
 
 
+def _is_g0_t03_status_reconciled(status: dict[str, Any]) -> bool:
+    try:
+        projected = json.loads(json.dumps(status))
+        projected["blockers"] = [G0_T03_FINAL_CLOSE_BLOCKER]
+        return (
+            _is_g0_t03_final_close_recovery_status(projected)
+            and status["active_tasks"][0] == {
+                "task_id": "G0-T03",
+                "risk": "D2",
+                "state": "closed",
+                "transition": {"from": "closed", "to": "closed"},
+                "candidate_generation": 3,
+            }
+            and status["blockers"] == []
+            and status["capability"] == {
+                "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+                "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED",
+            }
+            and status["next_authorization"] == {
+                "gate": "G0",
+                "task_id": "G0-T04",
+                "state": "not_authorized",
+            }
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _g0_t03_status_reconciliation_evidence_errors(
+    root: Path, subject_sha: str
+) -> list[str]:
+    errors: list[str] = []
+    ok, text = _git(
+        root, "show", f"{subject_sha}:{G0_T03_STATUS_RECONCILIATION_PATH}"
+    )
+    if not ok:
+        return ["$: G0-T03 status reconciliation evidence is missing"]
+    try:
+        evidence = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return ["$: G0-T03 status reconciliation evidence is not canonical JSON"]
+    expected = {
+        "schema_version": G0_T03_STATUS_RECONCILIATION_VERSION,
+        "project": "yaobizuoduo",
+        "task_id": "G0-T03",
+        "candidate_generation": 3,
+        "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+        "next_authorization": {
+            "gate": "G0",
+            "task_id": "G0-T04",
+            "state": "not_authorized",
+        },
+        "historical_failure": {
+            "repository": "weizhenhaihaha-arch/yaobizuoduo",
+            "event": "push",
+            "ref": "refs/heads/main",
+            "subject_sha": G0_T03_FINAL_CLOSE_MERGE_SHA,
+            "run_id": G0_T03_FINAL_CLOSE_MERGE_RUN,
+            "url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T03_FINAL_CLOSE_MERGE_RUN}",
+            "status": "completed",
+            "conclusion": "failure",
+            "retention": "immutable_history",
+        },
+        "recovered_main": {
+            "commit_sha": G0_T03_RECOVERED_MAIN_SHA,
+            "ordered_parents": [
+                G0_T03_FINAL_CLOSE_MERGE_SHA,
+                "ddd69c2c8174837e12d186fd12252ccb6f13b24e",
+            ],
+            "tree_sha": "2855cb543087a9dbee1f2c1fad5400e3a79b3573",
+            "push_run_id": G0_T03_RECOVERED_MAIN_RUN,
+            "push_run_url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T03_RECOVERED_MAIN_RUN}",
+            "push_conclusion": "success",
+            "pull_request": 10,
+            "code_security": "approve",
+            "architecture": "clear",
+        },
+        "planning_recovery_main": {
+            "commit_sha": G0_T03_STATUS_RECONCILIATION_BASE_SHA,
+            "ordered_parents": [
+                G0_T03_STATUS_RECONCILIATION_FIRST_PARENT,
+                G0_T03_STATUS_RECONCILIATION_SECOND_PARENT,
+            ],
+            "tree_sha": G0_T03_STATUS_RECONCILIATION_TREE,
+            "push_run_id": G0_T03_STATUS_RECONCILIATION_BASE_RUN,
+            "push_run_url": f"https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/{G0_T03_STATUS_RECONCILIATION_BASE_RUN}",
+            "push_conclusion": "success",
+            "recovery_pull_request": 12,
+            "recovery_head_sha": G0_T03_STATUS_RECONCILIATION_SECOND_PARENT,
+            "recovery_pr_run_id": G0_T03_STATUS_RECONCILIATION_PR_RUN,
+            "recovery_pr_conclusion": "success",
+        },
+        "ruleset": {
+            "id": G0_T03_RULESET_ID,
+            "readback_sha256": G0_T03_RULESET_EVIDENCE_DIGEST,
+        },
+        "blocker_reconciliation": {
+            "removed_from_current": [G0_T03_FINAL_CLOSE_BLOCKER],
+            "current_blockers": [],
+            "reason": "exact_recovered_main_and_planning_recovery_push_runs_succeeded",
+        },
+    }
+    if type(evidence) is not dict or set(evidence) != set(expected) | {"payload_sha256"}:
+        return ["$: G0-T03 status reconciliation evidence has an inexact field set"]
+    for key, value in expected.items():
+        if not _typed_equal(evidence.get(key), value):
+            errors.append(f"$: G0-T03 status reconciliation evidence drift: {key}")
+    if evidence.get("payload_sha256") != _payload_digest(evidence):
+        errors.append("$: G0-T03 status reconciliation evidence digest mismatch")
+
+    ok_base, base_parts_text = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T03_STATUS_RECONCILIATION_BASE_SHA
+    )
+    if (base_parts_text.split() if ok_base else []) != [
+        G0_T03_STATUS_RECONCILIATION_BASE_SHA,
+        G0_T03_STATUS_RECONCILIATION_FIRST_PARENT,
+        G0_T03_STATUS_RECONCILIATION_SECOND_PARENT,
+    ]:
+        errors.append("$: G0-T03 status reconciliation base has substituted parents")
+    ok_tree, tree_sha = _git(
+        root, "rev-parse", f"{G0_T03_STATUS_RECONCILIATION_BASE_SHA}^{{tree}}"
+    )
+    if not ok_tree or tree_sha != G0_T03_STATUS_RECONCILIATION_TREE:
+        errors.append("$: G0-T03 status reconciliation base has substituted tree")
+    recovered_status = _status_at(root, G0_T03_RECOVERED_MAIN_SHA)
+    recovered_schema = _schema_at(root, G0_T03_RECOVERED_MAIN_SHA)
+    if type(recovered_status) is not dict or type(recovered_schema) is not dict:
+        errors.append("$: G0-T03 recovered-main proof is unreadable")
+    else:
+        governed, recovery_errors = _canonical_g0_t03_final_close_bridge(
+            recovered_status,
+            root,
+            G0_T03_RECOVERED_MAIN_SHA,
+            recovered_schema,
+            require_canonical_main=False,
+        )
+        errors.extend(recovery_errors)
+        if governed != "ddd69c2c8174837e12d186fd12252ccb6f13b24e":
+            errors.append("$: G0-T03 status reconciliation is not rooted at exact R-B-A recovery")
+    ruleset_path = "evidence/g0-t03/main-protection-generation2.json"
+    ok_ruleset, ruleset_blob = _git(root, "show", f"{subject_sha}:{ruleset_path}")
+    ok_base_ruleset, base_ruleset_blob = _git(
+        root, "show", f"{G0_T03_STATUS_RECONCILIATION_BASE_SHA}:{ruleset_path}"
+    )
+    try:
+        ruleset_evidence = json.loads(ruleset_blob) if ok_ruleset else None
+    except json.JSONDecodeError:
+        ruleset_evidence = None
+    if (
+        not ok_ruleset
+        or not ok_base_ruleset
+        or ruleset_blob != base_ruleset_blob
+        or type(ruleset_evidence) is not dict
+        or ruleset_evidence.get("after_sha256") != G0_T03_RULESET_EVIDENCE_DIGEST
+        or ruleset_evidence.get("readback", {}).get("id") != G0_T03_RULESET_ID
+    ):
+        errors.append("$: G0-T03 status reconciliation ruleset evidence changed")
+    return errors
+
+
+def _g0_t03_status_reconciliation_changed_path_errors(
+    root: Path, subject_sha: str
+) -> list[str]:
+    changed = _g0_t03_commit_changed_paths(
+        root, G0_T03_STATUS_RECONCILIATION_BASE_SHA, subject_sha
+    )
+    allowed = {
+        "PROJECT_STATUS.yaml",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        G0_T03_STATUS_RECONCILIATION_PATH,
+    }
+    required = {
+        "PROJECT_STATUS.yaml",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+        G0_T03_STATUS_RECONCILIATION_PATH,
+    }
+    if changed is None or not required.issubset(changed) or not changed.issubset(allowed):
+        return ["$: G0-T03 status reconciliation changed paths violate the exact allowlist"]
+    ok_prior, _ = _git(
+        root,
+        "cat-file",
+        "-e",
+        f"{G0_T03_STATUS_RECONCILIATION_BASE_SHA}:{G0_T03_STATUS_RECONCILIATION_PATH}",
+    )
+    return ["$: G0-T03 status reconciliation evidence must be newly introduced"] if ok_prior else []
+
+
+def _g0_t03_status_reconciliation_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+) -> list[str] | None:
+    if not _is_g0_t03_status_reconciled(status):
+        return None
+    if root is None or parent_sha is None or child_sha is None:
+        return ["$: G0-T03 status reconciliation requires repository-bound proof"]
+    projected = json.loads(json.dumps(status))
+    projected["blockers"] = [G0_T03_FINAL_CLOSE_BLOCKER]
+    errors: list[str] = []
+    if parent_sha != G0_T03_STATUS_RECONCILIATION_BASE_SHA or not _typed_equal(projected, parent):
+        errors.append("$: G0-T03 status reconciliation may only clear the exact recovered blocker from authoritative base")
+    ok_parents, parents_text = _git(root, "rev-list", "--parents", "-n", "1", child_sha)
+    if (parents_text.split() if ok_parents else []) != [
+        child_sha,
+        G0_T03_STATUS_RECONCILIATION_BASE_SHA,
+    ]:
+        errors.append("$: G0-T03 status reconciliation must directly follow exact authoritative base")
+    ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+    ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+    main_matches = (
+        ok_main
+        and ok_remote
+        and main_sha == remote_sha == G0_T03_STATUS_RECONCILIATION_BASE_SHA
+    )
+    if ok_main and ok_remote and main_sha == remote_sha and not main_matches:
+        main_status = _status_at(root, main_sha)
+        if type(main_status) is dict:
+            governed, bridge_errors = _canonical_g0_t03_status_reconciliation_bridge(
+                main_status,
+                root,
+                main_sha,
+                require_canonical_main=False,
+            )
+            main_matches = governed is not None and not bridge_errors
+    if not main_matches:
+        errors.append("$: G0-T03 status reconciliation requires exact local/fetched authoritative base")
+    errors.extend(_g0_t03_status_reconciliation_changed_path_errors(root, child_sha))
+    errors.extend(_g0_t03_status_reconciliation_evidence_errors(root, child_sha))
+    return errors
+
+
+def _canonical_g0_t03_status_reconciliation_bridge(
+    status: dict[str, Any], root: Path, head: str, *, require_canonical_main: bool
+) -> tuple[str | None, list[str]]:
+    if not _is_g0_t03_status_reconciled(status):
+        return None, []
+    ok_parents, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    parts = parents_text.split() if ok_parents else []
+    second_parent = parts[2] if len(parts) == 3 else ""
+    ok_second, second_parents_text = _git(
+        root, "rev-list", "--parents", "-n", "1", second_parent
+    )
+    second_parts = second_parents_text.split() if ok_second else []
+    related = len(parts) == 3 and (
+        G0_T03_STATUS_RECONCILIATION_BASE_SHA in parts[1:]
+        or second_parts == [second_parent, G0_T03_STATUS_RECONCILIATION_BASE_SHA]
+    )
+    if not related:
+        return None, []
+    errors: list[str] = []
+    first_parent = parts[1]
+    governed_parent = second_parent
+    if first_parent != G0_T03_STATUS_RECONCILIATION_BASE_SHA:
+        errors.append("$: canonical G0-T03 status reconciliation has wrong first parent")
+    governed_status = _status_at(root, governed_parent)
+    if type(governed_status) is not dict or not _typed_equal(governed_status, status):
+        errors.append("$: canonical G0-T03 status reconciliation status must equal second parent")
+    if second_parts != [
+        governed_parent,
+        G0_T03_STATUS_RECONCILIATION_BASE_SHA,
+    ]:
+        errors.append("$: canonical G0-T03 status reconciliation second parent is not direct")
+    ok_head_tree, head_tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+    ok_parent_tree, parent_tree = _git(root, "rev-parse", f"{governed_parent}^{{tree}}")
+    if not ok_head_tree or not ok_parent_tree or head_tree != parent_tree:
+        errors.append("$: canonical G0-T03 status reconciliation tree must equal second parent")
+    if require_canonical_main:
+        ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
+        ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        if not ok_main or not ok_remote or main_sha != remote_sha or main_sha != head:
+            errors.append("$: canonical G0-T03 status reconciliation requires exact local/fetched main")
+    errors.extend(_g0_t03_status_reconciliation_changed_path_errors(root, governed_parent))
+    errors.extend(_g0_t03_status_reconciliation_evidence_errors(root, governed_parent))
+    return (None, errors) if errors else (governed_parent, [])
+
+
 def _g0_t03_final_close_record_errors(root: Path, schema: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     closed = _status_at(root, G0_T03_CLOSED_RECORD_SHA)
@@ -3007,6 +3305,16 @@ def _g0_t03_final_close_main_matches(root: Path, main_sha: str) -> bool:
     schema = _schema_at(root, main_sha)
     if type(status) is not dict or type(schema) is not dict:
         return False
+    reconciliation_governed, reconciliation_errors = (
+        _canonical_g0_t03_status_reconciliation_bridge(
+            status,
+            root,
+            main_sha,
+            require_canonical_main=False,
+        )
+    )
+    if reconciliation_governed is not None or reconciliation_errors:
+        return reconciliation_governed is not None and not reconciliation_errors
     planning_governed, planning_errors = _canonical_g0_t03_planning_handoff_bridge(
         status,
         root,
@@ -3072,24 +3380,12 @@ def _g0_t03_final_close_repair_parent_errors(
         errors.append("$: initial G0-T03 final-close recovery must directly follow failed merge")
     ok_main, main_sha = _git(root, "rev-parse", "--verify", status["authoritative_main_ref"])
     ok_remote, remote_sha = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
-    main_matches = ok_main and ok_remote and main_sha == remote_sha
-    if main_matches and main_sha != G0_T03_FINAL_CLOSE_MERGE_SHA:
-        main_status = _status_at(root, main_sha)
-        main_schema = _schema_at(root, main_sha)
-        if type(main_status) is dict and type(main_schema) is dict:
-            governed, bridge_errors = _canonical_g0_t03_planning_handoff_bridge(
-                main_status,
-                root,
-                main_sha,
-                require_canonical_main=False,
-            )
-            if governed is None and not bridge_errors:
-                governed, bridge_errors = _canonical_g0_t03_final_close_bridge(
-                    main_status, root, main_sha, main_schema, require_canonical_main=False
-                )
-            main_matches = governed is not None and not bridge_errors
-        else:
-            main_matches = False
+    main_matches = (
+        ok_main
+        and ok_remote
+        and main_sha == remote_sha
+        and _g0_t03_final_close_main_matches(root, main_sha)
+    )
     if not main_matches:
         errors.append("$: G0-T03 final-close recovery requires exact failed or recovered main")
     governed_parent, parent_errors = _canonical_g0_t03_final_close_bridge(
@@ -3398,6 +3694,16 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
+    reconciliation_governed, reconciliation_errors = (
+        _canonical_g0_t03_status_reconciliation_bridge(
+            status,
+            root,
+            head,
+            require_canonical_main=require_canonical_main,
+        )
+    )
+    if reconciliation_governed is not None or reconciliation_errors:
+        return reconciliation_governed, reconciliation_errors
     planning_governed, planning_errors = _canonical_g0_t03_planning_handoff_bridge(
         status,
         root,
