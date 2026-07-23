@@ -1,0 +1,140 @@
+{
+  "schema_version": "g0-t04-pr15-pr22-recovery-seal.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T04",
+  "candidate_generation": 3,
+  "topology": {
+    "anomalous_main": {
+      "sha": "4f358cf42b9a8e0f741563425fc26cf532df98fb",
+      "tree": "3e8dcb668de2c004f5ee439d8d6fa4e4233359e3"
+    },
+    "implementation": {
+      "sha": "69c045de1e80bcb90c1b5ce5a49b640e48047d32",
+      "parents": [
+        "4f358cf42b9a8e0f741563425fc26cf532df98fb"
+      ],
+      "tree": "c730f2e21d1baad993f49ad833d127b839e0cac0",
+      "changed_paths": [
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py"
+      ]
+    },
+    "candidate": {
+      "sha": "6541189bbdacc870de5691d07991b9103ee2c763",
+      "parents": [
+        "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
+      ],
+      "tree": "263342bfd2a6c72cbb6765602b515e7e44cd38a5",
+      "changed_paths_from_main": [
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "PROJECT_STATUS.yaml",
+        "docs/NEXT_WORKFLOW.md",
+        "evidence/g0-t04/pr15-pr22-review-chain.json",
+        "evidence/g0-t05/package-a-activation.json",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py"
+      ]
+    }
+  },
+  "candidate": {
+    "sha": "6541189bbdacc870de5691d07991b9103ee2c763",
+    "pull_request": 23,
+    "base_sha": "4f358cf42b9a8e0f741563425fc26cf532df98fb",
+    "ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "pull_request",
+      "subject_sha": "6541189bbdacc870de5691d07991b9103ee2c763",
+      "run_id": "30005396033",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30005396033",
+      "check": "G0 / exact-head",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  },
+  "main_codex_verification": {
+    "subject_sha": "6541189bbdacc870de5691d07991b9103ee2c763",
+    "validation_report": {
+      "schema_version": "canonical-validation-report.v1",
+      "subject_sha": "6541189bbdacc870de5691d07991b9103ee2c763",
+      "results": {
+        "focused_governance": {
+          "passed": 9,
+          "deselected": 264
+        },
+        "canonical_validator": {
+          "result": "ok",
+          "schema_version": "project-status.v2"
+        },
+        "full_non_transport": {
+          "passed": 380
+        },
+        "metamorphic_transport": {
+          "passed": 15
+        },
+        "frontend": {
+          "passed": 10
+        },
+        "production_build": {
+          "result": "pass"
+        }
+      }
+    },
+    "validation_report_sha256": "4e18b5a31b459c0c232c474526dc92620480e8e6e4a0ebb5c9d7386b40b44117"
+  },
+  "review": {
+    "code_security": {
+      "reviewer": "/root/workflow_critic/g0_t04_code_lane",
+      "subject_sha": "6541189bbdacc870de5691d07991b9103ee2c763",
+      "decision": "approve"
+    },
+    "architecture": {
+      "reviewer": "/root/workflow_architect",
+      "subject_sha": "6541189bbdacc870de5691d07991b9103ee2c763",
+      "decision": "clear_for_seal"
+    }
+  },
+  "anomaly_receipt": {
+    "path": "evidence/g0-t04/pr15-pr22-review-chain.json",
+    "blob": "c71560939c1b6fd0c6f038c3fe723df178fa2596",
+    "payload_sha256": "52740d951f85f4a25d30cda2d1787e294c0227c98f4c5c34e66deff75b58e2f8"
+  },
+  "false_activation": {
+    "path": "evidence/g0-t05/package-a-activation.json",
+    "historical_main": "4f358cf42b9a8e0f741563425fc26cf532df98fb",
+    "historical_blob": "c061d55218098fd5957ef75d40cb855635371bb6",
+    "historical_sha256": "884afa51508d70f1406646a4743aca1935eeced41f5222fc91e37164db8546a6",
+    "present_in_candidate": false,
+    "present_in_seal": false
+  },
+  "package_a": {
+    "manifest_blob": "f523c793a58d27e8ffd79da01048c8cd93aaa315",
+    "schema_blob": "132656bcda439c20a2ade78d30116c49706de7b3",
+    "payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+    "ordered_task_ids": [
+      "G0-T05",
+      "G1-T01"
+    ],
+    "state": "not_authorized"
+  },
+  "ruleset": {
+    "id": 19526291,
+    "readback_sha256": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+  },
+  "capability": {
+    "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+    "g0_t05": "not_authorized",
+    "g1_t01": "not_authorized"
+  },
+  "seal_allowlist": [
+    "CURRENT_TASK.md",
+    "PROJECT_MEMORY.md",
+    "PROJECT_STATUS.yaml",
+    "docs/NEXT_WORKFLOW.md",
+    "evidence/g0-t04/pr15-pr22-recovery-seal.json",
+    "scripts/validate_project_status.py",
+    "tests/test_g0_project_status.py"
+  ],
+  "same_tree_identity_boundary": "external_ci_and_independent_review",
+  "payload_sha256": "b7dce1b96d0539c5f80a80e9550bcca0cb02527f0a76365113a2433a36028afe"
+}
