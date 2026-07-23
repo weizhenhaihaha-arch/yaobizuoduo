@@ -28,9 +28,11 @@
    并通过，缺 API 依赖、未收集、跳过或失败都 fail closed。该卡不实现 G2、
    真实行情或任何交易/部署能力。
 
-G0-T04 是 manifest 规划卡本身，不能复用为实施卡。Package A 当前保持
-`not_authorized`；产品负责人必须先确认其精确 `payload_sha256`，才可能另行
-激活首卡。
+G0-T04 是 manifest 规划卡本身，不能复用为实施卡。产品负责人已于
+2026-07-23 确认精确 `payload_sha256`
+`815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27`；
+独立 activation record 已授权首卡 G0-T05。G1-T01 仍须等待 G0-T05 在
+authoritative main 完整关闭后，才能按同一冻结 package 自动激活。
 
 ## 自动化边界
 

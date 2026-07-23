@@ -2,23 +2,32 @@
 
 ## Task identity
 
-- Task ID: `G0-T04`
-- Gate: G0 planning-only package manifest
+- Task ID: `G0-T05`
+- Gate: G0 governance handoff
 - Risk: `D0`
-- Status: `closed`
-- Candidate generation: `3`
-- Executor: one bounded planning/developer AG
+- Status: `authorized`
+- Candidate generation: `1`
+- Executor: Codex under the confirmed immutable Package A
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
-- Authorization: product owner explicitly authorized this planning-only card on 2026-07-23 Asia/Shanghai
-- Baseline: `1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f`
+- Authorization: product owner confirmed the exact Package A payload digest on 2026-07-23 Asia/Shanghai
+- Baseline: `8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373`
 
 ## Single goal
 
-Produce and mechanically validate one immutable Package A manifest. The manifest
-must freeze the exact later cards needed to finish G0 governance and establish
-G1 reproducible full CI. Completing this card does not activate Package A.
+Close the remaining G0 governance handoff by binding Package A activation to
+the product-owner-confirmed immutable manifest digest while preserving the
+required-check, ruleset, route, and capability boundaries.
 
-## Required outputs
+## Immutable activation identity
+
+- Package: `PACKAGE-A`, generation `2`
+- Payload SHA-256:
+  `815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27`
+- Activation record: `evidence/g0-t05/package-a-activation.json`
+- Exact order: `G0-T05` -> `G1-T01`
+- Only G0-T05 is active; G1-T01 remains the sole next not-authorized task.
+
+## Historical G0-T04 required outputs
 
 1. One machine-readable Package A manifest that binds its repository-relative
    path, schema/version, generation, authoritative baseline, canonical
