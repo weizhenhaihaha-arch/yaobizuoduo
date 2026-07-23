@@ -5905,7 +5905,11 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     task = status["active_tasks"][0]
     errors.extend(_package_a_persistence_errors(status, root, head))
     errors.extend(_g0_t04_g4_route_errors(status, root, head))
-    if task["task_id"] == "G0-T04" and task["state"] == "awaiting_review":
+    if (
+        task["task_id"] == "G0-T04"
+        and task["state"] == "awaiting_review"
+        and not _is_g0_t04_g4_status(status)
+    ):
         errors.extend(_g0_t04_package_a_changed_path_errors(root, head))
     governed_history_head, bridge_errors = _canonical_g0_merge_bridge(status, root, head, schema)
     errors.extend(bridge_errors)
