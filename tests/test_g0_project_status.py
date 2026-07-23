@@ -48,6 +48,16 @@ G0_T04_ANOMALY_IMPLEMENTATION = "69c045de1e80bcb90c1b5ce5a49b640e48047d32"
 G0_T04_ANOMALY_CANDIDATE = "6541189bbdacc870de5691d07991b9103ee2c763"
 G0_T04_ANOMALY_SEAL = "50a801f2f81c9c6f5eaea99444529fcbeb5933c2"
 G0_T04_ANOMALY_MERGE = "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87"
+G0_T04_G4_AUTHORIZATION = "376aa67c5abf81aaf037b21fd833474bf704395d"
+G0_T04_G4_START = "39a50d9ea1d97e2fe3925ffa355eb787165bc1d6"
+G0_T04_G4_BLOCKED_MAIN = "414fa392026c71b01378c64cbf62cb6b304b2eed"
+G0_T04_G4_BASELINE = "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f"
+G0_T04_G4_ROUTE_SEAL = (
+    ROOT / "evidence/g0-t04/generation-4-main-drift-seal.json"
+)
+G0_T04_G4_ROUTE_PAYLOAD = (
+    "87b9b2b0ab285de6ef7d9850203b083315a630efae23427b23a4b08e5ce71146"
+)
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -794,7 +804,16 @@ def make_g0_t04_anomaly_seal(
     seal_path.write_text(json.dumps(seal, indent=2, ensure_ascii=False) + "\n")
     shutil.copy2(SCRIPT, repo / "scripts/validate_project_status.py")
     shutil.copy2(ROOT / "tests/test_g0_project_status.py", repo / "tests/test_g0_project_status.py")
-    shutil.copy2(ROOT / "CURRENT_TASK.md", repo / "CURRENT_TASK.md")
+    task = status["active_tasks"][0]
+    (repo / "CURRENT_TASK.md").write_text(
+        "# G0-T04 anomaly recovery seal\n\n"
+        f"- Task ID: `{task['task_id']}`\n"
+        f"- Gate: {status['current_gate']} governance recovery\n"
+        f"- Risk: `{task['risk']}`\n"
+        f"- Status: `{task['state']}`\n"
+        f"- Baseline: `{status['evidence']['authorization_baseline_sha']}`\n",
+        encoding="utf-8",
+    )
     shutil.copy2(ROOT / "PROJECT_MEMORY.md", repo / "PROJECT_MEMORY.md")
     shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
     if mutation == "package":
@@ -4172,3 +4191,331 @@ def test_g0_t04_post_merge_repair_merge_rejects_substitutions(
     repo, _, _, _ = make_g0_t04_post_merge_repair_merge(tmp_path, mutation)
     result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
     assert result.returncode == 1, result.stdout
+
+
+def test_g0_t04_generation4_main_drift_authorization_and_seal_are_exact() -> None:
+    assert git(
+        ROOT, "rev-list", "--parents", "-n", "1", G0_T04_G4_AUTHORIZATION
+    ).split() == [
+        G0_T04_G4_AUTHORIZATION,
+        G0_T04_G4_BASELINE,
+        G0_T04_G4_BLOCKED_MAIN,
+    ]
+    assert git(
+        ROOT, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
+    ).split() == [G0_T04_G4_START, G0_T04_G4_AUTHORIZATION]
+    seal = json.loads(G0_T04_G4_ROUTE_SEAL.read_text(encoding="utf-8"))
+    supplied = seal.pop("payload_sha256")
+    computed = hashlib.sha256(
+        json.dumps(
+            seal, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+    ).hexdigest()
+    assert supplied == computed == G0_T04_G4_ROUTE_PAYLOAD
+    assert seal["pr24_main_drift"] == {
+        "pr": 24,
+        "head_sha": "db507f75f46196a03a9d87725be5946e6f05575c",
+        "exact_head_run_id": "30014856791",
+        "reviews": "empty",
+        "merge_sha": G0_T04_G4_BLOCKED_MAIN,
+        "ordered_merge_parents": [
+            G0_T04_ANOMALY_MERGE,
+            "db507f75f46196a03a9d87725be5946e6f05575c",
+        ],
+        "merge_tree": "1f5234ed411b7ab00fea8f74e360deeb1f1340a3",
+    }
+    assert seal["abandoned_off_main_route"]["candidate_sha"] == (
+        "45e714f9e099774ac0c4885f77523fb73c2d313d"
+    )
+    assert seal["abandoned_off_main_route"]["reusable"] is False
+    assert seal["discarded_competing_route"] == {
+        "state": "tombstoned_non_authoritative",
+        "authorization_sha": VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        "authorization_ordered_parents": [
+            G0_T04_G4_BASELINE,
+            G0_T04_G4_BLOCKED_MAIN,
+        ],
+        "authorization_tree": "11098e342e3706e47ff74ddea7f6515475339a89",
+        "authorization_message": "Authorize G0-T04 generation 4",
+        "start_sha": VALIDATOR.G0_T04_G4_COMPETING_START,
+        "start_parent": VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
+        "start_message": "Start G0-T04 generation 4 implementation",
+        "source_clone_object_requirement": False,
+        "verification_rule": (
+            "both_absent_accept_sealed_identity_if_any_present_require_both_"
+            "and_exact_metadata"
+        ),
+        "governed_parent_eligible": False,
+        "import_allowed": False,
+    }
+    assert seal["canonical_lineage"][
+        "excluded_ancestor_or_import_shas"
+    ] == list(VALIDATOR.G0_T04_G4_EXCLUDED_ROUTE_NODES)
+    assert seal["protected_main_bridge"]["first_parent"] == G0_T04_G4_BLOCKED_MAIN
+    assert seal["continuation"]["g2_authorized"] is False
+
+
+@pytest.mark.parametrize("mutation", ["parents", "tree", "substitution"])
+def test_g0_t04_generation4_main_drift_bridge_rejects_hostile_topology(
+    mutation: str,
+) -> None:
+    governed = git(ROOT, "rev-parse", "HEAD")
+    governed_tree = git(ROOT, "rev-parse", f"{governed}^{{tree}}")
+    first_parent = G0_T04_G4_BLOCKED_MAIN
+    second_parent = governed
+    tree = governed_tree
+    if mutation == "parents":
+        first_parent, second_parent = second_parent, first_parent
+    elif mutation == "tree":
+        tree = git(ROOT, "rev-parse", f"{G0_T04_G4_BLOCKED_MAIN}^{{tree}}")
+    else:
+        second_parent = G0_T04_G4_BLOCKED_MAIN
+    merged = git(
+        ROOT,
+        "commit-tree",
+        tree,
+        "-p",
+        first_parent,
+        "-p",
+        second_parent,
+        "-m",
+        f"hostile generation-4 main-drift bridge {mutation}",
+    )
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, merged)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "pr24",
+        "abandoned",
+        "competing",
+        "lineage",
+        "package",
+        "activation",
+        "allowlist",
+    ],
+)
+def test_g0_t04_generation4_main_drift_seal_rejects_substitutions(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo = tmp_path / f"g0-t04-generation4-main-drift-{mutation}"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
+    shutil.copy2(G0_T04_G4_ROUTE_SEAL, seal_path)
+    if mutation in {"pr24", "abandoned", "competing", "lineage"}:
+        seal = json.loads(seal_path.read_text(encoding="utf-8"))
+        if mutation == "pr24":
+            seal["pr24_main_drift"]["exact_head_run_id"] = "30014856792"
+        elif mutation == "abandoned":
+            seal["abandoned_off_main_route"]["reusable"] = True
+        elif mutation == "competing":
+            seal["discarded_competing_route"]["import_allowed"] = True
+        else:
+            seal["canonical_lineage"]["merge_imports_allowed"] = True
+        write_digest_json(seal_path, seal)
+    elif mutation == "package":
+        with (repo / "governance/packages/package-a.manifest.json").open("a") as handle:
+            handle.write("\n")
+    elif mutation == "activation":
+        activation = repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
+        activation.parent.mkdir(parents=True, exist_ok=True)
+        activation.write_text("{}\n", encoding="utf-8")
+    else:
+        (repo / "forbidden-main-drift-change.txt").write_text(
+            "scope escape\n", encoding="utf-8"
+        )
+    subject = commit(repo, f"hostile generation-4 main-drift {mutation}")
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+
+
+@pytest.mark.parametrize(
+    "discarded_tip",
+    [
+        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
+        VALIDATOR.G0_T04_G4_COMPETING_START,
+    ],
+)
+def test_g0_t04_generation4_same_tree_discarded_route_import_is_rejected(
+    discarded_tip: str,
+) -> None:
+    canonical = git(ROOT, "rev-parse", "HEAD")
+    canonical_tree = git(ROOT, "rev-parse", f"{canonical}^{{tree}}")
+    imported = git(
+        ROOT,
+        "commit-tree",
+        canonical_tree,
+        "-p",
+        canonical,
+        "-p",
+        discarded_tip,
+        "-m",
+        "hostile same-tree discarded-route import",
+    )
+    assert VALIDATOR._g0_t04_g4_canonical_lineage_errors(ROOT, imported)
+    protected_main = git(
+        ROOT,
+        "commit-tree",
+        canonical_tree,
+        "-p",
+        G0_T04_G4_BLOCKED_MAIN,
+        "-p",
+        imported,
+        "-m",
+        "hostile protected-main bridge importing discarded route",
+    )
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, protected_main)
+
+
+@pytest.mark.parametrize(
+    "forbidden_governed_parent",
+    list(VALIDATOR.G0_T04_G4_EXCLUDED_ROUTE_NODES),
+)
+def test_g0_t04_generation4_discarded_node_cannot_be_governed_parent(
+    forbidden_governed_parent: str,
+) -> None:
+    tree = git(ROOT, "rev-parse", f"{forbidden_governed_parent}^{{tree}}")
+    merged = git(
+        ROOT,
+        "commit-tree",
+        tree,
+        "-p",
+        G0_T04_G4_BLOCKED_MAIN,
+        "-p",
+        forbidden_governed_parent,
+        "-m",
+        "hostile discarded governed parent",
+    )
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, merged)
+
+
+def make_generation4_fresh_clone_without_competing_objects(
+    tmp_path: Path,
+) -> tuple[Path, str, dict]:
+    repo = tmp_path / "g0-t04-generation4-fresh-object-boundary"
+    git(tmp_path, "init", "--quiet", str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    source_head = git(ROOT, "rev-parse", "HEAD")
+    git(
+        repo,
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        str(ROOT),
+        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
+    )
+    git(repo, "fetch", "--quiet", "--no-tags", str(ROOT), source_head)
+    git(repo, "checkout", "--quiet", "--detach", "FETCH_HEAD")
+    shutil.copy2(
+        G0_T04_G4_ROUTE_SEAL,
+        repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH,
+    )
+    subject = git(repo, "rev-parse", "HEAD")
+    if git(repo, "status", "--short"):
+        subject = commit(repo, "install current generation-4 route seal")
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    for sha in (
+        VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        VALIDATOR.G0_T04_G4_COMPETING_START,
+    ):
+        absent = subprocess.run(
+            ["git", "cat-file", "-e", f"{sha}^{{commit}}"],
+            cwd=repo,
+            capture_output=True,
+            check=False,
+        )
+        assert absent.returncode != 0
+    return repo, subject, status
+
+
+def write_exact_commit_object(repo: Path, source_repo: Path, sha: str) -> None:
+    source = subprocess.run(
+        ["git", "cat-file", "commit", sha],
+        cwd=source_repo,
+        capture_output=True,
+        check=True,
+    )
+    written = subprocess.run(
+        ["git", "hash-object", "-t", "commit", "-w", "--stdin"],
+        cwd=repo,
+        input=source.stdout,
+        capture_output=True,
+        check=True,
+    )
+    assert written.stdout.decode().strip() == sha
+
+
+def test_g0_t04_generation4_fresh_clone_accepts_absent_competing_objects(
+    tmp_path: Path,
+) -> None:
+    repo, subject, status = make_generation4_fresh_clone_without_competing_objects(
+        tmp_path
+    )
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject) == []
+
+
+@pytest.mark.parametrize(
+    "present_sha",
+    [
+        VALIDATOR.G0_T04_G4_COMPETING_AUTH,
+        VALIDATOR.G0_T04_G4_COMPETING_START,
+    ],
+)
+def test_g0_t04_generation4_partial_competing_object_presence_is_rejected(
+    tmp_path: Path,
+    present_sha: str,
+) -> None:
+    repo, subject, status = make_generation4_fresh_clone_without_competing_objects(
+        tmp_path
+    )
+    write_exact_commit_object(repo, ROOT, present_sha)
+    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+    assert any("only partially present" in error for error in errors)
+
+
+def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "g0-t04-generation4-committed-seal"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
+    valid_bytes = G0_T04_G4_ROUTE_SEAL.read_bytes()
+    valid_subject = git(repo, "rev-parse", "HEAD")
+    if seal_path.read_bytes() != valid_bytes:
+        seal_path.write_bytes(valid_bytes)
+        valid_subject = commit(repo, "install current valid generation-4 seal")
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+
+    hostile = json.loads(valid_bytes.decode("utf-8"))
+    hostile["discarded_competing_route"]["import_allowed"] = True
+    write_digest_json(seal_path, hostile)
+    invalid_subject = commit(repo, "commit invalid generation-4 seal")
+    seal_path.write_bytes(valid_bytes)
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, invalid_subject)
+
+    git(repo, "reset", "--hard", valid_subject)
+    hostile = json.loads(valid_bytes.decode("utf-8"))
+    hostile["discarded_competing_route"]["import_allowed"] = True
+    write_digest_json(seal_path, hostile)
+    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, valid_subject) == []

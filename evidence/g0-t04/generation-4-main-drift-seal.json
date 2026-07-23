@@ -1,0 +1,109 @@
+{
+  "schema_version": "g0-t04-generation-4-main-drift-seal.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T04",
+  "candidate_generation": 4,
+  "authorization": {
+    "sha": "376aa67c5abf81aaf037b21fd833474bf704395d",
+    "ordered_parents": [
+      "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
+      "414fa392026c71b01378c64cbf62cb6b304b2eed"
+    ],
+    "start_sha": "39a50d9ea1d97e2fe3925ffa355eb787165bc1d6"
+  },
+  "pr24_main_drift": {
+    "pr": 24,
+    "head_sha": "db507f75f46196a03a9d87725be5946e6f05575c",
+    "exact_head_run_id": "30014856791",
+    "reviews": "empty",
+    "merge_sha": "414fa392026c71b01378c64cbf62cb6b304b2eed",
+    "ordered_merge_parents": [
+      "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87",
+      "db507f75f46196a03a9d87725be5946e6f05575c"
+    ],
+    "merge_tree": "1f5234ed411b7ab00fea8f74e360deeb1f1340a3"
+  },
+  "abandoned_off_main_route": {
+    "authorization_sha": "de070276e53ec75f0cfd864a02d6d05236784eb8",
+    "authorization_ordered_parents": [
+      "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
+      "a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87"
+    ],
+    "start_sha": "c7be2b2f07ef171e9d1535e29d93aa6beadf348a",
+    "candidate_sha": "45e714f9e099774ac0c4885f77523fb73c2d313d",
+    "candidate_state": "awaiting_review",
+    "route_seal_blob": "ca7aa3b416024ed44f57ab8cfa8de94f39995f04",
+    "pull_request": 25,
+    "ci_status": "not_run",
+    "reusable": false
+  },
+  "discarded_competing_route": {
+    "state": "tombstoned_non_authoritative",
+    "authorization_sha": "046414bea45316f01e3d3e7b556b4c06d489c03b",
+    "authorization_ordered_parents": [
+      "1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f",
+      "414fa392026c71b01378c64cbf62cb6b304b2eed"
+    ],
+    "authorization_tree": "11098e342e3706e47ff74ddea7f6515475339a89",
+    "authorization_message": "Authorize G0-T04 generation 4",
+    "start_sha": "906cb1124f60f83c4bcdeaf0d2a47e1c6d4332d7",
+    "start_parent": "046414bea45316f01e3d3e7b556b4c06d489c03b",
+    "start_tree": "0296e60d4cb54cbc509dfd13b0ba54809d848b25",
+    "start_message": "Start G0-T04 generation 4 implementation",
+    "source_clone_object_requirement": false,
+    "verification_rule": "both_absent_accept_sealed_identity_if_any_present_require_both_and_exact_metadata",
+    "governed_parent_eligible": false,
+    "import_allowed": false
+  },
+  "canonical_lineage": {
+    "authorization_sha": "376aa67c5abf81aaf037b21fd833474bf704395d",
+    "start_sha": "39a50d9ea1d97e2fe3925ffa355eb787165bc1d6",
+    "post_authorization_rule": "strict_single_parent_only",
+    "merge_imports_allowed": false,
+    "excluded_ancestor_or_import_shas": [
+      "de070276e53ec75f0cfd864a02d6d05236784eb8",
+      "c7be2b2f07ef171e9d1535e29d93aa6beadf348a",
+      "45e714f9e099774ac0c4885f77523fb73c2d313d",
+      "046414bea45316f01e3d3e7b556b4c06d489c03b",
+      "906cb1124f60f83c4bcdeaf0d2a47e1c6d4332d7"
+    ]
+  },
+  "immutable_history": {
+    "anomaly_receipt_blob": "c71560939c1b6fd0c6f038c3fe723df178fa2596",
+    "anomaly_seal_blob": "382331a1b6293f6174d52102422a10a340cbf077",
+    "package_manifest_blob": "f523c793a58d27e8ffd79da01048c8cd93aaa315",
+    "package_schema_blob": "132656bcda439c20a2ade78d30116c49706de7b3",
+    "package_payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+    "activation_present": false
+  },
+  "owner_authority": {
+    "package_payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+    "fresh_activation_only_after_new_g0_t04_close": true,
+    "old_activation_reuse_forbidden": true
+  },
+  "protected_main_bridge": {
+    "first_parent": "414fa392026c71b01378c64cbf62cb6b304b2eed",
+    "second_parent_role": "accepted_generation_4_closure",
+    "tree_rule": "merge_tree_equals_second_parent_tree"
+  },
+  "continuation": {
+    "g0_t05_generation_rule": "smallest_unused_integer_strictly_greater_than_all_historical_g0_t05_generations",
+    "g1_t01_generation": 2,
+    "g1_ordered_parents": [
+      "new_g0_t05_closed_authoritative_main",
+      "3a27f530b338ece78ae90ffd895787e5a10616fc"
+    ],
+    "g1_merge_base": "4f358cf42b9a8e0f741563425fc26cf532df98fb",
+    "g2_authorized": false
+  },
+  "allowed_paths": [
+    "CURRENT_TASK.md",
+    "PROJECT_MEMORY.md",
+    "PROJECT_STATUS.yaml",
+    "docs/NEXT_WORKFLOW.md",
+    "evidence/g0-t04/generation-4-main-drift-seal.json",
+    "scripts/validate_project_status.py",
+    "tests/test_g0_project_status.py"
+  ],
+  "payload_sha256": "87b9b2b0ab285de6ef7d9850203b083315a630efae23427b23a4b08e5ce71146"
+}
