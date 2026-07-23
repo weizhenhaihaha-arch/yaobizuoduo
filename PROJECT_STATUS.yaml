@@ -26,7 +26,7 @@
       "task_id": "G0-T04",
       "risk": "D0",
       "state": "accepted_pending_merge",
-      "transition": {"from": "awaiting_review", "to": "accepted_pending_merge"},
+      "transition": {"from": "accepted_pending_merge", "to": "accepted_pending_merge"},
       "candidate_generation": 3
     }
   ],
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "post_merge_ci_failure repository=weizhenhaihaha-arch/yaobizuoduo event=push ref=refs/heads/main subject_sha=11040ca0d8ea17ba1bc47641705aa95c2cba6a75 run_id=29988167026 url=https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/29988167026 conclusion=failure"
+  ],
   "next_authorization": {"gate": "G0", "task_id": "G0-T05", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

@@ -41,6 +41,8 @@ G0_T03_RECOVERED_MAIN = "02e05d1f2d68a9a1c89fda9c8636e2263fc48053"
 G0_T03_PLANNING_HANDOFF = "e1d251c35bbfc128990be4f9e3d1b851a3146f12"
 G0_T03_PLANNING_HEAD = "b8f04c9bbc3f86b6ef643cdd097ec7dc46c16e5b"
 G0_T03_STATUS_RECONCILIATION_BASE = "c11eae14986de8bb5f387e3064680ce48d2c284b"
+G0_T04_FAILED_MAIN = "11040ca0d8ea17ba1bc47641705aa95c2cba6a75"
+G0_T04_CLOSURE = "bdf6fbca71b29da79801c1be7a4cdd14f103ce52"
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -658,6 +660,67 @@ def clone_g0_t03_planning_handoff(tmp_path: Path) -> Path:
     for ref, sha in frozen.items():
         git(repo, "update-ref", ref, sha)
     return repo
+
+
+def clone_g0_t04_failed_main(tmp_path: Path) -> Path:
+    repo = tmp_path / "g0-t04-failed-main"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    git(repo, "switch", "--detach", G0_T04_FAILED_MAIN)
+    git(repo, "update-ref", "refs/heads/main", G0_T04_FAILED_MAIN)
+    git(repo, "update-ref", "refs/remotes/origin/main", G0_T04_FAILED_MAIN)
+    return repo
+
+
+def make_g0_t04_recovery(
+    tmp_path: Path,
+    *,
+    receipt_run_drift: bool = False,
+    ordinary_path: bool = False,
+) -> tuple[Path, dict, str]:
+    repo = clone_g0_t04_failed_main(tmp_path)
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    status["active_tasks"][0]["transition"] = {
+        "from": "accepted_pending_merge",
+        "to": "accepted_pending_merge",
+    }
+    status["blockers"] = [VALIDATOR.G0_T04_RECOVERY_BLOCKER]
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    receipt = VALIDATOR._g0_t04_recovery_receipt()
+    if receipt_run_drift:
+        receipt["failed_main"]["ci"]["run_id"] = "29988167027"
+        receipt["failed_main"]["ci"]["url"] = (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+            "actions/runs/29988167027"
+        )
+        receipt["payload_sha256"] = VALIDATOR._payload_digest(receipt)
+    receipt_path = repo / VALIDATOR.G0_T04_RECOVERY_RECEIPT_PATH
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    receipt_path.write_text(
+        json.dumps(receipt, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    for relative in (
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        path = repo / relative
+        path.write_text(
+            path.read_text(encoding="utf-8") + "\n# G0-T04 bounded recovery fixture\n",
+            encoding="utf-8",
+        )
+    if ordinary_path:
+        (repo / "ordinary.txt").write_text("out of scope\n", encoding="utf-8")
+    recovery = commit(repo, "record exact G0-T04 merged-main recovery")
+    return repo, status, recovery
 
 
 def make_g0_t03_planning_handoff_recovery(
@@ -3284,3 +3347,106 @@ def test_package_a_baseline_present_artifact_deletion_fails_closed(
     rendered = "\n".join(errors)
     assert "exact committed 100644 Git blobs" in rendered
     assert "immutable blob drifted after accepted baseline" in rendered
+
+
+def test_exact_g0_t04_failed_main_and_recovery_record_are_accepted(
+    tmp_path: Path,
+) -> None:
+    repo, status, recovery = make_g0_t04_recovery(tmp_path)
+    schema = json.loads(
+        (repo / "schemas" / "project_status.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert VALIDATOR._g0_t04_failed_merge_errors(repo, schema) == []
+    assert VALIDATOR._g0_t04_recovery_receipt_errors(repo, recovery) == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+    assert VALIDATOR._is_g0_t04_post_merge_recovery_status(status)
+
+
+def test_exact_g0_t04_recovery_merge_is_accepted(tmp_path: Path) -> None:
+    repo, status, recovery = make_g0_t04_recovery(tmp_path)
+    tree = git(repo, "rev-parse", f"{recovery}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        G0_T04_FAILED_MAIN,
+        "-p",
+        recovery,
+        "-m",
+        "merge exact G0-T04 merged-main recovery",
+    )
+    git(repo, "switch", "--detach", merged)
+    git(repo, "update-ref", "refs/heads/main", merged)
+    git(repo, "update-ref", "refs/remotes/origin/main", merged)
+    schema = json.loads(
+        (repo / "schemas" / "project_status.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_recovery_bridge(
+        status, repo, merged, schema, require_canonical_main=True
+    )
+    assert governed == recovery
+    assert errors == []
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "wrong_failed_main",
+        "wrong_second_parent",
+        "wrong_tree",
+        "wrong_failed_run",
+        "ordinary_descendant",
+    ],
+)
+def test_g0_t04_recovery_rejects_topology_and_evidence_substitution(
+    tmp_path: Path, mutation: str
+) -> None:
+    repo, status, recovery = make_g0_t04_recovery(
+        tmp_path,
+        receipt_run_drift=mutation == "wrong_failed_run",
+        ordinary_path=mutation == "ordinary_descendant",
+    )
+    first = G0_T04_FAILED_MAIN
+    second = recovery
+    tree = git(repo, "rev-parse", f"{recovery}^{{tree}}")
+    if mutation == "wrong_failed_main":
+        first = VALIDATOR.G0_T04_FAILED_MAIN_FIRST_PARENT
+    elif mutation == "wrong_second_parent":
+        second = G0_T04_CLOSURE
+        tree = git(repo, "rev-parse", f"{second}^{{tree}}")
+    elif mutation == "wrong_tree":
+        tree = git(repo, "rev-parse", f"{G0_T04_FAILED_MAIN}^{{tree}}")
+    merged = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        first,
+        "-p",
+        second,
+        "-m",
+        f"forged G0-T04 recovery {mutation}",
+    )
+    git(repo, "switch", "--detach", merged)
+    git(repo, "update-ref", "refs/heads/main", merged)
+    git(repo, "update-ref", "refs/remotes/origin/main", merged)
+    schema = json.loads(
+        (repo / "schemas" / "project_status.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    governed, errors = VALIDATOR._canonical_g0_t04_recovery_bridge(
+        status, repo, merged, schema, require_canonical_main=True
+    )
+    assert governed is None
+    assert errors
+    result = run_validator(repo / "PROJECT_STATUS.yaml", repo)
+    assert result.returncode == 1
