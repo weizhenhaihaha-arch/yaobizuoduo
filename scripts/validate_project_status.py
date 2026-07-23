@@ -447,8 +447,20 @@ def _package_a_persistence_errors(
     if task_id not in PACKAGE_A_ORDERED_TASKS:
         return []
 
-    errors = _package_a_manifest_errors(root, head)
     baseline = status["evidence"]["authorization_baseline_sha"]
+    head_has_package = _git(
+        root, "cat-file", "-e", f"{head}:{PACKAGE_A_MANIFEST_PATH}"
+    )[0]
+    baseline_has_package = _git(
+        root, "cat-file", "-e", f"{baseline}:{PACKAGE_A_MANIFEST_PATH}"
+    )[0]
+    # Legacy or unrelated fixtures using the same task IDs predate Package A.
+    # A real Package A transition is permanently in scope once either the
+    # accepted baseline or current tree carries its manifest.
+    if not head_has_package and not baseline_has_package:
+        return []
+
+    errors = _package_a_manifest_errors(root, head)
     errors.extend(_package_a_manifest_errors(root, baseline))
     expected_previous = "G0-T04" if task_id == "G0-T05" else "G0-T05"
     baseline_status = _status_at(root, baseline)

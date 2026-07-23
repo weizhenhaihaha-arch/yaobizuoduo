@@ -3237,3 +3237,50 @@ def test_package_a_active_card_allowlist_remains_fail_closed(
     escaped_sha = commit(repo, "escape frozen G0-T05 allowlist")
     errors = VALIDATOR._package_a_persistence_errors(status, repo, escaped_sha)
     assert "changed paths exceed its immutable allowlist" in "\n".join(errors)
+
+
+def test_package_a_persistence_skips_legacy_when_head_and_baseline_both_absent(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "legacy-g1-without-package-a"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    status = load_valid()
+    status["current_gate"] = "G0"
+    status["active_tasks"][0].update(
+        task_id="G0-T99",
+        state="closed",
+        transition={"from": "merged_verified", "to": "closed"},
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    baseline = commit(repo, "legacy baseline without Package A")
+    status["current_gate"] = "G1"
+    status["active_tasks"][0].update(
+        task_id="G1-T01",
+        state="in_progress",
+        transition={"from": "authorized", "to": "in_progress"},
+        candidate_generation=1,
+    )
+    status["evidence"]["authorization_baseline_sha"] = baseline
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    head = commit(repo, "legacy G1 without Package A")
+    assert VALIDATOR._package_a_persistence_errors(status, repo, head) == []
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [VALIDATOR.PACKAGE_A_MANIFEST_PATH, VALIDATOR.PACKAGE_A_SCHEMA_PATH],
+)
+def test_package_a_baseline_present_artifact_deletion_fails_closed(
+    tmp_path: Path, relative: str
+) -> None:
+    repo, status, _, authorized_sha = make_post_g0_t04_package_repo(tmp_path)
+    assert VALIDATOR._package_a_persistence_errors(status, repo, authorized_sha) == []
+    (repo / relative).unlink()
+    deleted_sha = commit(repo, f"delete accepted {relative}")
+    errors = VALIDATOR._package_a_persistence_errors(status, repo, deleted_sha)
+    rendered = "\n".join(errors)
+    assert "exact committed 100644 Git blobs" in rendered
+    assert "immutable blob drifted after accepted baseline" in rendered
