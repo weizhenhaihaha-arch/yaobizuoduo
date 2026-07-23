@@ -5,7 +5,7 @@
 - Task ID: `G0-T04`
 - Gate: G0 planning-only package manifest
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `1`
 - Executor: one bounded planning/developer AG
 - Reviewer: main Codex plus independent code/security and architecture/route lanes
@@ -95,3 +95,19 @@ Report task/baseline/generation, manifest path/schema/digest/first-last cards,
 ordered Package A cards, frozen per-card scope and commands, validator tests,
 full verification, changed paths, forbidden-scope scan, PR/run, independent
 reviews, blockers, worktree state, and repository/external memory updates.
+
+## Delivered planning identity
+
+- Implementation SHA:
+  `ab351b2a14e16f71177cf56c10870b98b6f0f503`
+- Manifest: `governance/packages/package-a.manifest.json`
+- Schema/version: `schemas/package_a_manifest.schema.json` /
+  `package-a-manifest.v1`
+- Schema SHA-256:
+  `95974fb830e65221a14e8c7068a6c313277d879a49067e3847328f24276b61f4`
+- Normalized payload SHA-256:
+  `a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff`
+- Frozen order: `G0-T05` -> `G1-T01`
+- Package state: `not_authorized`
+- Review state: awaiting exact delivery-HEAD CI and independent code/security
+  plus architecture/route review.
