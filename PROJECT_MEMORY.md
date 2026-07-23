@@ -19,6 +19,13 @@ CI, maturity, blockers, and next authorization.
   absent, clears prior evidence/review/blockers, and grants no G0-T05/G1
   implementation before G0-T04 closes. Market APIs, credentials, trading,
   deployment, release, local-system mutation and G2 remain forbidden.
+- 2026-07-23 Asia/Shanghai: G0-T04 generation 4 started through the ordinary
+  `authorized -> in_progress` transition after exact two-parent authorization
+  `de070276e53ec75f0cfd864a02d6d05236784eb8` validated with ordered parents
+  `[1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f,
+  a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87]`. Work remains governance-only;
+  the old activation stays absent and G0-T05/G1 remain not authorized until
+  this generation fully closes.
 - This is an independent project for a cryptocurrency pump-radar and long-entry signal website.
 - It must not share implementation, roadmap, or Git history with the separate short-reversal project being developed by another agent.
 - Offline application boundaries, the deterministic beginner-facing frontend, the pure station-notification policy, and M7-T02 operational-health assessment remain capped at offline evidence. L0 closed under legacy local review. PR #1 exact accepted head `48904701f31ad12b08d0d224c25bd65003356230` is merged as `0297ca8f1b68a202114aa7a4eac3435367ffb952`; G0-T01 is `closed` with exact merged verification/finalization head `1a16a1df8efb4f3ee687509e6adbd9276bf0e7b6`. Canonical validation passed on synchronized clean main, with 158 backend/governance tests, 10 frontend tests and production build green. Capability remains `OFFLINE_EVIDENCE_ACCEPTED`; the one-time no-CI bootstrap exception is consumed and CI remains truthfully `not_established`. G0-T02 and all later work remain unauthorized.
