@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -53,4 +53,7 @@ reviews were evaluated on candidate
 candidate CI run `30106788285` failed because a legacy G0-T04 route guard
 reinterpreted the new G0-T06 lifecycle. Code/security is therefore
 `REQUEST_CHANGES`. Generation 2 atomically cleared all candidate, CI, review
-and blocker identities. Only that history-scope defect may be repaired.
+and blocker identities. The bounded repair implementation is
+`7497a1986679096805df5c6b3751e9a72fe857bb`; it scopes G0-T06 lifecycle
+continuity before legacy route guards and adds hostile regressions. The
+generation-2 delivery candidate is the implicit next committed HEAD.
