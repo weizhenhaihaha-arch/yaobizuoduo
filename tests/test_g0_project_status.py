@@ -6886,8 +6886,8 @@ def test_g0_t06_lifecycle_is_not_reinterpreted_as_old_g0_t04_repair() -> None:
 
 
 def test_g0_t06_lifecycle_immutable_boundary_fails_closed() -> None:
-    candidate = git(ROOT, "rev-parse", "HEAD")
-    parent = git(ROOT, "rev-parse", "HEAD^")
+    candidate = "1b1380774afcd030d2c8841b20fe9c8c6c71827f"
+    parent = git(ROOT, "rev-parse", f"{candidate}^")
     status = copy.deepcopy(VALIDATOR._status_at(ROOT, candidate))
     parent_status = VALIDATOR._status_at(ROOT, parent)
     assert type(status) is dict
