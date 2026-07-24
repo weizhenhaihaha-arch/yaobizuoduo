@@ -32,7 +32,7 @@
   ],
   "evidence": {
     "authorization_baseline_sha": "dcb942a80a91312fad12d90b5e362cbdd0611017",
-    "implementation_sha": "05de8b0c54294307c0c03aeb1350b4d134b62a22",
+    "implementation_sha": "05de8b08529bac32967db2ac0c8342cc005593de",
     "candidate": {
       "commit_sha": null,
       "local_verification": {"status": "success", "subject": "delivery_head"},

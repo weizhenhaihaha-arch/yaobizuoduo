@@ -44,7 +44,7 @@ The frozen Package A identities are:
 
 ## Delivery and stop boundary
 
-Implementation `05de8b0c54294307c0c03aeb1350b4d134b62a22` and delivery
+Implementation `05de8b08529bac32967db2ac0c8342cc005593de` and delivery
 must remain a strict single-parent lineage from
 the activation main. The cumulative changed paths must stay inside the frozen
 seven-path allowlist, while the activation receipt, manifest/schema blobs,

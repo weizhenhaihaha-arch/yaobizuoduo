@@ -7783,7 +7783,12 @@ def _canonical_g0_merge_bridge(
             )
             if package_errors:
                 return None, package_errors
-            return PACKAGE_A_REACTIVATION_BASE, []
+            task_state = status["active_tasks"][0]["state"]
+            return (
+                PACKAGE_A_REACTIVATION_BASE
+                if task_state == "authorized"
+                else PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN
+            ), []
     if (
         _is_g0_t04_g4_status(status)
         and task["state"] == "closed"
