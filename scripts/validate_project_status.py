@@ -3307,6 +3307,38 @@ def _is_package_a_g0_t05_g3(status: dict[str, Any]) -> bool:
         return False
 
 
+def _is_package_a_g0_t05_g3_authorization_topology(
+    root: Path,
+    head: str,
+) -> bool:
+    ok_head, head_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        head,
+    )
+    head_parts = head_text.split() if ok_head else []
+    if head_parts == [head, PACKAGE_A_REACTIVATION_BASE]:
+        return True
+    if len(head_parts) != 3 or head_parts[1] != PACKAGE_A_REACTIVATION_BASE:
+        return False
+    candidate = head_parts[2]
+    ok_candidate, candidate_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        candidate,
+    )
+    return (candidate_text.split() if ok_candidate else []) == [
+        candidate,
+        PACKAGE_A_REACTIVATION_BASE,
+    ]
+
+
 def _package_a_g0_t05_g3_status_errors(
     status: dict[str, Any],
     baseline: dict[str, Any],
@@ -3420,6 +3452,37 @@ def _package_a_g0_t05_g3_route_errors(
     *,
     require_canonical_main: bool = True,
 ) -> list[str]:
+    if _is_package_a_g0_t05_g3_authorization_topology(root, head):
+        try:
+            task = status["active_tasks"][0]
+            is_g0_t05_d0 = (
+                status["current_gate"] == "G0"
+                and task["task_id"] == "G0-T05"
+                and task["risk"] == "D0"
+            )
+        except (KeyError, IndexError, TypeError):
+            is_g0_t05_d0 = False
+        if is_g0_t05_d0:
+            if (
+                task["state"] != "authorized"
+                or task["transition"] != {
+                    "from": "closed",
+                    "to": "authorized",
+                }
+            ):
+                return [
+                    "$: Package A generation-3 authorization forbids "
+                    "premature implementation or lifecycle drift"
+                ]
+            baseline = _status_at(root, PACKAGE_A_REACTIVATION_BASE)
+            if type(baseline) is not dict:
+                return ["$: Package A terminal-N status is unavailable"]
+            projection_errors = _package_a_g0_t05_g3_status_errors(
+                status,
+                baseline,
+            )
+            if projection_errors:
+                return projection_errors
     if not _is_package_a_g0_t05_g3(status):
         return []
     main_ci_recovery_head, main_ci_recovery_errors = (

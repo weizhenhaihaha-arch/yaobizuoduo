@@ -6022,10 +6022,28 @@ def make_package_a_g0_t05_g3_pr29_recovery(
         "scripts/validate_project_status.py",
         "tests/test_g0_project_status.py",
     ):
-        source = ROOT / relative
         target = repo / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+        if relative == VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH:
+            frozen_receipt = subprocess.run(
+                [
+                    "git",
+                    "show",
+                    (
+                        f"{VALIDATOR.PACKAGE_A_G0_T05_G3_PR31_HEAD}:"
+                        f"{relative}"
+                    ),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                check=True,
+            ).stdout
+            assert hashlib.sha256(frozen_receipt).hexdigest() == (
+                "41e99813980f63639c1b0783e20e4d6d5f2336b73b146ab4c4fb688dbf4fb267"
+            )
+            target.write_bytes(frozen_receipt)
+        else:
+            shutil.copy2(ROOT / relative, target)
     if ordinary_path:
         (repo / "ordinary.txt").write_text("scope escape\n", encoding="utf-8")
     repair = commit(repo, "repair frozen G0-T04 specialized dispatch")
