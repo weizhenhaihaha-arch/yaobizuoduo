@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `merged_verified`
+- Status: `closed`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -96,5 +96,8 @@ Closure `5c6055bf8ff807d383d2c543016bad9560ee2e45` passed exact CI run
 `a68662eb0d46514953f6e6888d3f3f7a4d9eeee3`, ordered parents
 `[af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32,
 5c6055bf8ff807d383d2c543016bad9560ee2e45]`, with a second-parent-equal
-tree. Authoritative-main push CI run `30126273246` succeeded. The card is
-merged-verified pending this implicit finalization HEAD and its D0 CI.
+tree. Authoritative-main push CI run `30126273246` succeeded. Finalization
+`e003790cb20de3fa2903f89ee94899ebbf08d0d4` passed exact D0 CI run
+`30126525598`; this strict child records `closed` pending only its protected
+terminal merge and authoritative-main verification. G1-T01 remains
+`not_authorized`.
