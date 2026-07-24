@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -46,4 +46,6 @@ LOCAL-PREVIEW expansion remain forbidden.
 Authorization topology, exact eight-path scope, receipt bytes, approved
 standards digest, canonical status validation, focused adversarial regressions,
 Python compilation and whitespace checks passed. Delivery identity remains
-pending.
+the implicit exact HEAD; implementation is
+`36146c77e8c0f7e977d2003fa7ee12349375a945`. Candidate CI and both independent
+reviews remain pending.
