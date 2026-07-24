@@ -6,7 +6,8 @@
 terminal main `dcb942a80a91312fad12d90b5e362cbdd0611017` 完整收口；其
 push/main run `30043450574` 成功。
 
-当前唯一工作是 Package A / G0-T05 generation 3 `merged_verified`。正式实现
+当前唯一工作是 Package A / G0-T05 generation 3 `closed` terminal
+收口。正式实现
 从 exact implementation main
 `d3a617ab3081e03276a96142ae2b76349e7b2ef9` 启动；该 main 的 ordered
 parents 为 `[f56c5969051694b35bb77289fbf4868b5e723bef,
@@ -32,5 +33,7 @@ Exact implementation `5862c7b4b7c9080ba20ed40e0a81f157d72a7cc5` 已完成
 architecture/route/time-causality `CLEAR` 均已绑定该候选。Acceptance
 `3f30ac7f…` 的 exact-head CI `30087824072` 成功；protected-main merge
 `c7ed7691…` 保持 ordered parents `[d3a617…, 3f30ac7…]`，其 main CI
-`30087883412` 成功。下一步只允许 finalization、close record 与 terminal
-merge；G0-T05 完整 closed 前不得激活 G1-T01。
+`30087883412` 成功。Finalization `27ff7803…` 的 exact-head CI
+`30087966580` 成功；当前提交为其 strict-child close record。下一步只允许
+terminal merge `[c7ed7691…, exact close record]` 与 authoritative-main CI；
+该终态全绿前不得激活 G1-T01。

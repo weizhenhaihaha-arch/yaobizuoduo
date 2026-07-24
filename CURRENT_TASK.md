@@ -3,7 +3,7 @@
 - Task ID: `G0-T05`
 - Gate: G0
 - Risk: `D0`
-- Status: `merged_verified`
+- Status: `closed`
 - Baseline: `dcb942a80a91312fad12d90b5e362cbdd0611017`
 - Implementation main: `d3a617ab3081e03276a96142ae2b76349e7b2ef9`
 
@@ -79,4 +79,7 @@ that exact candidate. Acceptance
 `30087824072`, then protected-main merge
 `c7ed76914e7728ab0ef95d85699663656dcddf04` preserved ordered parents
 `[d3a617ab…, 3f30ac7f…]` and passed main CI `30087883412`. The card is merged
-verified; terminal close remains pending and no G1 authority is claimed.
+verified. Finalization `27ff7803629e7a9b92ac21ac30a0d5ed661cddca`
+passed exact-head CI `30087966580`. This commit is the close record; the exact
+terminal merge and its authoritative-main CI remain pending, so no G1
+authority is claimed yet.
