@@ -5220,11 +5220,17 @@ def _g0_t06_workflow_lifecycle_parent_errors(
             )
         errors.extend(_ci_continuity_errors(status, parent))
     errors.extend(_maturity_continuity_errors(status, parent))
-    if not _typed_equal(status.get("review"), parent.get("review")):
+    if (
+        not returned_repair
+        and not _typed_equal(status.get("review"), parent.get("review"))
+    ):
         errors.append(
             "$.review: G0-T06 review identity changed outside a declared phase transition"
         )
-    if not _typed_equal(status.get("blockers"), parent.get("blockers")):
+    if (
+        not returned_repair
+        and not _typed_equal(status.get("blockers"), parent.get("blockers"))
+    ):
         errors.append(
             "$.blockers: G0-T06 blocker identity changed outside a declared phase transition"
         )
