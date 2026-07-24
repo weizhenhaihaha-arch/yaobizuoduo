@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `returned`
+- Status: `in_progress`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -61,4 +61,5 @@ generation-2 delivery candidate
 code/security found that cumulative allowlist, immutable receipt/document,
 next-authorization and complete PR #35 failure identity were not yet enforced
 across every lifecycle state. Architecture is `WATCH` until those exact
-mechanical boundaries are present.
+mechanical boundaries are present. Generation 3 is now the sole active repair
+and may change only those exact fail-closed governance boundaries.

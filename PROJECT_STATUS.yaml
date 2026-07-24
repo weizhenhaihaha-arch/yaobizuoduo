@@ -25,17 +25,17 @@
     {
       "task_id": "G0-T06",
       "risk": "D0",
-      "state": "returned",
-      "transition": {"from": "awaiting_review", "to": "returned"},
-      "candidate_generation": 2
+      "state": "in_progress",
+      "transition": {"from": "returned", "to": "in_progress"},
+      "candidate_generation": 3
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32",
-    "implementation_sha": "7497a1986679096805df5c6b3751e9a72fe857bb",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "4e24be5e7bcba3be10e252ed7c126a57315aec1c",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
       "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "request_changes",
-    "architecture": "watch",
-    "reviewed_candidate_sha": "4e24be5e7bcba3be10e252ed7c126a57315aec1c"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
   "bootstrap_exception": null,
   "capability": {
@@ -62,9 +62,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [
-    "code_security_scope_gap candidate=4e24be5e7bcba3be10e252ed7c126a57315aec1c required=cumulative_allowlist_immutable_receipt_document_next_authorization_and_complete_pr35_failure_binding"
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G1", "task_id": "G1-T01", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
