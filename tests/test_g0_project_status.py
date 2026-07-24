@@ -6022,10 +6022,28 @@ def make_package_a_g0_t05_g3_pr29_recovery(
         "scripts/validate_project_status.py",
         "tests/test_g0_project_status.py",
     ):
-        source = ROOT / relative
         target = repo / relative
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+        if relative == VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH:
+            frozen_receipt = subprocess.run(
+                [
+                    "git",
+                    "show",
+                    (
+                        f"{VALIDATOR.PACKAGE_A_G0_T05_G3_PR31_HEAD}:"
+                        f"{relative}"
+                    ),
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                check=True,
+            ).stdout
+            assert hashlib.sha256(frozen_receipt).hexdigest() == (
+                "41e99813980f63639c1b0783e20e4d6d5f2336b73b146ab4c4fb688dbf4fb267"
+            )
+            target.write_bytes(frozen_receipt)
+        else:
+            shutil.copy2(ROOT / relative, target)
     if ordinary_path:
         (repo / "ordinary.txt").write_text("scope escape\n", encoding="utf-8")
     repair = commit(repo, "repair frozen G0-T04 specialized dispatch")
@@ -6074,7 +6092,13 @@ def test_package_a_g0_t05_g3_pr29_recovery_and_future_merge_are_canonical(
         merged,
         schema,
         require_canonical_main=True,
-    ) == (VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN, [])
+    ) == (repair, [])
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert result.returncode == 0, result.stdout
 
 
 def test_package_a_g0_t05_g3_pr29_recovery_rejects_ordinary_path(
@@ -6143,3 +6167,189 @@ def test_package_a_g0_t05_g3_pr29_recovery_rejects_pr30_import(
         "the PR29 recovery lineage"
         in errors
     )
+
+
+def make_package_a_g0_t05_g3_pr29_main_ci_recovery(
+    tmp_path: Path,
+    *,
+    ordinary_path: bool = False,
+) -> tuple[Path, dict, str]:
+    repo = tmp_path / "g0-t05-g3-pr29-main-ci-recovery"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    git(
+        repo,
+        "switch",
+        "-c",
+        "g0-t05-g3-pr29-main-ci-recovery",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR32_HEAD,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR31_MERGE,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR31_MERGE,
+    )
+    for relative in (
+        "PROJECT_MEMORY.md",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        source = ROOT / relative
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    if ordinary_path:
+        (repo / "ordinary.txt").write_text("scope escape\n", encoding="utf-8")
+    recovery = commit(repo, "recover PR29 reconciliation main CI")
+    status = VALIDATOR._status_at(repo, recovery)
+    assert status is not None
+    return repo, status, recovery
+
+
+def test_package_a_g0_t05_g3_pr29_main_ci_recovery_and_future_merge_are_canonical(
+    tmp_path: Path,
+) -> None:
+    repo, status, recovery = make_package_a_g0_t05_g3_pr29_main_ci_recovery(
+        tmp_path
+    )
+    governed, errors = (
+        VALIDATOR._package_a_g0_t05_g3_pr29_main_ci_recovery_errors(
+            status,
+            repo,
+            recovery,
+            require_canonical_main=True,
+        )
+    )
+    assert governed == recovery
+    assert errors == []
+    schema = VALIDATOR._schema_at(repo, recovery)
+    assert schema is not None
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status,
+        repo,
+        recovery,
+        schema,
+        require_canonical_main=True,
+    ) == (VALIDATOR.PACKAGE_A_G0_T05_G3_PR31_MERGE, [])
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert result.returncode == 0, result.stdout
+
+    merged = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{recovery}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR31_MERGE,
+        "-p",
+        recovery,
+        "-m",
+        "merge PR29 main-CI recovery",
+    )
+    git(repo, "switch", "--detach", merged)
+    git(repo, "update-ref", "refs/heads/main", merged)
+    git(repo, "update-ref", "refs/remotes/origin/main", merged)
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status,
+        repo,
+        merged,
+        schema,
+        require_canonical_main=True,
+    ) == (recovery, [])
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert result.returncode == 0, result.stdout
+
+
+def test_package_a_g0_t05_g3_pr29_main_ci_recovery_rejects_receipt_substitution(
+    tmp_path: Path,
+) -> None:
+    repo, _, _ = make_package_a_g0_t05_g3_pr29_main_ci_recovery(tmp_path)
+    receipt_path = repo / VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["reconciliation"]["failed_recovery_attempt"]["reviews"]["count"] = 1
+    write_digest_json(receipt_path, receipt)
+    substituted = commit(repo, "substitute PR32 empty-review history")
+    status = VALIDATOR._status_at(repo, substituted)
+    assert status is not None
+    governed, errors = (
+        VALIDATOR._package_a_g0_t05_g3_pr29_main_ci_recovery_errors(
+            status,
+            repo,
+            substituted,
+            require_canonical_main=True,
+        )
+    )
+    assert governed == substituted
+    assert (
+        "$: PR29 post-merge receipt bytes or immutable evidence drifted"
+        in errors
+    )
+
+
+def test_package_a_g0_t05_g3_pr29_main_ci_recovery_rejects_scope_escape(
+    tmp_path: Path,
+) -> None:
+    repo, status, recovery = make_package_a_g0_t05_g3_pr29_main_ci_recovery(
+        tmp_path,
+        ordinary_path=True,
+    )
+    governed, errors = (
+        VALIDATOR._package_a_g0_t05_g3_pr29_main_ci_recovery_errors(
+            status,
+            repo,
+            recovery,
+            require_canonical_main=True,
+        )
+    )
+    assert governed == recovery
+    assert "$: PR29 main-CI recovery exact four-path scope drifted" in errors
+
+
+def test_package_a_g0_t05_g3_pr29_main_ci_recovery_requires_pr32_lineage(
+    tmp_path: Path,
+) -> None:
+    repo, status, recovery = make_package_a_g0_t05_g3_pr29_main_ci_recovery(
+        tmp_path
+    )
+    bypass = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{recovery}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR31_MERGE,
+        "-m",
+        "bypass failed PR32 recovery attempt",
+    )
+    governed, errors = (
+        VALIDATOR._package_a_g0_t05_g3_pr29_main_ci_recovery_errors(
+            status,
+            repo,
+            bypass,
+            require_canonical_main=True,
+        )
+    )
+    assert governed == bypass
+    assert "$: PR32 failed recovery attempt identity drifted" in errors

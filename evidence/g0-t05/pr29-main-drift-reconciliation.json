@@ -1,5 +1,5 @@
 {
-  "schema_version": "g0-t05-pr29-main-drift-reconciliation.v1",
+  "schema_version": "g0-t05-pr29-main-drift-reconciliation.v2",
   "project": "yaobizuoduo",
   "task_id": "G0-T05",
   "candidate_generation": 3,
@@ -82,5 +82,67 @@
     "g1_or_later_authorized": false,
     "market_credentials_trading_ruleset_deploy_release_authorized": false
   },
-  "payload_sha256": "70f03d8f593ef7408dedc2fe74ad78e66184c5e84a4abec3f634adcd8f09cf50"
+  "reconciliation": {
+    "pull_request": 31,
+    "candidate_sha": "377f99f61e4b4b0599178b113a0c5862fd3ee544",
+    "candidate_ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "pull_request",
+      "check": "G0 / exact-head",
+      "subject_sha": "377f99f61e4b4b0599178b113a0c5862fd3ee544",
+      "run_id": "30064635679",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30064635679",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "merge_sha": "f56c5969051694b35bb77289fbf4868b5e723bef",
+    "ordered_parents": [
+      "5f0ee4721bdd5baa89a9711ed740f751dcda00ef",
+      "377f99f61e4b4b0599178b113a0c5862fd3ee544"
+    ],
+    "tree_sha": "f420d6cf7e2ab4b6e59996c40802e30fa531cfa5",
+    "failed_main_ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "push",
+      "ref": "refs/heads/main",
+      "check": "G0 / exact-head",
+      "subject_sha": "f56c5969051694b35bb77289fbf4868b5e723bef",
+      "run_id": "30064934204",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30064934204",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    "failed_recovery_attempt": {
+      "pull_request": 32,
+      "base_sha": "f56c5969051694b35bb77289fbf4868b5e723bef",
+      "head_sha": "fb35c0713163b43c04aa5e61b64aa15a1531f2c8",
+      "reviews": {
+        "state": "empty",
+        "count": 0,
+        "items": []
+      },
+      "pull_request_ci": {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "check": "G0 / exact-head",
+        "subject_sha": "fb35c0713163b43c04aa5e61b64aa15a1531f2c8",
+        "run_id": "30065160685",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30065160685",
+        "status": "completed",
+        "conclusion": "failure"
+      },
+      "diagnostics": [
+        "G0-T04 post-merge repair must preserve exact blocked status",
+        "PR29 recovery must remain status-identical strict single-parent",
+        "PR29 recovery requires exact local and fetched authoritative main"
+      ]
+    },
+    "recovery": {
+      "lineage_rule": "status_identical_strict_single_parent",
+      "future_bridge_first_parent": "f56c5969051694b35bb77289fbf4868b5e723bef",
+      "future_bridge_tree_rule": "merge_tree_equals_second_parent_tree",
+      "governed_reentry_sha": "377f99f61e4b4b0599178b113a0c5862fd3ee544"
+    }
+  },
+  "payload_sha256": "4496028fe27c11090dd18133c939e9e9eadfef15403b8d9eea5f5c4bee2924f1"
 }
