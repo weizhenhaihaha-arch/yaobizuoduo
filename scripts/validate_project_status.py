@@ -157,6 +157,27 @@ PACKAGE_A_PAYLOAD_SHA256 = "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769
 PACKAGE_A_SUPERSEDED_PAYLOAD_SHA256 = "a7f69d3aacfecb9511e602ce649c80cc4e5a53409928a773abb6ff1eb16d41ff"
 PACKAGE_A_ACTIVATION_PATH = "evidence/g0-t05/package-a-activation.json"
 PACKAGE_A_ACTIVATION_VERSION = "package-a-activation.v1"
+PACKAGE_A_REACTIVATION_VERSION = "package-a-activation.v2"
+PACKAGE_A_REACTIVATION_BASE = "dcb942a80a91312fad12d90b5e362cbdd0611017"
+PACKAGE_A_REACTIVATION_RUN = "30043450574"
+PACKAGE_A_MANIFEST_BLOB = "f523c793a58d27e8ffd79da01048c8cd93aaa315"
+PACKAGE_A_SCHEMA_BLOB = "132656bcda439c20a2ade78d30116c49706de7b3"
+PACKAGE_A_RULESET_ID = "19526291"
+PACKAGE_A_RULESET_EVIDENCE_DIGEST = (
+    "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+)
+PACKAGE_A_OLD_ACTIVATION_BLOB = "c061d55218098fd5957ef75d40cb855635371bb6"
+PACKAGE_A_G0_T05_G3_ALLOWED = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        PACKAGE_A_ACTIVATION_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 PACKAGE_A_ORDERED_TASKS = ["G0-T05", "G1-T01"]
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_ORIGIN = "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373"
@@ -584,6 +605,22 @@ def _package_a_activation_errors(
         activation = None
     if type(activation) is not dict:
         return ["$: Package A activation evidence is not canonical JSON"]
+    if activation.get("schema_version") == PACKAGE_A_REACTIVATION_VERSION:
+        expected = _package_a_reactivation_receipt()
+        expected_bytes = (
+            json.dumps(expected, indent=2, ensure_ascii=False) + "\n"
+        ).encode("utf-8")
+        errors: list[str] = []
+        if payload != expected_bytes:
+            errors.append(
+                "$.package_a_activation: generation-3 reactivation bytes "
+                "or immutable identity drifted"
+            )
+        if _git_blob_oid(root, subject_sha, PACKAGE_A_MANIFEST_PATH) != PACKAGE_A_MANIFEST_BLOB:
+            errors.append("$.package_a_activation: immutable manifest blob drifted")
+        if _git_blob_oid(root, subject_sha, PACKAGE_A_SCHEMA_PATH) != PACKAGE_A_SCHEMA_BLOB:
+            errors.append("$.package_a_activation: immutable schema blob drifted")
+        return errors
     expected_keys = {
         "schema_version",
         "package_id",
@@ -636,6 +673,57 @@ def _package_a_activation_errors(
     if status["active_tasks"][0]["task_id"] == "G0-T05" and closed_sha != status["evidence"]["authorization_baseline_sha"]:
         errors.append("$.package_a_activation.g0_t04_closed_sha: G0-T05 must start from the bound close")
     return errors
+
+
+def _package_a_reactivation_receipt() -> dict[str, Any]:
+    receipt = {
+        "schema_version": PACKAGE_A_REACTIVATION_VERSION,
+        "package_id": "PACKAGE-A",
+        "package_generation": 2,
+        "manifest_path": PACKAGE_A_MANIFEST_PATH,
+        "schema_path": PACKAGE_A_SCHEMA_PATH,
+        "manifest_blob": PACKAGE_A_MANIFEST_BLOB,
+        "schema_blob": PACKAGE_A_SCHEMA_BLOB,
+        "manifest_payload_sha256": PACKAGE_A_PAYLOAD_SHA256,
+        "first_task_id": "G0-T05",
+        "package_state": "authorized",
+        "product_owner_confirmation": "exact_payload_digest_confirmed",
+        "g0_t04_closed_sha": PACKAGE_A_REACTIVATION_BASE,
+        "terminal_main_ci": {
+            "repository": "weizhenhaihaha-arch/yaobizuoduo",
+            "event": "push",
+            "ref": "refs/heads/main",
+            "check": "G0 / exact-head",
+            "subject_sha": PACKAGE_A_REACTIVATION_BASE,
+            "run_id": PACKAGE_A_REACTIVATION_RUN,
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                f"actions/runs/{PACKAGE_A_REACTIVATION_RUN}"
+            ),
+            "status": "completed",
+            "conclusion": "success",
+        },
+        "ruleset": {
+            "id": PACKAGE_A_RULESET_ID,
+            "evidence_digest": PACKAGE_A_RULESET_EVIDENCE_DIGEST,
+        },
+        "generation_selection": {
+            "observed_generations": [1, 2],
+            "selected_generation": 3,
+            "rule": "minimum_unused_integer_strictly_greater_than_all_history",
+        },
+        "superseded_activation": {
+            "blob": PACKAGE_A_OLD_ACTIVATION_BLOB,
+            "reuse_forbidden": True,
+        },
+        "scope": {
+            "g0_t05_implementation_authorized": False,
+            "g1_t01_authorized": False,
+            "product_or_network_change_authorized": False,
+        },
+    }
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
 
 
 def _package_a_persistence_errors(
@@ -3143,6 +3231,159 @@ def _g0_t04_g4_route_errors(
         lineage_subject = head_parts[2]
     errors.extend(_g0_t04_g4_canonical_lineage_errors(root, lineage_subject))
     return errors
+
+
+def _is_package_a_g0_t05_g3(status: dict[str, Any]) -> bool:
+    try:
+        task = status["active_tasks"][0]
+        return (
+            status["current_gate"] == "G0"
+            and task["task_id"] == "G0-T05"
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _package_a_g0_t05_g3_status_errors(
+    status: dict[str, Any],
+    baseline: dict[str, Any],
+) -> list[str]:
+    expected = copy.deepcopy(baseline)
+    expected["active_tasks"][0] = {
+        "task_id": "G0-T05",
+        "risk": "D0",
+        "state": "authorized",
+        "transition": {"from": "closed", "to": "authorized"},
+        "candidate_generation": 3,
+    }
+    expected["evidence"] = {
+        "authorization_baseline_sha": PACKAGE_A_REACTIVATION_BASE,
+        "implementation_sha": None,
+        "candidate": {
+            "commit_sha": None,
+            "local_verification": {
+                "status": "pending",
+                "subject": "delivery_head",
+            },
+            "ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+        "closure": {
+            "commit_sha": None,
+            "ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+        "merged_main": {
+            "commit_sha": None,
+            "ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+        "finalization": {
+            "commit_sha": None,
+            "d0_ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+    }
+    expected["review"] = {
+        "code_security": "pending",
+        "architecture": "pending",
+        "reviewed_candidate_sha": None,
+    }
+    expected["blockers"] = []
+    expected["next_authorization"] = {
+        "gate": "G1",
+        "task_id": "G1-T01",
+        "state": "not_authorized",
+    }
+    if status != expected:
+        return [
+            "$: Package A G0-T05 generation-3 authorization status must "
+            "be the exact terminal-N projection"
+        ]
+    return []
+
+
+def _package_a_g0_t05_g3_authorization_errors(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    *,
+    require_current_main: bool,
+) -> list[str]:
+    errors: list[str] = []
+    ok_parents, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    if (parents_text.split() if ok_parents else []) != [
+        head,
+        PACKAGE_A_REACTIVATION_BASE,
+    ]:
+        errors.append("$: Package A generation-3 authorization must be the strict direct child of exact terminal N")
+    changed = _g0_t03_commit_changed_paths(root, PACKAGE_A_REACTIVATION_BASE, head)
+    if changed != PACKAGE_A_G0_T05_G3_ALLOWED:
+        errors.append("$: Package A generation-3 authorization required seven-path scope drifted")
+    baseline = _status_at(root, PACKAGE_A_REACTIVATION_BASE)
+    if type(baseline) is not dict:
+        errors.append("$: Package A terminal-N status is unavailable")
+    else:
+        errors.extend(_package_a_g0_t05_g3_status_errors(status, baseline))
+    errors.extend(_package_a_activation_errors(status, root, head))
+    if require_current_main:
+        ok_main, main = _git(root, "rev-parse", "--verify", "refs/heads/main")
+        ok_remote, remote = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        if not ok_main or not ok_remote or main != PACKAGE_A_REACTIVATION_BASE or remote != PACKAGE_A_REACTIVATION_BASE:
+            errors.append("$: Package A generation-3 authorization review requires exact local and fetched terminal N")
+    return errors
+
+
+def _package_a_g0_t05_g3_route_errors(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+) -> list[str]:
+    if not _is_package_a_g0_t05_g3(status):
+        return []
+    task = status["active_tasks"][0]
+    if task["state"] != "authorized" or task["transition"] != {"from": "closed", "to": "authorized"}:
+        return ["$: Package A generation-3 authorization forbids premature implementation or lifecycle drift"]
+    ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
+    parts = parents_text.split() if ok else []
+    if len(parts) == 2:
+        return _package_a_g0_t05_g3_authorization_errors(status, root, head, require_current_main=True)
+    if len(parts) == 3:
+        first, candidate = parts[1], parts[2]
+        errors: list[str] = []
+        candidate_status = _status_at(root, candidate)
+        if first != PACKAGE_A_REACTIVATION_BASE:
+            errors.append("$: Package A generation-3 protected merge first parent drifted")
+        if type(candidate_status) is not dict or candidate_status != status:
+            errors.append("$: Package A generation-3 protected merge status must equal authorization candidate")
+        else:
+            errors.extend(_package_a_g0_t05_g3_authorization_errors(status, root, candidate, require_current_main=False))
+        ok_tree, tree = _git(root, "rev-parse", f"{head}^{{tree}}")
+        ok_candidate_tree, candidate_tree = _git(root, "rev-parse", f"{candidate}^{{tree}}")
+        if not ok_tree or not ok_candidate_tree or tree != candidate_tree:
+            errors.append("$: Package A generation-3 protected merge tree must equal authorization candidate")
+        ok_main, main = _git(root, "rev-parse", "--verify", "refs/heads/main")
+        ok_remote, remote = _git(root, "rev-parse", "--verify", "refs/remotes/origin/main")
+        if not ok_main or not ok_remote or main != head or remote != head:
+            errors.append("$: Package A generation-3 protected merge requires exact local and fetched main")
+        return errors
+    return ["$: Package A generation-3 authorization route parent topology drifted"]
 
 
 def _g0_t04_g4_canonical_lineage_errors(root: Path, governed_head: str) -> list[str]:
@@ -7395,6 +7636,18 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
+    if _is_package_a_g0_t05_g3(status):
+        ok_package, package_parents_text = _git(
+            root, "rev-list", "--parents", "-n", "1", head
+        )
+        package_parts = package_parents_text.split() if ok_package else []
+        if len(package_parts) in {2, 3}:
+            package_errors = _package_a_g0_t05_g3_route_errors(
+                status, root, head
+            )
+            if package_errors:
+                return None, package_errors
+            return PACKAGE_A_REACTIVATION_BASE, []
     if (
         _is_g0_t04_g4_status(status)
         and task["state"] == "closed"
@@ -7617,6 +7870,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     task = status["active_tasks"][0]
     errors.extend(_package_a_persistence_errors(status, root, head))
     errors.extend(_g0_t04_g4_route_errors(status, root, head))
+    errors.extend(_package_a_g0_t05_g3_route_errors(status, root, head))
     if (
         task["task_id"] == "G0-T04"
         and task["state"] == "awaiting_review"
@@ -7708,6 +7962,10 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
             errors.append("$.evidence.merged_main.commit_sha: merge is not on the authoritative remote-main first-parent chain")
     if task["transition"] == {"from": "closed", "to": "authorized"}:
         direct_parent = parent_parts[1] if len(parent_parts) >= 2 else None
+        package_a_generation_3_route = (
+            _is_package_a_g0_t05_g3(status)
+            and governed_history_head is not None
+        )
         g4_authorization = (
             _is_g0_t04_g4_status(status)
             and head == G0_T04_G4_AUTHORIZATION
@@ -7717,7 +7975,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
             and remote_main_ok
             and main_sha == remote_main_sha == G0_T04_G4_BLOCKED_MAIN
         )
-        if not g4_authorization and (
+        if not package_a_generation_3_route and not g4_authorization and (
             not remote_main_ok
             or main_sha != remote_main_sha
             or direct_parent != remote_main_sha

@@ -1,150 +1,51 @@
 # Current AG Task
 
-## Task identity
-
-- Task ID: `G0-T04`
-- Gate: G0 governance anomaly recovery
+- Task ID: `G0-T05`
+- Gate: G0
 - Risk: `D0`
-- Status: `closed`
-- Candidate generation: `4`
-- Baseline: `1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f`
-- Exact terminal-blocked main:
-  `414fa392026c71b01378c64cbf62cb6b304b2eed`
-- Exact premature generation-4 main:
-  `8a7b8aca2b59a5598f0e721f557c06a008f362e0`
-- Exact generation-4 recovery acceptance:
-  `9652fabb655b1d678ef7677f173c2f15d65f881d`
-- Exact recovered authoritative main:
-  `1419f7c77ff102fd68eb9583f5ec5c3b196ae4be`
+- Status: `authorized`
+- Baseline: `dcb942a80a91312fad12d90b5e362cbdd0611017`
 
-## Single goal
+## Authorization-only boundary
 
-Close G0-T04 generation 4 without rewriting PR #15 through #24 or the
-abandoned off-main generation-4 chain. Preserve every anomaly receipt/seal and
-inactive Package A blob, bind the newly observed owner authority as future
-activation input only, and create the protected-main bridge required for a
-fresh canonical Package A route.
+This record authorizes only Package A G0-T05 generation 3 governance. G0-T05
+implementation has not started.
 
-## Current truth
+Terminal N has ordered parents
+`[1419f7c77ff102fd68eb9583f5ec5c3b196ae4be,
+da34fa5094fc945608e0ee570bc66276c9124d2e]`, tree
+`dd68a575c89c4e6bf850b3f9e04f83d0f015d272`, and successful push/main run
+`30043450574`.
 
-- Reviews for PR #15, #17, #19, #20, #21, #22, and #24 are all empty.
-- Exact reviewed candidate `6541189bbdacc870de5691d07991b9103ee2c763`
-  passed PR #23 run `30005396033`, main verification, independent
-  code/security `APPROVE`, and architecture/route `CLEAR_FOR_SEAL`.
-- PR #24 head `db507f75f46196a03a9d87725be5946e6f05575c` passed exact-head
-  run `30014856791` and merged as `414fa392026c71b01378c64cbf62cb6b304b2eed`
-  with ordered parents `[a88b4f9e5fa7d498aeb338ec9e8bbbe198241a87,
-  db507f75f46196a03a9d87725be5946e6f05575c]`, but its GitHub review
-  list is empty. It is immutable main-drift history, not reviewed acceptance.
-- The prior off-main generation-4 route
-  `de070276e53ec75f0cfd864a02d6d05236784eb8 -> 45e714f9e099774ac0c4885f77523fb73c2d313d`
-  is preserved but abandoned. It cannot be merged, reused, or treated as
-  current candidate evidence.
-- The product owner reconfirmed Package A payload
-  `815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27`
-  and explicitly authorized this main-drift reconciliation. This does not
-  resurrect the deleted activation record.
-- Package A remains byte-frozen and `not_authorized`; `G0-T05` and `G1-T01`
-  remain `not_authorized` until this generation fully closes.
-- Capability remains capped at `OFFLINE_EVIDENCE_ACCEPTED`; G2 remains
-  forbidden.
-- PR #26 merged the still-`in_progress` repair head
-  `c22bc286b2ee30a0cdaf40a82223bc6f15133af5` prematurely as
-  `8a7b8aca2b59a5598f0e721f557c06a008f362e0`, with ordered parents
-  `[414fa392026c71b01378c64cbf62cb6b304b2eed,
-  c22bc286b2ee30a0cdaf40a82223bc6f15133af5]` and tree
-  `930c41200f0f94fb64e40aa19d3adc4323f8276c`. PR run `30028693653`
-  is anomaly history only; push/main run `30028739788` failed canonical
-  validation. Neither fact is acceptance.
+The frozen Package A identities are:
 
-## Exact generation-4 topology
+- payload
+  `815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27`;
+- manifest/schema blobs
+  `f523c793a58d27e8ffd79da01048c8cd93aaa315` /
+  `132656bcda439c20a2ade78d30116c49706de7b3`;
+- ruleset `19526291` evidence digest
+  `73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1`;
+- historical generations `[1,2]`, making generation `3` the mechanical
+  minimum unused integer greater than all history;
+- superseded activation blob
+  `c061d55218098fd5957ef75d40cb855635371bb6`, which must not be reused.
 
-1. This authorization record has ordered parents
-   `[1671568fd5bb33d1e316f8cbe8e9708d7d4d5d1f,
-   414fa392026c71b01378c64cbf62cb6b304b2eed]`, advances the generation-3
-   terminal blocked state to generation 4 `authorized`, and clears candidate,
-   CI, review, and blocker slots.
-2. The implementation/start/delivery chain is single-parent from this record
-   and may modify only the frozen generation-4 allowlist.
-3. Candidate exact-HEAD CI and independent code/security `APPROVE` plus
-   architecture/route `CLEAR` precede acceptance.
-4. Protected-main integration must use ordered parents
-   `[414fa392026c71b01378c64cbf62cb6b304b2eed, accepted-generation-4]`
-   with a tree exactly equal to the accepted second parent.
-5. G0-T04 must complete merged-main and finalization CI before a fresh
-   activation may bind the reconfirmed Package A payload to the new close.
-
-## Premature-main recovery route
-
-1. The immutable recovery receipt freezes exact F
-   `8a7b8aca2b59a5598f0e721f557c06a008f362e0`, its parents/tree, PR #26
-   head/run, and failed push/main run.
-2. Only a strict single-parent recovery lineage may follow F. The ordinary
-   `in_progress` merge F is anomaly history and never merge authority.
-3. Recovery candidate `388a75b18f37ddd970a37938dba8b955dc95e719`
-   passed exact-head run `30036514625`, independent code/security `APPROVE`,
-   and independent architecture/route `CLEAR`; the exact failed-main blocker
-   remains retained through acceptance.
-4. The protected-main bridge is valid only as
-   `[F, accepted-generation-4-recovery]` with tree equal to its second parent.
-   Acceptance `9652fabb655b1d678ef7677f173c2f15d65f881d` passed exact-head
-   run `30037270342`; authoritative main
-   `1419f7c77ff102fd68eb9583f5ec5c3b196ae4be` has exact ordered parents
-   `[8a7b8aca2b59a5598f0e721f557c06a008f362e0,
-   9652fabb655b1d678ef7677f173c2f15d65f881d]`, the same tree as its
-   second parent, and passed push/main run `30037311721`.
-5. Those exact facts establish `merged_verified` and clear the sole failed-main
-   blocker. Finalization subject
-   `80effc864ce6788ebf6be8485ca1273ae52de538` passed exact pull-request
-   run `30039415469`; the strict single-parent close record therefore advances
-   only `merged_verified -> closed`. No later card is activated.
-
-Implementation I is
-`0a752ac8f14bafb42a18922d8155944612d6d21c`. The reviewed candidate is
-`388a75b18f37ddd970a37938dba8b955dc95e719`; candidate run
-`30036514625`, acceptance run `30037270342`, merged-main run `30037311721`,
-and finalization run `30039415469` are all strict-success evidence. A future
-terminal bridge is valid only with ordered parents
-`[1419f7c77ff102fd68eb9583f5ec5c3b196ae4be, exact-close-record]` and a
-tree equal to the close record. This close grants no Package or later-card
-authority.
-
-## Frozen allowlist
+## Exact changed paths
 
 - `PROJECT_STATUS.yaml`
 - `CURRENT_TASK.md`
 - `PROJECT_MEMORY.md`
 - `docs/NEXT_WORKFLOW.md`
-- `evidence/g0-t04/generation-4-premature-merge-recovery.json`
+- `evidence/g0-t05/package-a-activation.json`
 - `scripts/validate_project_status.py`
 - `tests/test_g0_project_status.py`
 
-## Forbidden scope
+## Stop boundary
 
-- No G0-T05 or G1 implementation before this G0-T04 generation is closed.
-- No Package A activation in this generation and no old activation reuse.
-- No manifest/schema/order/payload mutation.
-- No workflow, required-check, ruleset, repository-setting, or unrelated
-  remote mutation.
-- No business, strategy, adapter, API, persistence, frontend, notification, or
-  observability implementation.
-- No market API, credentials, accounts, orders, leverage, trading, paid
-  resources, deployment, release, local-system change, or `LOCAL-PREVIEW`.
-
-## Verification and stop conditions
-
-- Exact topology, PR #24 identity, abandoned-chain identity, Package blobs,
-  activation absence, ledger, and cumulative allowlist must all validate.
-- Required commands:
-  - `python3 scripts/validate_project_status.py --repo-root . PROJECT_STATUS.yaml`
-  - `python3 -m pytest -q tests/test_g0_project_status.py -k 'pr15_pr22 or transition_ledger or generation4'`
-  - `python3 -m pytest -q --ignore=tests/test_api_transport.py --ignore=tests/test_m5_transport.py`
-  - `npm --prefix frontend test -- --run`
-  - `npm --prefix frontend run build`
-  - `python3 -m compileall -q scripts tests`
-  - `git diff --check`
-- Any failed test, review, topology, identity, blob, allowlist, or authority
-  check returns only this G0-T04 card.
-- This finalization-close record authorizes no Package A activation, G0-T05,
-  G1-T01, or later work. Its future terminal bridge must be independently
-  integrated and verified before any next authorization can be evaluated.
+The authorization candidate must be the strict direct child of N. During
+review, local main and origin/main remain N. A future protected-main merge is
+valid only as `[N, accepted-authorization]` with the second-parent tree.
+G0-T05 implementation, G1-T01, workflow/ruleset mutation, product code,
+network, credentials, trading, deployment, release, and system modification
+remain forbidden.
