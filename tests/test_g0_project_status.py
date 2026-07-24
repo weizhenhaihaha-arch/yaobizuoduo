@@ -6861,8 +6861,8 @@ def test_g0_t06_workflow_authorization_wrong_topology_fails() -> None:
 
 
 def test_g0_t06_lifecycle_is_not_reinterpreted_as_old_g0_t04_repair() -> None:
-    candidate = git(ROOT, "rev-parse", "HEAD")
-    parent = git(ROOT, "rev-parse", "HEAD^")
+    candidate = "cab654c8650ab80333ab0f417c01421d54928a33"
+    parent = git(ROOT, "rev-parse", f"{candidate}^")
     status = VALIDATOR._status_at(ROOT, candidate)
     parent_status = VALIDATOR._status_at(ROOT, parent)
     assert type(status) is dict
@@ -6991,3 +6991,236 @@ def test_g0_t06_lifecycle_next_authorization_fails_closed() -> None:
         subject,
     )
     assert any("G1-T01 not_authorized" in error for error in errors)
+
+
+def _g0_t06_terminal_repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+    )
+    return repo
+
+
+def test_g0_t06_exact_terminal_bridge_passes(tmp_path: Path) -> None:
+    repo = _g0_t06_terminal_repo(tmp_path)
+    status = VALIDATOR._status_at(
+        repo,
+        VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+    )
+    assert type(status) is dict
+    assert VALIDATOR._g0_t06_workflow_terminal_bridge(
+        status,
+        repo,
+        VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+    ) == (VALIDATOR.G0_T06_WORKFLOW_CLOSE_RECORD, [])
+
+
+def test_g0_t06_terminal_phase_identity_substitution_fails(
+    tmp_path: Path,
+) -> None:
+    repo = _g0_t06_terminal_repo(tmp_path)
+    status = copy.deepcopy(
+        VALIDATOR._status_at(
+            repo,
+            VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+        )
+    )
+    assert type(status) is dict
+    status["evidence"]["finalization"]["d0_ci"]["run_id"] = "0"
+    governed, errors = VALIDATOR._g0_t06_workflow_terminal_bridge(
+        status,
+        repo,
+        VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+    )
+    assert governed is None
+    assert any("phase identity drifted" in error for error in errors)
+
+
+def test_g0_t06_terminal_repair_scope_fails_closed(
+    tmp_path: Path,
+) -> None:
+    repo = _g0_t06_terminal_repo(tmp_path)
+    (repo / "product-scope.txt").write_text("forbidden\n", encoding="utf-8")
+    hostile = commit(repo, "hostile G0-T06 product drift")
+    status = VALIDATOR._status_at(repo, hostile)
+    assert type(status) is dict
+    governed, errors = VALIDATOR._g0_t06_workflow_terminal_bridge(
+        status,
+        repo,
+        hostile,
+    )
+    assert governed is None
+    assert any("exact three-path repair set" in error for error in errors)
+
+
+def test_g0_t06_terminal_repair_merge_wrong_tree_fails(
+    tmp_path: Path,
+) -> None:
+    repo = _g0_t06_terminal_repo(tmp_path)
+    terminal = VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN
+    recovery = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{terminal}^{{tree}}"),
+        "-p",
+        terminal,
+        "-m",
+        "bounded G0-T06 terminal recovery",
+    )
+    hostile = git(
+        repo,
+        "commit-tree",
+        git(
+            repo,
+            "rev-parse",
+            f"{VALIDATOR.G0_T06_WORKFLOW_MERGED_MAIN}^{{tree}}",
+        ),
+        "-p",
+        terminal,
+        "-p",
+        recovery,
+        "-m",
+        "hostile G0-T06 recovery merge",
+    )
+    git(repo, "update-ref", "refs/heads/main", hostile)
+    git(repo, "update-ref", "refs/remotes/origin/main", hostile)
+    status = VALIDATOR._status_at(repo, terminal)
+    assert type(status) is dict
+    governed, errors = VALIDATOR._g0_t06_workflow_terminal_bridge(
+        status,
+        repo,
+        hostile,
+    )
+    assert governed is None
+    assert any("merge tree" in error for error in errors)
+
+
+def test_g0_t06_terminal_wrong_first_parent_is_not_claimed(
+    tmp_path: Path,
+) -> None:
+    repo = _g0_t06_terminal_repo(tmp_path)
+    terminal = VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN
+    recovery = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{terminal}^{{tree}}"),
+        "-p",
+        terminal,
+        "-m",
+        "bounded G0-T06 terminal recovery",
+    )
+    hostile = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{recovery}^{{tree}}"),
+        "-p",
+        VALIDATOR.G0_T06_WORKFLOW_MERGED_MAIN,
+        "-p",
+        recovery,
+        "-m",
+        "hostile G0-T06 wrong-first-parent merge",
+    )
+    status = VALIDATOR._status_at(repo, terminal)
+    assert type(status) is dict
+    assert VALIDATOR._g0_t06_workflow_terminal_bridge(
+        status,
+        repo,
+        hostile,
+        require_canonical_main=False,
+    ) == (None, [])
+
+
+@pytest.mark.parametrize("topology", ["direct", "protected_merge"])
+@pytest.mark.parametrize(
+    "omitted",
+    sorted(VALIDATOR.G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED),
+)
+def test_g0_t06_terminal_recovery_requires_every_repair_path(
+    tmp_path: Path,
+    topology: str,
+    omitted: str,
+) -> None:
+    repo = _g0_t06_terminal_repo(tmp_path)
+    terminal = VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN
+    for path in sorted(
+        VALIDATOR.G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED - {omitted}
+    ):
+        target = repo / path
+        target.write_text(
+            target.read_text(encoding="utf-8")
+            + f"\n# hostile subset missing {omitted}\n",
+            encoding="utf-8",
+        )
+    recovery = commit(repo, f"hostile subset missing {omitted}")
+    subject = recovery
+    if topology == "protected_merge":
+        subject = git(
+            repo,
+            "commit-tree",
+            git(repo, "rev-parse", f"{recovery}^{{tree}}"),
+            "-p",
+            terminal,
+            "-p",
+            recovery,
+            "-m",
+            f"hostile merge missing {omitted}",
+        )
+    status = VALIDATOR._status_at(repo, terminal)
+    assert type(status) is dict
+    schema = json.loads(
+        (repo / "schemas/project_status.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status,
+        repo,
+        subject,
+        schema,
+        require_canonical_main=False,
+    )
+    assert governed is None
+    assert any(
+        "exact three-path repair set" in error and omitted in error
+        for error in errors
+    )
+
+
+def test_g0_t06_current_terminal_recovery_uses_production_bridge() -> None:
+    recovery = git(ROOT, "rev-parse", "HEAD")
+    assert git(ROOT, "rev-parse", f"{recovery}^") == (
+        VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN
+    )
+    status = VALIDATOR._status_at(ROOT, recovery)
+    assert type(status) is dict
+    schema = json.loads(
+        (ROOT / "schemas/project_status.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status,
+        ROOT,
+        recovery,
+        schema,
+        require_canonical_main=False,
+    ) == (VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN, [])

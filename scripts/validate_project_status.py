@@ -215,6 +215,30 @@ G0_T06_WORKFLOW_AUTHORIZATION_ALLOWED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+G0_T06_WORKFLOW_MERGED_MAIN = (
+    "a68662eb0d46514953f6e6888d3f3f7a4d9eeee3"
+)
+G0_T06_WORKFLOW_MERGED_MAIN_RUN = "30126273246"
+G0_T06_WORKFLOW_FINALIZATION = (
+    "e003790cb20de3fa2903f89ee94899ebbf08d0d4"
+)
+G0_T06_WORKFLOW_FINALIZATION_RUN = "30126525598"
+G0_T06_WORKFLOW_CLOSE_RECORD = (
+    "04b7065f3cf3c7f52bdb0b13b04f88f6d3405df4"
+)
+G0_T06_WORKFLOW_TERMINAL_MAIN = (
+    "0057f2a0e2d8ef8ebe5aa9bc9515836961949ffb"
+)
+G0_T06_WORKFLOW_TERMINAL_TREE = (
+    "5dff2273190155930ab63a33b7f20d4f807f402d"
+)
+G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED = frozenset(
+    {
+        "PROJECT_MEMORY.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN = (
     "d3a617ab3081e03276a96142ae2b76349e7b2ef9"
 )
@@ -5341,6 +5365,265 @@ def _g0_t06_workflow_lifecycle_route_errors(
     return errors
 
 
+def _g0_t06_workflow_terminal_bridge(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    *,
+    require_canonical_main: bool = True,
+) -> tuple[str | None, list[str]]:
+    """Recognize only the frozen G0-T06 terminal chain and its bounded repair."""
+    try:
+        task = status["active_tasks"][0]
+    except (KeyError, IndexError, TypeError):
+        return None, []
+    if (
+        not _is_g0_t06_workflow_status(status)
+        or task.get("state") != "closed"
+        or task.get("transition")
+        != {"from": "merged_verified", "to": "closed"}
+    ):
+        return None, []
+
+    errors: list[str] = []
+    close_status = _status_at(root, G0_T06_WORKFLOW_CLOSE_RECORD)
+    if type(close_status) is not dict or not _typed_equal(status, close_status):
+        errors.append(
+            "$: G0-T06 terminal recovery must preserve exact frozen close-record status"
+        )
+
+    ok_close, close_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        G0_T06_WORKFLOW_CLOSE_RECORD,
+    )
+    if (close_text.split() if ok_close else []) != [
+        G0_T06_WORKFLOW_CLOSE_RECORD,
+        G0_T06_WORKFLOW_FINALIZATION,
+    ]:
+        errors.append(
+            "$: G0-T06 close record must be the exact direct child of finalization"
+        )
+    ok_finalization, finalization_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        G0_T06_WORKFLOW_FINALIZATION,
+    )
+    if (finalization_text.split() if ok_finalization else []) != [
+        G0_T06_WORKFLOW_FINALIZATION,
+        G0_T06_WORKFLOW_MERGED_MAIN,
+    ]:
+        errors.append(
+            "$: G0-T06 finalization must be the exact direct child of merged main"
+        )
+
+    expected_phase_evidence = {
+        "merged_main": {
+            "commit_sha": G0_T06_WORKFLOW_MERGED_MAIN,
+            "ci": {
+                "status": "success",
+                "subject_sha": G0_T06_WORKFLOW_MERGED_MAIN,
+                "run_id": G0_T06_WORKFLOW_MERGED_MAIN_RUN,
+                "url": (
+                    "https://github.com/"
+                    f"{G0_T06_WORKFLOW_REPOSITORY}/actions/runs/"
+                    f"{G0_T06_WORKFLOW_MERGED_MAIN_RUN}"
+                ),
+            },
+        },
+        "finalization": {
+            "commit_sha": G0_T06_WORKFLOW_FINALIZATION,
+            "d0_ci": {
+                "status": "success",
+                "subject_sha": G0_T06_WORKFLOW_FINALIZATION,
+                "run_id": G0_T06_WORKFLOW_FINALIZATION_RUN,
+                "url": (
+                    "https://github.com/"
+                    f"{G0_T06_WORKFLOW_REPOSITORY}/actions/runs/"
+                    f"{G0_T06_WORKFLOW_FINALIZATION_RUN}"
+                ),
+            },
+        },
+    }
+    for phase, expected in expected_phase_evidence.items():
+        if not _typed_equal(status["evidence"].get(phase), expected):
+            errors.append(
+                f"$.evidence.{phase}: G0-T06 terminal recovery phase identity drifted"
+            )
+
+    ok_terminal, terminal_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        G0_T06_WORKFLOW_TERMINAL_MAIN,
+    )
+    if (terminal_text.split() if ok_terminal else []) != [
+        G0_T06_WORKFLOW_TERMINAL_MAIN,
+        G0_T06_WORKFLOW_MERGED_MAIN,
+        G0_T06_WORKFLOW_CLOSE_RECORD,
+    ]:
+        errors.append(
+            "$: G0-T06 terminal main ordered parents are not the frozen merge and close record"
+        )
+    ok_terminal_tree, terminal_tree = _git(
+        root,
+        "rev-parse",
+        f"{G0_T06_WORKFLOW_TERMINAL_MAIN}^{{tree}}",
+    )
+    ok_close_tree, close_tree = _git(
+        root,
+        "rev-parse",
+        f"{G0_T06_WORKFLOW_CLOSE_RECORD}^{{tree}}",
+    )
+    if (
+        not ok_terminal_tree
+        or not ok_close_tree
+        or terminal_tree != G0_T06_WORKFLOW_TERMINAL_TREE
+        or terminal_tree != close_tree
+    ):
+        errors.append(
+            "$: G0-T06 terminal main tree must equal the exact close-record tree"
+        )
+
+    ok_head, head_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        head,
+    )
+    head_parts = head_text.split() if ok_head else []
+    expected_main = G0_T06_WORKFLOW_TERMINAL_MAIN
+    governed = G0_T06_WORKFLOW_CLOSE_RECORD
+    if not _typed_equal(_status_at(root, head), close_status):
+        errors.append(
+            "$: G0-T06 terminal recovery subject must preserve exact close status"
+        )
+    if head == G0_T06_WORKFLOW_TERMINAL_MAIN:
+        pass
+    elif (
+        len(head_parts) == 2
+        and head_parts[1] == G0_T06_WORKFLOW_TERMINAL_MAIN
+    ):
+        changed = _g0_t03_commit_changed_paths(
+            root,
+            G0_T06_WORKFLOW_TERMINAL_MAIN,
+            head,
+        )
+        if changed != G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED:
+            missing = sorted(
+                G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED - changed
+            )
+            outside = sorted(
+                changed - G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED
+            )
+            errors.append(
+                "$: G0-T06 terminal recovery must change the exact three-path repair set"
+                f"; missing={','.join(missing) or 'none'}"
+                f"; outside={','.join(outside) or 'none'}"
+            )
+        if not _typed_equal(_status_at(root, head), close_status):
+            errors.append(
+                "$: G0-T06 terminal recovery must remain status-identical"
+            )
+        governed = G0_T06_WORKFLOW_TERMINAL_MAIN
+    elif (
+        len(head_parts) == 3
+        and head_parts[1] == G0_T06_WORKFLOW_TERMINAL_MAIN
+    ):
+        recovery = head_parts[2]
+        ok_recovery, recovery_text = _git(
+            root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            recovery,
+        )
+        if (recovery_text.split() if ok_recovery else []) != [
+            recovery,
+            G0_T06_WORKFLOW_TERMINAL_MAIN,
+        ]:
+            errors.append(
+                "$: G0-T06 terminal recovery merge second parent must be the exact direct repair child"
+            )
+        changed = _g0_t03_commit_changed_paths(
+            root,
+            G0_T06_WORKFLOW_TERMINAL_MAIN,
+            recovery,
+        )
+        if changed != G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED:
+            missing = sorted(
+                G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED - changed
+            )
+            outside = sorted(
+                changed - G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED
+            )
+            errors.append(
+                "$: G0-T06 terminal recovery must change the exact three-path repair set"
+                f"; missing={','.join(missing) or 'none'}"
+                f"; outside={','.join(outside) or 'none'}"
+            )
+        if not _typed_equal(_status_at(root, recovery), close_status):
+            errors.append(
+                "$: G0-T06 terminal recovery merge second parent must preserve close status"
+            )
+        ok_head_tree, head_tree = _git(
+            root,
+            "rev-parse",
+            f"{head}^{{tree}}",
+        )
+        ok_recovery_tree, recovery_tree = _git(
+            root,
+            "rev-parse",
+            f"{recovery}^{{tree}}",
+        )
+        if (
+            not ok_head_tree
+            or not ok_recovery_tree
+            or head_tree != recovery_tree
+        ):
+            errors.append(
+                "$: G0-T06 terminal recovery merge tree must equal its exact repair parent"
+            )
+        expected_main = head
+        governed = recovery
+    else:
+        return None, []
+
+    ok_local, local_main = _git(
+        root,
+        "rev-parse",
+        "--verify",
+        "refs/heads/main",
+    )
+    ok_remote, remote_main = _git(
+        root,
+        "rev-parse",
+        "--verify",
+        "refs/remotes/origin/main",
+    )
+    if require_canonical_main and (
+        not ok_local
+        or not ok_remote
+        or local_main != expected_main
+        or remote_main != expected_main
+    ):
+        errors.append(
+            "$: G0-T06 terminal recovery requires exact local and fetched authoritative main"
+        )
+    return (None, errors) if errors else (governed, [])
+
+
 def _parent_status_errors(
     status: dict[str, Any],
     parent: dict[str, Any] | None,
@@ -9575,6 +9858,14 @@ def _canonical_g0_merge_bridge(
     if status_errors:
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
+    g0_t06_governed, g0_t06_errors = _g0_t06_workflow_terminal_bridge(
+        status,
+        root,
+        head,
+        require_canonical_main=require_canonical_main,
+    )
+    if g0_t06_governed is not None or g0_t06_errors:
+        return g0_t06_governed, g0_t06_errors
     if _is_package_a_g0_t05_g3(status):
         if task["state"] in {
             "in_progress",
