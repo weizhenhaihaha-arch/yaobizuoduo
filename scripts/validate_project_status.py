@@ -829,6 +829,17 @@ def _package_a_persistence_errors(
     ok_diff, changed_text = _git(root, "diff", "--name-only", baseline, head)
     changed = {line for line in changed_text.splitlines() if line} if ok_diff else None
     allowed_paths = set(card.get("allowed_paths", [])) if type(card) is dict else set()
+    if (
+        task_id == "G0-T05"
+        and _is_package_a_g0_t05_g3(status)
+        and head != PACKAGE_A_G0_T05_G3_PR29_MAIN
+        and _is_ancestor(root, PACKAGE_A_G0_T05_G3_PR29_MAIN, head)
+    ):
+        # This governance-only reconciliation receipt is deliberately outside
+        # the frozen implementation card.  The dedicated PR29 recovery route
+        # below requires the exact receipt bytes, exact four-path repair scope,
+        # unchanged authorized status, and excludes all stopped PR30 ancestry.
+        allowed_paths.add(PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH)
     if changed is None or not changed.issubset(allowed_paths):
         errors.append(f"$.package_a.cards: {task_id} changed paths exceed its immutable allowlist")
     return errors
