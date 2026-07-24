@@ -5222,6 +5222,7 @@ def _g0_t06_workflow_lifecycle_parent_errors(
     errors.extend(_maturity_continuity_errors(status, parent))
     if (
         not returned_repair
+        and current_task["state"] == parent_state == "in_progress"
         and not _typed_equal(status.get("review"), parent.get("review"))
     ):
         errors.append(
@@ -5229,6 +5230,7 @@ def _g0_t06_workflow_lifecycle_parent_errors(
         )
     if (
         not returned_repair
+        and current_task["state"] == parent_state == "in_progress"
         and not _typed_equal(status.get("blockers"), parent.get("blockers"))
     ):
         errors.append(
