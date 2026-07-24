@@ -6535,6 +6535,60 @@ def test_package_a_g0_t05_g3_full_lifecycle_is_reachable(
         status, repo, acceptance
     ) == []
 
+    substituted_acceptance = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{acceptance}^{{tree}}"),
+        "-p",
+        acceptance,
+        "-m",
+        "substituted acceptance descendant",
+    )
+    hostile_merge = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{acceptance}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+        "-p",
+        substituted_acceptance,
+        "-m",
+        "hostile substituted G0-T05 acceptance merge",
+    )
+    hostile_errors = VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status,
+        repo,
+        hostile_merge,
+        require_canonical_main=False,
+    )
+    assert (
+        "$: G0-T05 generation-3 implementation merge second parent must "
+        "be the exact direct acceptance"
+    ) in hostile_errors
+    git(repo, "checkout", "--quiet", "--detach", hostile_merge)
+    git(repo, "update-ref", "refs/heads/main", hostile_merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", hostile_merge)
+    hostile_result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo_root=repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert hostile_result.returncode != 0
+    assert "exact direct acceptance" in hostile_result.stdout
+    git(repo, "checkout", "--quiet", "--detach", acceptance)
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+
     merge = git(
         repo,
         "commit-tree",
@@ -6611,6 +6665,47 @@ def test_package_a_g0_t05_g3_full_lifecycle_is_reachable(
     assert VALIDATOR._package_a_g0_t05_g3_route_errors(
         status, repo, close_record
     ) == []
+
+    substituted_close = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{close_record}^{{tree}}"),
+        "-p",
+        close_record,
+        "-m",
+        "substituted close descendant",
+    )
+    hostile_terminal = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{close_record}^{{tree}}"),
+        "-p",
+        merge,
+        "-p",
+        substituted_close,
+        "-m",
+        "hostile substituted G0-T05 terminal",
+    )
+    hostile_errors = VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status,
+        repo,
+        hostile_terminal,
+        require_canonical_main=False,
+    )
+    assert (
+        "$: G0-T05 generation-3 terminal bridge second parent must be "
+        "the exact direct close record"
+    ) in hostile_errors
+    git(repo, "checkout", "--quiet", "--detach", hostile_terminal)
+    git(repo, "update-ref", "refs/heads/main", hostile_terminal)
+    git(repo, "update-ref", "refs/remotes/origin/main", hostile_terminal)
+    hostile_result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo_root=repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert hostile_result.returncode != 0
+    assert "exact direct close record" in hostile_result.stdout
 
     terminal = git(
         repo,

@@ -3595,6 +3595,21 @@ def _package_a_g0_t05_g3_route_errors(
                 errors.append(
                     "$: G0-T05 generation-3 terminal bridge status must equal close record"
                 )
+            ok_close, close_text = _git(
+                root,
+                "rev-list",
+                "--parents",
+                "-n",
+                "1",
+                governed_subject,
+            )
+            if (close_text.split() if ok_close else []) != [
+                governed_subject,
+                evidence["finalization"]["commit_sha"],
+            ]:
+                errors.append(
+                    "$: G0-T05 generation-3 terminal bridge second parent must be the exact direct close record"
+                )
             ok_terminal_tree, terminal_tree = _git(
                 root, "rev-parse", f"{head}^{{tree}}"
             )
@@ -3686,6 +3701,20 @@ def _package_a_g0_t05_g3_route_errors(
                 if not _typed_equal(accepted_status, status):
                     errors.append(
                         "$: G0-T05 generation-3 implementation merge status must equal acceptance"
+                    )
+                ok_acceptance, acceptance_text = _git(
+                    root,
+                    "rev-list",
+                    "--parents",
+                    "-n",
+                    "1",
+                    acceptance_subject,
+                )
+                if (
+                    acceptance_text.split() if ok_acceptance else []
+                ) != [acceptance_subject, candidate]:
+                    errors.append(
+                        "$: G0-T05 generation-3 implementation merge second parent must be the exact direct acceptance"
                     )
                 ok_merge_tree, merge_tree = _git(
                     root, "rev-parse", f"{merge_subject}^{{tree}}"
