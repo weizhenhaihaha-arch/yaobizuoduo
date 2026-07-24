@@ -7980,6 +7980,18 @@ def _canonical_g0_merge_bridge(
         if recovery_errors is not None:
             if recovery_errors:
                 return None, recovery_errors
+            ok_recovery_head, recovery_head_text = _git(
+                root, "rev-list", "--parents", "-n", "1", head
+            )
+            recovery_parts = (
+                recovery_head_text.split() if ok_recovery_head else []
+            )
+            if len(recovery_parts) == 3:
+                # A protected-main merge must first re-enter through its exact
+                # reviewed second parent.  That repair head then resolves to
+                # the frozen PR29 main.  Returning PR29 main directly skips
+                # the repair subject and re-enters obsolete G0-T04 history.
+                return recovery_parts[2], []
             return PACKAGE_A_G0_T05_G3_PR29_MAIN, []
         ok_package, package_parents_text = _git(
             root, "rev-list", "--parents", "-n", "1", head

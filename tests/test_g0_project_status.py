@@ -6074,7 +6074,13 @@ def test_package_a_g0_t05_g3_pr29_recovery_and_future_merge_are_canonical(
         merged,
         schema,
         require_canonical_main=True,
-    ) == (VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN, [])
+    ) == (repair, [])
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert result.returncode == 0, result.stdout
 
 
 def test_package_a_g0_t05_g3_pr29_recovery_rejects_ordinary_path(
