@@ -188,6 +188,9 @@ PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN_PARENTS = (
 PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN_TREE = (
     "e08eb6de1c07415316e3ab0895fd58f9c178b322"
 )
+PACKAGE_A_G0_T05_G3_IMPLEMENTATION = (
+    "c63399969aa7c8cd60b8cca8fcf54309f4db7462"
+)
 PACKAGE_A_G0_T05_G3_IMPLEMENTATION_REQUIRED = frozenset(
     {
         "PROJECT_STATUS.yaml",
@@ -3506,7 +3509,14 @@ def _package_a_g0_t05_g3_route_errors(
     if not _is_package_a_g0_t05_g3(status):
         return []
     task = status["active_tasks"][0]
-    if task["state"] in {"in_progress", "awaiting_review"}:
+    lifecycle_states = {
+        "in_progress",
+        "awaiting_review",
+        "accepted_pending_merge",
+        "merged_verified",
+        "closed",
+    }
+    if task["state"] in lifecycle_states:
         errors: list[str] = []
         implementation_main_status = _status_at(
             root, PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
@@ -3558,42 +3568,179 @@ def _package_a_g0_t05_g3_route_errors(
             errors.append(
                 "$: G0-T05 generation-3 implementation-main status drifted"
             )
-        if not _is_ancestor(
-            root, PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN, head
-        ):
-            errors.append(
-                "$: G0-T05 generation-3 implementation is not rooted at exact implementation main"
-            )
-        ok_lineage, lineage_text = _git(
-            root,
-            "rev-list",
-            "--first-parent",
-            f"{PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN}..{head}",
+        ok_head, head_text = _git(
+            root, "rev-list", "--parents", "-n", "1", head
         )
-        lineage = lineage_text.splitlines() if ok_lineage else []
-        if not lineage or lineage[0] != head:
+        head_parts = head_text.split() if ok_head else []
+        evidence = status["evidence"]
+        governed_subject = head
+        merge_subject: str | None = None
+        acceptance_subject: str | None = None
+        if (
+            task["state"] == "accepted_pending_merge"
+            and len(head_parts) == 3
+        ):
+            merge_subject = head
+            acceptance_subject = head_parts[2]
+            governed_subject = acceptance_subject
+        elif task["state"] == "closed" and len(head_parts) == 3:
+            merge_subject = evidence["merged_main"]["commit_sha"]
+            governed_subject = head_parts[2]
+            if head_parts[1] != merge_subject:
+                errors.append(
+                    "$: G0-T05 generation-3 terminal bridge first parent must be exact merged main"
+                )
+            governed_status = _status_at(root, governed_subject)
+            if not _typed_equal(governed_status, status):
+                errors.append(
+                    "$: G0-T05 generation-3 terminal bridge status must equal close record"
+                )
+            ok_terminal_tree, terminal_tree = _git(
+                root, "rev-parse", f"{head}^{{tree}}"
+            )
+            ok_close_tree, close_tree = _git(
+                root, "rev-parse", f"{governed_subject}^{{tree}}"
+            )
+            if (
+                not ok_terminal_tree
+                or not ok_close_tree
+                or terminal_tree != close_tree
+            ):
+                errors.append(
+                    "$: G0-T05 generation-3 terminal bridge tree must equal close record"
+                )
+        elif len(head_parts) != 2:
             errors.append(
-                "$: G0-T05 generation-3 implementation lineage is unavailable"
+                "$: G0-T05 generation-3 lifecycle subject has invalid parent topology"
             )
-        for index, sha in enumerate(lineage):
-            expected_parent = (
-                lineage[index + 1]
-                if index + 1 < len(lineage)
-                else PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
+
+        if task["state"] in {
+            "in_progress",
+            "awaiting_review",
+            "accepted_pending_merge",
+        } and merge_subject is None:
+            if not _is_ancestor(
+                root,
+                PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+                governed_subject,
+            ):
+                errors.append(
+                    "$: G0-T05 generation-3 implementation is not rooted at exact implementation main"
+                )
+            ok_lineage, lineage_text = _git(
+                root,
+                "rev-list",
+                "--first-parent",
+                f"{PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN}.."
+                f"{governed_subject}",
             )
-            ok_sha, sha_line = _git(
-                root, "rev-list", "--parents", "-n", "1", sha
-            )
-            if (sha_line.split() if ok_sha else []) != [
-                sha,
-                expected_parent,
+            lineage = lineage_text.splitlines() if ok_lineage else []
+            if not lineage or lineage[0] != governed_subject:
+                errors.append(
+                    "$: G0-T05 generation-3 implementation lineage is unavailable"
+                )
+            for index, sha in enumerate(lineage):
+                expected_parent = (
+                    lineage[index + 1]
+                    if index + 1 < len(lineage)
+                    else PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
+                )
+                ok_sha, sha_line = _git(
+                    root, "rev-list", "--parents", "-n", "1", sha
+                )
+                if (sha_line.split() if ok_sha else []) != [
+                    sha,
+                    expected_parent,
+                ]:
+                    errors.append(
+                        "$: G0-T05 generation-3 implementation/delivery/acceptance must remain strict single-parent"
+                    )
+                    break
+
+        if task["state"] == "accepted_pending_merge":
+            candidate = evidence["candidate"]["commit_sha"]
+            if merge_subject is None:
+                if len(head_parts) != 2 or head_parts[1] != candidate:
+                    errors.append(
+                        "$: G0-T05 generation-3 acceptance must be the strict child of exact candidate"
+                    )
+            else:
+                ok_merge, merge_text = _git(
+                    root,
+                    "rev-list",
+                    "--parents",
+                    "-n",
+                    "1",
+                    merge_subject,
+                )
+                merge_parts = merge_text.split() if ok_merge else []
+                if merge_parts != [
+                    merge_subject,
+                    PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+                    acceptance_subject,
+                ]:
+                    errors.append(
+                        "$: G0-T05 generation-3 implementation merge ordered parents drifted"
+                    )
+                accepted_status = _status_at(root, acceptance_subject)
+                if not _typed_equal(accepted_status, status):
+                    errors.append(
+                        "$: G0-T05 generation-3 implementation merge status must equal acceptance"
+                    )
+                ok_merge_tree, merge_tree = _git(
+                    root, "rev-parse", f"{merge_subject}^{{tree}}"
+                )
+                ok_acceptance_tree, acceptance_tree = _git(
+                    root, "rev-parse", f"{acceptance_subject}^{{tree}}"
+                )
+                if (
+                    not ok_merge_tree
+                    or not ok_acceptance_tree
+                    or merge_tree != acceptance_tree
+                ):
+                    errors.append(
+                        "$: G0-T05 generation-3 implementation merge tree must equal acceptance"
+                    )
+
+        if task["state"] in {"merged_verified", "closed"}:
+            merge_subject = evidence["merged_main"]["commit_sha"]
+            closure_subject = evidence["closure"]["commit_sha"]
+            ok_merge, merge_text = _git(
+                root,
+                "rev-list",
+                "--parents",
+                "-n",
+                "1",
+                merge_subject,
+            ) if type(merge_subject) is str else (False, "")
+            merge_parts = merge_text.split() if ok_merge else []
+            if merge_parts != [
+                merge_subject,
+                PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+                closure_subject,
             ]:
                 errors.append(
-                    "$: G0-T05 generation-3 implementation/delivery must remain strict single-parent"
+                    "$: G0-T05 generation-3 merged-main topology drifted"
                 )
-                break
+            if task["state"] == "merged_verified":
+                if len(head_parts) != 2 or head_parts[1] != merge_subject:
+                    errors.append(
+                        "$: G0-T05 generation-3 finalization subject must be the strict child of merged main"
+                    )
+            elif len(head_parts) == 2:
+                finalization_subject = evidence["finalization"]["commit_sha"]
+                if (
+                    len(head_parts) != 2
+                    or head_parts[1] != finalization_subject
+                ):
+                    errors.append(
+                        "$: G0-T05 generation-3 close record must be the strict child of finalization subject"
+                    )
+
         changed = _g0_t03_commit_changed_paths(
-            root, PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN, head
+            root,
+            PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+            governed_subject,
         )
         if (
             changed is None
@@ -3627,16 +3774,27 @@ def _package_a_g0_t05_g3_route_errors(
             errors.append(
                 "$: G0-T05 generation-3 implementation authority boundary drifted"
             )
-        expected_transition = (
-            {"from": "authorized", "to": "in_progress"}
-            if task["state"] == "in_progress"
-            else {"from": "in_progress", "to": "awaiting_review"}
-        )
+        expected_transitions = {
+            "in_progress": {"from": "authorized", "to": "in_progress"},
+            "awaiting_review": {
+                "from": "in_progress",
+                "to": "awaiting_review",
+            },
+            "accepted_pending_merge": {
+                "from": "awaiting_review",
+                "to": "accepted_pending_merge",
+            },
+            "merged_verified": {
+                "from": "accepted_pending_merge",
+                "to": "merged_verified",
+            },
+            "closed": {"from": "merged_verified", "to": "closed"},
+        }
+        expected_transition = expected_transitions[task["state"]]
         if task["transition"] != expected_transition:
             errors.append(
                 "$: G0-T05 generation-3 implementation lifecycle drifted"
             )
-        evidence = status["evidence"]
         if task["state"] == "in_progress":
             if (
                 evidence["implementation_sha"] is not None
@@ -3648,10 +3806,10 @@ def _package_a_g0_t05_g3_route_errors(
                 errors.append(
                     "$: G0-T05 generation-3 start must keep implementation evidence pending"
                 )
-        else:
+        elif task["state"] == "awaiting_review":
             implementation = evidence["implementation_sha"]
             if (
-                type(implementation) is not str
+                implementation != PACKAGE_A_G0_T05_G3_IMPLEMENTATION
                 or not _is_ancestor(
                     root,
                     PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
@@ -3666,24 +3824,51 @@ def _package_a_g0_t05_g3_route_errors(
                 errors.append(
                     "$: G0-T05 generation-3 delivery evidence drifted"
                 )
+        else:
+            candidate = evidence["candidate"]["commit_sha"]
+            if (
+                evidence["implementation_sha"]
+                != PACKAGE_A_G0_T05_G3_IMPLEMENTATION
+                or type(candidate) is not str
+                or evidence["candidate"]["ci"]["status"] != "success"
+                or status["review"]
+                != {
+                    "code_security": "approve",
+                    "architecture": "clear",
+                    "reviewed_candidate_sha": candidate,
+                }
+            ):
+                errors.append(
+                    "$: G0-T05 generation-3 accepted lifecycle identity drifted"
+                )
         ok_local_main, local_main = _git(
             root, "rev-parse", "--verify", "refs/heads/main"
         )
         ok_remote_main, remote_main = _git(
             root, "rev-parse", "--verify", "refs/remotes/origin/main"
         )
-        if (
-            require_canonical_main
-            and (
+        if require_canonical_main:
+            expected_main = PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
+            if (
+                task["state"] == "accepted_pending_merge"
+                and merge_subject is not None
+            ):
+                expected_main = head
+            elif task["state"] in {"merged_verified", "closed"}:
+                expected_main = (
+                    head if len(head_parts) == 3 else evidence[
+                        "merged_main"
+                    ]["commit_sha"]
+                )
+            if (
                 not ok_local_main
                 or not ok_remote_main
-                or local_main != PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
-                or remote_main != PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
-            )
-        ):
-            errors.append(
-                "$: G0-T05 generation-3 review requires exact implementation main"
-            )
+                or local_main != expected_main
+                or remote_main != expected_main
+            ):
+                errors.append(
+                    "$: G0-T05 generation-3 lifecycle requires exact local and fetched main"
+                )
         return errors
     main_ci_recovery_head, main_ci_recovery_errors = (
         _package_a_g0_t05_g3_pr29_main_ci_recovery_errors(
@@ -4410,6 +4595,91 @@ def _g0_t04_g4_merge_topology_errors(root: Path, head: str) -> list[str]:
     return errors
 
 
+def _package_a_g0_t05_g3_lifecycle_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str,
+) -> list[str]:
+    """Apply ordinary direct-parent causality without obsolete recovery routes."""
+
+    errors: list[str] = []
+    current_task = status["active_tasks"][0]
+    parent_task = parent["active_tasks"][0]
+    if _typed_equal(parent, status):
+        if current_task["state"] != "in_progress":
+            errors.append(
+                "$: same-status G0-T05 commits are restricted to in-progress implementation work"
+            )
+        return errors
+    immutable = [
+        ("project", status["project"], parent["project"]),
+        (
+            "authoritative_main_ref",
+            status["authoritative_main_ref"],
+            parent["authoritative_main_ref"],
+        ),
+        ("current_gate", status["current_gate"], parent["current_gate"]),
+        ("task_id", current_task["task_id"], parent_task["task_id"]),
+        ("risk", current_task["risk"], parent_task["risk"]),
+        (
+            "authorization_baseline_sha",
+            status["evidence"]["authorization_baseline_sha"],
+            parent["evidence"]["authorization_baseline_sha"],
+        ),
+    ]
+    if (
+        parent.get("transition_ledger") is not None
+        and not _typed_equal(
+            status.get("transition_ledger"),
+            parent.get("transition_ledger"),
+        )
+    ):
+        errors.append(
+            "$.transition_ledger: sealed history identity is immutable"
+        )
+    for label, current, previous in immutable:
+        if not _typed_equal(current, previous):
+            errors.append(
+                f"$: immutable {label} changed from direct first parent"
+            )
+    parent_state = parent_task["state"]
+    if not _typed_equal(
+        current_task["transition"]["from"], parent_state
+    ):
+        errors.append(
+            "$.active_tasks[0].transition.from: must equal direct first parent state"
+        )
+    if not _typed_equal(
+        current_task["candidate_generation"],
+        parent_task["candidate_generation"],
+    ):
+        errors.append(
+            "$.active_tasks[0].candidate_generation: ordinary transition must preserve parent generation"
+        )
+    parent_evidence = parent["evidence"]
+    for phase in ("candidate", "closure", "merged_main", "finalization"):
+        old_sha = parent_evidence[phase].get("commit_sha")
+        new_sha = status["evidence"][phase].get("commit_sha")
+        if old_sha is not None and not _typed_equal(new_sha, old_sha):
+            errors.append(
+                f"$.evidence.{phase}.commit_sha: immutable phase identity changed across direct parent"
+            )
+    old_implementation = parent_evidence.get("implementation_sha")
+    if old_implementation is not None and not _typed_equal(
+        status["evidence"].get("implementation_sha"), old_implementation
+    ):
+        errors.append(
+            "$.evidence.implementation_sha: immutable implementation identity changed across direct parent"
+        )
+    errors.extend(_ci_continuity_errors(status, parent))
+    errors.extend(_maturity_continuity_errors(status, parent))
+    if not _typed_equal(status.get("release"), parent.get("release")):
+        errors.append(
+            "$.release: release identity changed across direct first parent"
+        )
+    return errors
+
+
 def _parent_status_errors(
     status: dict[str, Any],
     parent: dict[str, Any] | None,
@@ -4436,6 +4706,30 @@ def _parent_status_errors(
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
+    if (
+        root is not None
+        and parent_sha is not None
+        and child_sha is not None
+        and _is_package_a_g0_t05_g3(status)
+        and _is_package_a_g0_t05_g3(parent)
+        and current_task["state"]
+        in {
+            "in_progress",
+            "awaiting_review",
+            "accepted_pending_merge",
+            "merged_verified",
+            "closed",
+        }
+        and _is_ancestor(
+            root, PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN, parent_sha
+        )
+        and _is_ancestor(
+            root, PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN, child_sha
+        )
+    ):
+        return _package_a_g0_t05_g3_lifecycle_parent_errors(
+            status, parent, parent_sha
+        )
     package_repair_errors = (
         _package_a_g0_t05_g3_governance_repair_parent_errors(
             status,
@@ -8580,7 +8874,13 @@ def _canonical_g0_merge_bridge(
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
     if _is_package_a_g0_t05_g3(status):
-        if task["state"] in {"in_progress", "awaiting_review"}:
+        if task["state"] in {
+            "in_progress",
+            "awaiting_review",
+            "accepted_pending_merge",
+            "merged_verified",
+            "closed",
+        }:
             implementation_errors = _package_a_g0_t05_g3_route_errors(
                 status,
                 root,
@@ -8589,7 +8889,15 @@ def _canonical_g0_merge_bridge(
             )
             if implementation_errors:
                 return None, implementation_errors
-            return PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN, []
+            ok_lifecycle, lifecycle_text = _git(
+                root, "rev-list", "--parents", "-n", "1", head
+            )
+            lifecycle_parts = (
+                lifecycle_text.split() if ok_lifecycle else []
+            )
+            if len(lifecycle_parts) == 3:
+                return lifecycle_parts[2], []
+            return None, []
         main_ci_recovery_head, main_ci_recovery_errors = (
             _package_a_g0_t05_g3_pr29_main_ci_recovery_errors(
                 status,

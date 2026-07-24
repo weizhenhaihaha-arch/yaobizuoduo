@@ -6448,3 +6448,190 @@ def test_package_a_g0_t05_g3_current_implementation_route_is_exact(
     ) in VALIDATOR._package_a_g0_t05_g3_route_errors(
         status, repo, wrong_root
     )
+
+
+def test_package_a_g0_t05_g3_full_lifecycle_is_reachable(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "g0-t05-g3-full-lifecycle"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    for relative in (
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        shutil.copy2(ROOT / relative, repo / relative)
+    commit(repo, "complete G0-T05 generation 3 lifecycle route")
+
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text())
+    status["active_tasks"][0].update(
+        state="awaiting_review",
+        transition={"from": "in_progress", "to": "awaiting_review"},
+    )
+    status["evidence"]["implementation_sha"] = (
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION
+    )
+    status["evidence"]["candidate"]["local_verification"]["status"] = (
+        "success"
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    candidate = commit(repo, "deliver G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, candidate
+    ) == []
+
+    status["active_tasks"][0].update(
+        state="accepted_pending_merge",
+        transition={
+            "from": "awaiting_review",
+            "to": "accepted_pending_merge",
+        },
+    )
+    status["evidence"]["candidate"]["commit_sha"] = candidate
+    status["evidence"]["candidate"]["ci"] = {
+        "status": "success",
+        "subject_sha": candidate,
+        "run_id": "90000000001",
+        "url": (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+            "actions/runs/90000000001"
+        ),
+    }
+    status["review"] = {
+        "code_security": "approve",
+        "architecture": "clear",
+        "reviewed_candidate_sha": candidate,
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    acceptance = commit(repo, "accept G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, acceptance
+    ) == []
+
+    merge = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{acceptance}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+        "-p",
+        acceptance,
+        "-m",
+        "merge G0-T05 generation 3",
+    )
+    git(repo, "checkout", "--quiet", "--detach", merge)
+    git(repo, "update-ref", "refs/heads/main", merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", merge)
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, merge
+    ) == []
+
+    status["active_tasks"][0].update(
+        state="merged_verified",
+        transition={
+            "from": "accepted_pending_merge",
+            "to": "merged_verified",
+        },
+    )
+    status["evidence"]["closure"] = {
+        "commit_sha": acceptance,
+        "ci": {
+            "status": "success",
+            "subject_sha": acceptance,
+            "run_id": "90000000002",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/90000000002"
+            ),
+        },
+    }
+    status["evidence"]["merged_main"] = {
+        "commit_sha": merge,
+        "ci": {
+            "status": "success",
+            "subject_sha": merge,
+            "run_id": "90000000003",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/90000000003"
+            ),
+        },
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    finalization = commit(repo, "verify merged G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, finalization
+    ) == []
+
+    status["active_tasks"][0].update(
+        state="closed",
+        transition={"from": "merged_verified", "to": "closed"},
+    )
+    status["evidence"]["finalization"] = {
+        "commit_sha": finalization,
+        "d0_ci": {
+            "status": "success",
+            "subject_sha": finalization,
+            "run_id": "90000000004",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/90000000004"
+            ),
+        },
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    close_record = commit(repo, "close G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, close_record
+    ) == []
+
+    terminal = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{close_record}^{{tree}}"),
+        "-p",
+        merge,
+        "-p",
+        close_record,
+        "-m",
+        "terminal G0-T05 generation 3",
+    )
+    git(repo, "checkout", "--quiet", "--detach", terminal)
+    git(repo, "update-ref", "refs/heads/main", terminal)
+    git(repo, "update-ref", "refs/remotes/origin/main", terminal)
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, terminal
+    ) == []
+    schema = json.loads(
+        (repo / "schemas/project_status.schema.json").read_text()
+    )
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, terminal, schema
+    ) == (close_record, [])
