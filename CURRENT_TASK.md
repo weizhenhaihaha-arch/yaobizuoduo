@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `returned`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -71,3 +71,11 @@ the lifecycle. Canonical validation, 113 non-governance Python tests, 13
 focused adversarial governance tests, 10 frontend tests, and the frontend
 production build passed. The delivery candidate is the implicit next committed
 HEAD pending exact PR CI and independent reviews.
+
+The exact generation-3 candidate
+`1b1380774afcd030d2c8841b20fe9c8c6c71827f` passed PR CI run
+`30108655236` and architecture review was `CLEAR`, but code/security returned
+it because the direct-parent validator did not explicitly preserve pending
+review identity during the `in_progress -> awaiting_review` delivery
+transition. The three earlier security blockers remain closed. A next
+generation may repair only this exact transition invariant and its regression.
