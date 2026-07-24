@@ -4980,6 +4980,148 @@ def _g0_t06_workflow_authorization_parent_errors(
     return errors
 
 
+def _g0_t06_workflow_authorization_subject(
+    root: Path,
+    descendant: str,
+) -> str | None:
+    ok, lines = _git(
+        root,
+        "rev-list",
+        "--ancestry-path",
+        "--parents",
+        f"{G0_T06_WORKFLOW_BASE}..{descendant}",
+    )
+    if not ok:
+        return None
+    matches = [
+        parts[0]
+        for line in lines.splitlines()
+        if (parts := line.split())[1:]
+        == [G0_T06_WORKFLOW_BASE, G0_T06_WORKFLOW_PROPOSAL]
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _is_g0_t06_workflow_status(status: dict[str, Any]) -> bool:
+    try:
+        task = status["active_tasks"][0]
+        return (
+            status["current_gate"] == "G0"
+            and task["task_id"] == "G0-T06"
+            and task["risk"] == "D0"
+            and type(task["candidate_generation"]) is int
+            and task["candidate_generation"] >= 1
+            and status["evidence"]["authorization_baseline_sha"]
+            == G0_T06_WORKFLOW_BASE
+            and status["next_authorization"]
+            == {
+                "gate": "G1",
+                "task_id": "G1-T01",
+                "state": "not_authorized",
+            }
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _g0_t06_workflow_lifecycle_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    current_task = status["active_tasks"][0]
+    parent_task = parent["active_tasks"][0]
+    if _typed_equal(parent, status):
+        if current_task["state"] != "in_progress":
+            errors.append(
+                "$: same-status G0-T06 commits are restricted to in-progress implementation work"
+            )
+        return errors
+    immutable = [
+        ("project", status["project"], parent["project"]),
+        (
+            "authoritative_main_ref",
+            status["authoritative_main_ref"],
+            parent["authoritative_main_ref"],
+        ),
+        ("current_gate", status["current_gate"], parent["current_gate"]),
+        ("task_id", current_task["task_id"], parent_task["task_id"]),
+        ("risk", current_task["risk"], parent_task["risk"]),
+        (
+            "authorization_baseline_sha",
+            status["evidence"]["authorization_baseline_sha"],
+            parent["evidence"]["authorization_baseline_sha"],
+        ),
+    ]
+    if (
+        parent.get("transition_ledger") is not None
+        and not _typed_equal(
+            status.get("transition_ledger"),
+            parent.get("transition_ledger"),
+        )
+    ):
+        errors.append(
+            "$.transition_ledger: sealed history identity is immutable"
+        )
+    for label, current, previous in immutable:
+        if not _typed_equal(current, previous):
+            errors.append(
+                f"$: immutable {label} changed from direct first parent"
+            )
+    parent_state = parent_task["state"]
+    if current_task["transition"]["from"] != parent_state:
+        errors.append(
+            "$.active_tasks[0].transition.from: must equal direct first parent state"
+        )
+    returned_repair = (
+        parent_state == "returned"
+        and current_task["state"] == "in_progress"
+    )
+    if returned_repair:
+        if (
+            current_task["candidate_generation"]
+            != parent_task["candidate_generation"] + 1
+        ):
+            errors.append(
+                "$.active_tasks[0].candidate_generation: returned repair must be exactly parent generation plus one"
+            )
+        if not _cleared_handoff(status):
+            errors.append(
+                "$: returned G0-T06 repair must atomically clear prior evidence, review, CI and blockers"
+            )
+    else:
+        if (
+            current_task["candidate_generation"]
+            != parent_task["candidate_generation"]
+        ):
+            errors.append(
+                "$.active_tasks[0].candidate_generation: ordinary transition must preserve parent generation"
+            )
+        parent_evidence = parent["evidence"]
+        for phase in ("candidate", "closure", "merged_main", "finalization"):
+            old_sha = parent_evidence[phase].get("commit_sha")
+            new_sha = status["evidence"][phase].get("commit_sha")
+            if old_sha is not None and not _typed_equal(new_sha, old_sha):
+                errors.append(
+                    f"$.evidence.{phase}.commit_sha: immutable phase identity changed across direct parent"
+                )
+        old_implementation = parent_evidence.get("implementation_sha")
+        if old_implementation is not None and not _typed_equal(
+            status["evidence"].get("implementation_sha"),
+            old_implementation,
+        ):
+            errors.append(
+                "$.evidence.implementation_sha: immutable implementation identity changed across direct parent"
+            )
+        errors.extend(_ci_continuity_errors(status, parent))
+    errors.extend(_maturity_continuity_errors(status, parent))
+    if status.get("release") != parent.get("release"):
+        errors.append(
+            "$.release: release identity changed across direct first parent"
+        )
+    return errors
+
+
 def _parent_status_errors(
     status: dict[str, Any],
     parent: dict[str, Any] | None,
@@ -5006,6 +5148,35 @@ def _parent_status_errors(
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
+    if (
+        root is not None
+        and child_sha is not None
+        and parent_sha is not None
+        and _is_g0_t06_workflow_status(status)
+        and _is_g0_t06_workflow_status(parent)
+        and current_task["state"]
+        in {
+            "in_progress",
+            "awaiting_review",
+            "returned",
+            "accepted_pending_merge",
+            "merged_verified",
+            "closed",
+        }
+    ):
+        authorization = _g0_t06_workflow_authorization_subject(
+            root,
+            child_sha,
+        )
+        if (
+            authorization is not None
+            and _is_ancestor(root, authorization, parent_sha)
+            and _is_ancestor(root, authorization, child_sha)
+        ):
+            return _g0_t06_workflow_lifecycle_parent_errors(
+                status,
+                parent,
+            )
     workflow_authorization_errors = (
         _g0_t06_workflow_authorization_parent_errors(
             status,

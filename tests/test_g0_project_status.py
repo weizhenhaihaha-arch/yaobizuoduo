@@ -6822,3 +6822,47 @@ def test_g0_t06_workflow_authorization_wrong_topology_fails() -> None:
     )
     assert errors is not None
     assert any("ordered parents" in error for error in errors)
+
+
+def test_g0_t06_lifecycle_is_not_reinterpreted_as_old_g0_t04_repair() -> None:
+    candidate = git(ROOT, "rev-parse", "HEAD")
+    parent = git(ROOT, "rev-parse", "HEAD^")
+    status = VALIDATOR._status_at(ROOT, candidate)
+    parent_status = VALIDATOR._status_at(ROOT, parent)
+    assert type(status) is dict
+    assert type(parent_status) is dict
+    assert VALIDATOR._g0_t04_anomaly_post_merge_repair_parent_errors(
+        status,
+        parent_status,
+        parent,
+        ROOT,
+        candidate,
+        require_current_main=False,
+    ) == ["$: G0-T04 post-merge repair must preserve exact blocked status"]
+    assert VALIDATOR._parent_status_errors(
+        status,
+        parent_status,
+        parent,
+        ROOT,
+        candidate,
+        require_current_main=False,
+    ) == []
+
+
+def test_g0_t06_lifecycle_immutable_boundary_fails_closed() -> None:
+    candidate = git(ROOT, "rev-parse", "HEAD")
+    parent = git(ROOT, "rev-parse", "HEAD^")
+    status = copy.deepcopy(VALIDATOR._status_at(ROOT, candidate))
+    parent_status = VALIDATOR._status_at(ROOT, parent)
+    assert type(status) is dict
+    assert type(parent_status) is dict
+    status["review"]["code_security"] = "approve"
+    errors = VALIDATOR._parent_status_errors(
+        status,
+        parent_status,
+        parent,
+        ROOT,
+        candidate,
+        require_current_main=False,
+    )
+    assert any("atomically clear prior evidence" in error for error in errors)
