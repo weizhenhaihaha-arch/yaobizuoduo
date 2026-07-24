@@ -1,0 +1,86 @@
+{
+  "schema_version": "g0-t05-pr29-main-drift-reconciliation.v1",
+  "project": "yaobizuoduo",
+  "task_id": "G0-T05",
+  "candidate_generation": 3,
+  "purpose": "pr29_empty_review_main_drift_reconciliation",
+  "pr29": {
+    "number": 29,
+    "base_sha": "dcb942a80a91312fad12d90b5e362cbdd0611017",
+    "head_sha": "57e74829431b2396cd32ee4d99e5271b81b2e5a2",
+    "merge_sha": "5f0ee4721bdd5baa89a9711ed740f751dcda00ef",
+    "ordered_parents": [
+      "dcb942a80a91312fad12d90b5e362cbdd0611017",
+      "57e74829431b2396cd32ee4d99e5271b81b2e5a2"
+    ],
+    "tree_sha": "02f0c6025c9ec2544f4ccff3d1212e4fd431a186",
+    "reviews": {
+      "state": "empty",
+      "count": 0,
+      "items": []
+    },
+    "pull_request_ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "pull_request",
+      "check": "G0 / exact-head",
+      "subject_sha": "57e74829431b2396cd32ee4d99e5271b81b2e5a2",
+      "run_id": "30060843298",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30060843298",
+      "status": "completed",
+      "conclusion": "success",
+      "authority": "anomaly_history_only"
+    },
+    "main_ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "push",
+      "ref": "refs/heads/main",
+      "check": "G0 / exact-head",
+      "subject_sha": "5f0ee4721bdd5baa89a9711ed740f751dcda00ef",
+      "run_id": "30060875943",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30060875943",
+      "status": "completed",
+      "conclusion": "success",
+      "authority": "anomaly_history_only"
+    }
+  },
+  "pr30": {
+    "number": 30,
+    "base_sha": "5f0ee4721bdd5baa89a9711ed740f751dcda00ef",
+    "head_sha": "4d5e6e682f9613dbd249d660ff4ce383230e5ab1",
+    "lineage": [
+      "05de8b08529bac32967db2ac0c8342cc005593de",
+      "fbfa7c6b2f946282c0b6a4db12089d4d2ee50f58",
+      "53ffe4e4e101d5740b3f640d9e407719485a51fb",
+      "4d5e6e682f9613dbd249d660ff4ce383230e5ab1"
+    ],
+    "state_at_seal": "open",
+    "reviews": {
+      "state": "empty",
+      "count": 0,
+      "items": []
+    },
+    "pull_request_ci": {
+      "repository": "weizhenhaihaha-arch/yaobizuoduo",
+      "event": "pull_request",
+      "check": "G0 / exact-head",
+      "subject_sha": "4d5e6e682f9613dbd249d660ff4ce383230e5ab1",
+      "run_id": "30062597947",
+      "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30062597947",
+      "status": "completed",
+      "conclusion": "success",
+      "authority": "non_authoritative_stopped_history"
+    },
+    "disposition": {
+      "authority": "non_authoritative_stopped_history",
+      "merge_authorized": false,
+      "reuse_authorized": false,
+      "history_rewrite_authorized": false
+    }
+  },
+  "scope": {
+    "g0_t05_implementation_authorized": false,
+    "g1_or_later_authorized": false,
+    "market_credentials_trading_ruleset_deploy_release_authorized": false
+  },
+  "payload_sha256": "70f03d8f593ef7408dedc2fe74ad78e66184c5e84a4abec3f634adcd8f09cf50"
+}

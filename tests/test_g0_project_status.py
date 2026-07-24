@@ -6018,6 +6018,7 @@ def make_package_a_g0_t05_g3_pr29_recovery(
     )
     for relative in (
         "PROJECT_MEMORY.md",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH,
         "scripts/validate_project_status.py",
         "tests/test_g0_project_status.py",
     ):
@@ -6090,4 +6091,55 @@ def test_package_a_g0_t05_g3_pr29_recovery_rejects_ordinary_path(
         require_canonical_main=True,
     )
     assert errors is not None
-    assert "$: PR29 recovery exact three-path scope drifted" in errors
+    assert "$: PR29 recovery exact four-path scope drifted" in errors
+
+
+def test_package_a_g0_t05_g3_pr29_recovery_rejects_receipt_substitution(
+    tmp_path: Path,
+) -> None:
+    repo, _, _ = make_package_a_g0_t05_g3_pr29_recovery(tmp_path)
+    receipt_path = repo / VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["pr29"]["reviews"]["count"] = 1
+    write_digest_json(receipt_path, receipt)
+    substituted = commit(repo, "substitute frozen PR29 empty-review evidence")
+    status = VALIDATOR._status_at(repo, substituted)
+    assert status is not None
+    errors = VALIDATOR._package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        repo,
+        substituted,
+        require_canonical_main=True,
+    )
+    assert errors is not None
+    assert (
+        "$: PR29 reconciliation receipt bytes or immutable evidence drifted"
+        in errors
+    )
+
+
+def test_package_a_g0_t05_g3_pr29_recovery_rejects_pr30_import(
+    tmp_path: Path,
+) -> None:
+    repo, status, repair = make_package_a_g0_t05_g3_pr29_recovery(tmp_path)
+    imported = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{repair}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+        "-m",
+        "import stopped PR30 implementation history",
+    )
+    errors = VALIDATOR._package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        repo,
+        imported,
+        require_canonical_main=True,
+    )
+    assert errors is not None
+    assert (
+        "$: PR30 stopped implementation history must not enter "
+        "the PR29 recovery lineage"
+        in errors
+    )

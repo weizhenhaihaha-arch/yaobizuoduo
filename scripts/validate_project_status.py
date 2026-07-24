@@ -184,9 +184,19 @@ PACKAGE_A_G0_T05_G3_PR29_MAIN = (
 PACKAGE_A_G0_T05_G3_PR29_HEAD = (
     "57e74829431b2396cd32ee4d99e5271b81b2e5a2"
 )
+PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH = (
+    "evidence/g0-t05/pr29-main-drift-reconciliation.json"
+)
+PACKAGE_A_G0_T05_G3_PR30_LINEAGE = (
+    "05de8b08529bac32967db2ac0c8342cc005593de",
+    "fbfa7c6b2f946282c0b6a4db12089d4d2ee50f58",
+    "53ffe4e4e101d5740b3f640d9e407719485a51fb",
+    "4d5e6e682f9613dbd249d660ff4ce383230e5ab1",
+)
 PACKAGE_A_G0_T05_G3_PR29_REPAIR_PATHS = frozenset(
     {
         "PROJECT_MEMORY.md",
+        PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH,
         "scripts/validate_project_status.py",
         "tests/test_g0_project_status.py",
     }
@@ -3411,6 +3421,135 @@ def _package_a_g0_t05_g3_route_errors(
     return ["$: Package A generation-3 authorization route parent topology drifted"]
 
 
+def _package_a_g0_t05_g3_pr29_receipt() -> dict[str, Any]:
+    receipt: dict[str, Any] = {
+        "schema_version": "g0-t05-pr29-main-drift-reconciliation.v1",
+        "project": "yaobizuoduo",
+        "task_id": "G0-T05",
+        "candidate_generation": 3,
+        "purpose": "pr29_empty_review_main_drift_reconciliation",
+        "pr29": {
+            "number": 29,
+            "base_sha": PACKAGE_A_REACTIVATION_BASE,
+            "head_sha": PACKAGE_A_G0_T05_G3_PR29_HEAD,
+            "merge_sha": PACKAGE_A_G0_T05_G3_PR29_MAIN,
+            "ordered_parents": [
+                PACKAGE_A_REACTIVATION_BASE,
+                PACKAGE_A_G0_T05_G3_PR29_HEAD,
+            ],
+            "tree_sha": "02f0c6025c9ec2544f4ccff3d1212e4fd431a186",
+            "reviews": {"state": "empty", "count": 0, "items": []},
+            "pull_request_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "pull_request",
+                "check": "G0 / exact-head",
+                "subject_sha": PACKAGE_A_G0_T05_G3_PR29_HEAD,
+                "run_id": "30060843298",
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    "actions/runs/30060843298"
+                ),
+                "status": "completed",
+                "conclusion": "success",
+                "authority": "anomaly_history_only",
+            },
+            "main_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "push",
+                "ref": "refs/heads/main",
+                "check": "G0 / exact-head",
+                "subject_sha": PACKAGE_A_G0_T05_G3_PR29_MAIN,
+                "run_id": "30060875943",
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    "actions/runs/30060875943"
+                ),
+                "status": "completed",
+                "conclusion": "success",
+                "authority": "anomaly_history_only",
+            },
+        },
+        "pr30": {
+            "number": 30,
+            "base_sha": PACKAGE_A_G0_T05_G3_PR29_MAIN,
+            "head_sha": PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+            "lineage": list(PACKAGE_A_G0_T05_G3_PR30_LINEAGE),
+            "state_at_seal": "open",
+            "reviews": {"state": "empty", "count": 0, "items": []},
+            "pull_request_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "pull_request",
+                "check": "G0 / exact-head",
+                "subject_sha": PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+                "run_id": "30062597947",
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    "actions/runs/30062597947"
+                ),
+                "status": "completed",
+                "conclusion": "success",
+                "authority": "non_authoritative_stopped_history",
+            },
+            "disposition": {
+                "authority": "non_authoritative_stopped_history",
+                "merge_authorized": False,
+                "reuse_authorized": False,
+                "history_rewrite_authorized": False,
+            },
+        },
+        "scope": {
+            "g0_t05_implementation_authorized": False,
+            "g1_or_later_authorized": False,
+            "market_credentials_trading_ruleset_deploy_release_authorized": False,
+        },
+    }
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
+
+
+def _package_a_g0_t05_g3_pr29_receipt_errors(
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    ok_entry, entry = _git(
+        root,
+        "ls-tree",
+        subject_sha,
+        "--",
+        PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH,
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if len(fields) != 4 or fields[0] != "100644" or fields[1] != "blob":
+        return ["$: PR29 reconciliation receipt must be an exact committed 100644 blob"]
+    ok_bytes, actual = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH}",
+    )
+    expected = (
+        json.dumps(
+            _package_a_g0_t05_g3_pr29_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    if not ok_bytes or actual != expected:
+        return ["$: PR29 reconciliation receipt bytes or immutable evidence drifted"]
+    ok_prior, _ = _git(
+        root,
+        "cat-file",
+        "-e",
+        (
+            f"{PACKAGE_A_G0_T05_G3_PR29_MAIN}:"
+            f"{PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH}"
+        ),
+    )
+    if ok_prior:
+        return ["$: PR29 reconciliation receipt must be created only by recovery"]
+    return []
+
+
 def _package_a_g0_t05_g3_pr29_recovery_errors(
     status: dict[str, Any],
     root: Path,
@@ -3478,6 +3617,16 @@ def _package_a_g0_t05_g3_pr29_recovery_errors(
         or main_tree != frozen_head_tree
     ):
         errors.append("$: PR29 frozen main tree must equal frozen PR head")
+    errors.extend(
+        _package_a_g0_t05_g3_pr29_receipt_errors(root, repair_head)
+    )
+    for forbidden_sha in PACKAGE_A_G0_T05_G3_PR30_LINEAGE:
+        if _is_ancestor(root, forbidden_sha, repair_head):
+            errors.append(
+                "$: PR30 stopped implementation history must not enter "
+                "the PR29 recovery lineage"
+            )
+            break
     frozen_status = _status_at(root, PACKAGE_A_G0_T05_G3_PR29_MAIN)
     if type(frozen_status) is not dict or not _typed_equal(
         status, frozen_status
@@ -3515,7 +3664,7 @@ def _package_a_g0_t05_g3_pr29_recovery_errors(
         root, PACKAGE_A_G0_T05_G3_PR29_MAIN, repair_head
     )
     if changed != PACKAGE_A_G0_T05_G3_PR29_REPAIR_PATHS:
-        errors.append("$: PR29 recovery exact three-path scope drifted")
+        errors.append("$: PR29 recovery exact four-path scope drifted")
 
     if is_merge:
         if head_parts[1:] != [
