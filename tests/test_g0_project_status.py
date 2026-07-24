@@ -5957,3 +5957,73 @@ def test_package_a_g0_t05_g3_future_merge_passes_full_validator(
         schema_path=repo / "schemas/project_status.schema.json",
     )
     assert result.returncode == 0, result.stdout
+
+
+def test_package_a_g0_t05_g3_implementation_route_requires_activation_main(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "g0-t05-g3-implementation"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN,
+    )
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text())
+    status["active_tasks"][0].update(
+        state="in_progress",
+        transition={"from": "authorized", "to": "in_progress"},
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    for relative in (
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        source = ROOT / relative
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    implementation = commit(repo, "start G0-T05 generation 3 implementation")
+    errors = VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, implementation
+    )
+    assert errors == []
+
+    wrong_tree = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{implementation}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+        "-m",
+        "wrong-root implementation",
+    )
+    assert "not rooted at activation main" in "\n".join(
+        VALIDATOR._package_a_g0_t05_g3_route_errors(status, repo, wrong_tree)
+    )

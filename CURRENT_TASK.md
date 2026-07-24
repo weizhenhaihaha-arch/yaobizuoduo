@@ -3,13 +3,14 @@
 - Task ID: `G0-T05`
 - Gate: G0
 - Risk: `D0`
-- Status: `authorized`
+- Status: `awaiting_review`
 - Baseline: `dcb942a80a91312fad12d90b5e362cbdd0611017`
 
-## Authorization-only boundary
+## Implementation boundary
 
-This record authorizes only Package A G0-T05 generation 3 governance. G0-T05
-implementation has not started.
+The product owner has separately started Package A G0-T05 generation 3
+implementation after the authorization activation merged as authoritative main
+`5f0ee4721bdd5baa89a9711ed740f751dcda00ef`.
 
 Terminal N has ordered parents
 `[1419f7c77ff102fd68eb9583f5ec5c3b196ae4be,
@@ -41,11 +42,16 @@ The frozen Package A identities are:
 - `scripts/validate_project_status.py`
 - `tests/test_g0_project_status.py`
 
-## Stop boundary
+## Delivery and stop boundary
 
-The authorization candidate must be the strict direct child of N. During
-review, local main and origin/main remain N. A future protected-main merge is
-valid only as `[N, accepted-authorization]` with the second-parent tree.
-G0-T05 implementation, G1-T01, workflow/ruleset mutation, product code,
-network, credentials, trading, deployment, release, and system modification
-remain forbidden.
+Implementation `05de8b08529bac32967db2ac0c8342cc005593de` and delivery
+must remain a strict single-parent lineage from
+the activation main. The cumulative changed paths must stay inside the frozen
+seven-path allowlist, while the activation receipt, manifest/schema blobs,
+ruleset identity, Package order, capability ceiling, and existing history stay
+unchanged.
+
+This delivery stops at `awaiting_review` until exact-head CI and independent
+code/security `APPROVE` plus architecture/route `CLEAR`. G1-T01,
+workflow/ruleset mutation, product code, network, credentials, trading,
+deployment, release, and system modification remain forbidden.

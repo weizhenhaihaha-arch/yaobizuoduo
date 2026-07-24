@@ -178,6 +178,22 @@ PACKAGE_A_G0_T05_G3_ALLOWED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+PACKAGE_A_G0_T05_G3_AUTHORIZATION = (
+    "57e74829431b2396cd32ee4d99e5271b81b2e5a2"
+)
+PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN = (
+    "5f0ee4721bdd5baa89a9711ed740f751dcda00ef"
+)
+PACKAGE_A_G0_T05_G3_IMPLEMENTATION_REQUIRED = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 PACKAGE_A_ORDERED_TASKS = ["G0-T05", "G1-T01"]
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_ORIGIN = "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373"
@@ -3358,13 +3374,17 @@ def _package_a_g0_t05_g3_route_errors(
     if not _is_package_a_g0_t05_g3(status):
         return []
     task = status["active_tasks"][0]
-    if task["state"] != "authorized" or task["transition"] != {"from": "closed", "to": "authorized"}:
-        return ["$: Package A generation-3 authorization forbids premature implementation or lifecycle drift"]
     ok, parents_text = _git(root, "rev-list", "--parents", "-n", "1", head)
     parts = parents_text.split() if ok else []
-    if len(parts) == 2:
+    if task["state"] == "authorized" and task["transition"] == {
+        "from": "closed",
+        "to": "authorized",
+    } and len(parts) == 2:
         return _package_a_g0_t05_g3_authorization_errors(status, root, head, require_current_main=True)
-    if len(parts) == 3:
+    if task["state"] == "authorized" and task["transition"] == {
+        "from": "closed",
+        "to": "authorized",
+    } and len(parts) == 3:
         first, candidate = parts[1], parts[2]
         errors: list[str] = []
         candidate_status = _status_at(root, candidate)
@@ -3383,7 +3403,129 @@ def _package_a_g0_t05_g3_route_errors(
         if not ok_main or not ok_remote or main != head or remote != head:
             errors.append("$: Package A generation-3 protected merge requires exact local and fetched main")
         return errors
-    return ["$: Package A generation-3 authorization route parent topology drifted"]
+    if task["state"] in {"in_progress", "awaiting_review"}:
+        errors: list[str] = []
+        activation_status = _status_at(root, PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN)
+        ok_activation, activation_line = _git(
+            root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN,
+        )
+        ok_activation_tree, activation_tree = _git(
+            root, "rev-parse", f"{PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN}^{{tree}}"
+        )
+        ok_authorization_tree, authorization_tree = _git(
+            root, "rev-parse", f"{PACKAGE_A_G0_T05_G3_AUTHORIZATION}^{{tree}}"
+        )
+        if (activation_line.split() if ok_activation else []) != [
+            PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN,
+            PACKAGE_A_REACTIVATION_BASE,
+            PACKAGE_A_G0_T05_G3_AUTHORIZATION,
+        ]:
+            errors.append("$: G0-T05 generation-3 activation-main parent identity drifted")
+        if (
+            not ok_activation_tree
+            or not ok_authorization_tree
+            or activation_tree != authorization_tree
+        ):
+            errors.append("$: G0-T05 generation-3 activation-main tree drifted")
+        if (
+            type(activation_status) is not dict
+            or activation_status["active_tasks"][0]["state"] != "authorized"
+            or activation_status["active_tasks"][0]["candidate_generation"] != 3
+        ):
+            errors.append("$: G0-T05 generation-3 activation-main status drifted")
+        ok_lineage, lineage_text = _git(
+            root,
+            "rev-list",
+            "--first-parent",
+            f"{PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN}..{head}",
+        )
+        lineage = lineage_text.splitlines() if ok_lineage else []
+        if (
+            not _is_ancestor(
+                root, PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN, head
+            )
+            or not lineage
+            or lineage[0] != head
+        ):
+            errors.append("$: G0-T05 generation-3 implementation is not rooted at activation main")
+        for index, sha in enumerate(lineage):
+            expected_parent = (
+                lineage[index + 1]
+                if index + 1 < len(lineage)
+                else PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN
+            )
+            ok_sha, sha_line = _git(root, "rev-list", "--parents", "-n", "1", sha)
+            if (sha_line.split() if ok_sha else []) != [sha, expected_parent]:
+                errors.append("$: G0-T05 generation-3 implementation/delivery must remain strict single-parent")
+                break
+        changed = _g0_t03_commit_changed_paths(
+            root, PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN, head
+        )
+        if (
+            changed is None
+            or not PACKAGE_A_G0_T05_G3_IMPLEMENTATION_REQUIRED.issubset(changed)
+            or not changed.issubset(PACKAGE_A_G0_T05_G3_ALLOWED)
+        ):
+            errors.append("$: G0-T05 generation-3 implementation cumulative allowlist drifted")
+        if (
+            task["candidate_generation"] != 3
+            or status["evidence"]["authorization_baseline_sha"]
+            != PACKAGE_A_REACTIVATION_BASE
+            or status["next_authorization"]
+            != {"gate": "G1", "task_id": "G1-T01", "state": "not_authorized"}
+            or status["capability"]["maturity"] != "OFFLINE_EVIDENCE_ACCEPTED"
+            or status["release"]
+            != {"product_owner_approval": None, "release_manifest": None}
+        ):
+            errors.append("$: G0-T05 generation-3 implementation authority boundary drifted")
+        expected_transition = (
+            {"from": "authorized", "to": "in_progress"}
+            if task["state"] == "in_progress"
+            else {"from": "in_progress", "to": "awaiting_review"}
+        )
+        if task["transition"] != expected_transition:
+            errors.append("$: G0-T05 generation-3 implementation lifecycle drifted")
+        evidence = status["evidence"]
+        if task["state"] == "in_progress":
+            if (
+                evidence["implementation_sha"] is not None
+                or evidence["candidate"]["commit_sha"] is not None
+                or evidence["candidate"]["local_verification"]["status"] != "pending"
+            ):
+                errors.append("$: G0-T05 generation-3 start must keep implementation evidence pending")
+        else:
+            implementation = evidence["implementation_sha"]
+            if (
+                type(implementation) is not str
+                or not _is_ancestor(
+                    root,
+                    PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN,
+                    implementation,
+                )
+                or not _is_ancestor(root, implementation, head)
+                or evidence["candidate"]["commit_sha"] is not None
+                or evidence["candidate"]["local_verification"]["status"] != "success"
+                or evidence["candidate"]["ci"]["status"] != "not_run"
+            ):
+                errors.append("$: G0-T05 generation-3 delivery evidence drifted")
+        ok_main, main = _git(root, "rev-parse", "--verify", "refs/heads/main")
+        ok_remote, remote = _git(
+            root, "rev-parse", "--verify", "refs/remotes/origin/main"
+        )
+        if (
+            not ok_main
+            or not ok_remote
+            or main != PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN
+            or remote != PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN
+        ):
+            errors.append("$: G0-T05 generation-3 review requires exact activation main")
+        return errors
+    return ["$: Package A generation-3 route forbids unsupported lifecycle drift"]
 
 
 def _g0_t04_g4_canonical_lineage_errors(root: Path, governed_head: str) -> list[str]:
@@ -7647,7 +7789,12 @@ def _canonical_g0_merge_bridge(
             )
             if package_errors:
                 return None, package_errors
-            return PACKAGE_A_REACTIVATION_BASE, []
+            task_state = status["active_tasks"][0]["state"]
+            return (
+                PACKAGE_A_REACTIVATION_BASE
+                if task_state == "authorized"
+                else PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN
+            ), []
     if (
         _is_g0_t04_g4_status(status)
         and task["state"] == "closed"
