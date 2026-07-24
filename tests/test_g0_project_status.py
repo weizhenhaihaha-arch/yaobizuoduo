@@ -6743,21 +6743,57 @@ def _g0_t06_workflow_authorization_sha() -> str:
     raise AssertionError("G0-T06 workflow authorization merge is absent")
 
 
-def test_g0_t06_workflow_authorization_receipt_is_exact() -> None:
-    receipt = json.loads(
+def test_g0_t06_workflow_receipts_are_exact() -> None:
+    lifecycle_receipt = json.loads(
         (ROOT / VALIDATOR.G0_T06_WORKFLOW_RECEIPT_PATH).read_text(
             encoding="utf-8"
         )
     )
-    assert receipt == VALIDATOR._g0_t06_workflow_authorization_receipt()
-    assert receipt["proposal_pr"] == 35
-    assert receipt["proposal_head_sha"] == VALIDATOR.G0_T06_WORKFLOW_PROPOSAL
-    assert receipt["proposal_failed_ci_run_id"] == "30105873742"
-    assert receipt["next_authorization"] == {
+    assert (
+        lifecycle_receipt
+        == VALIDATOR._g0_t06_workflow_lifecycle_receipt()
+    )
+    proposal = lifecycle_receipt["proposal"]
+    assert proposal == {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "number": 35,
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/pull/35",
+        "state": "CLOSED",
+        "is_draft": True,
+        "merged": False,
+        "merged_at": None,
+        "base_sha": VALIDATOR.G0_T06_WORKFLOW_BASE,
+        "head_sha": VALIDATOR.G0_T06_WORKFLOW_PROPOSAL,
+        "reviews": {"state": "empty", "count": 0, "items": []},
+    }
+    assert lifecycle_receipt["failed_ci"] == {
+        "repository": "weizhenhaihaha-arch/yaobizuoduo",
+        "event": "pull_request",
+        "workflow": "G0 exact-head CI",
+        "check": "G0 / exact-head",
+        "subject_sha": VALIDATOR.G0_T06_WORKFLOW_PROPOSAL,
+        "run_id": "30105873742",
+        "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30105873742",
+        "status": "completed",
+        "conclusion": "failure",
+    }
+    assert lifecycle_receipt["next_authorization"] == {
         "gate": "G1",
         "task_id": "G1-T01",
         "state": "not_authorized",
     }
+    authorization = _g0_t06_workflow_authorization_sha()
+    authorization_receipt = json.loads(
+        git(
+            ROOT,
+            "show",
+            f"{authorization}:{VALIDATOR.G0_T06_WORKFLOW_RECEIPT_PATH}",
+        )
+    )
+    assert (
+        authorization_receipt
+        == VALIDATOR._g0_t06_workflow_authorization_receipt()
+    )
 
 
 def test_g0_t06_workflow_authorization_exact_route_passes() -> None:
@@ -6866,3 +6902,92 @@ def test_g0_t06_lifecycle_immutable_boundary_fails_closed() -> None:
         require_current_main=False,
     )
     assert any("atomically clear prior evidence" in error for error in errors)
+
+
+def test_g0_t06_lifecycle_exact_route_passes() -> None:
+    subject = git(ROOT, "rev-parse", "HEAD")
+    status = VALIDATOR._status_at(ROOT, subject)
+    assert type(status) is dict
+    assert (
+        VALIDATOR._g0_t06_workflow_lifecycle_route_errors(
+            status,
+            ROOT,
+            subject,
+        )
+        == []
+    )
+
+
+def test_g0_t06_lifecycle_cumulative_allowlist_fails_closed(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    (repo / "product-scope.txt").write_text("forbidden\n", encoding="utf-8")
+    hostile = commit(repo, "hostile product scope")
+    status = VALIDATOR._status_at(repo, hostile)
+    assert type(status) is dict
+    errors = VALIDATOR._g0_t06_workflow_lifecycle_route_errors(
+        status,
+        repo,
+        hostile,
+    )
+    assert any("cumulative changed paths" in error for error in errors)
+    assert any("product-scope.txt" in error for error in errors)
+
+
+@pytest.mark.parametrize(
+    ("path", "diagnostic"),
+    [
+        (
+            VALIDATOR.G0_T06_WORKFLOW_RECEIPT_PATH,
+            "lifecycle receipt bytes or digest drifted",
+        ),
+        (
+            VALIDATOR.G0_T06_WORKFLOW_DOCUMENT,
+            "standards document drifted",
+        ),
+    ],
+)
+def test_g0_t06_lifecycle_immutable_artifacts_fail_closed(
+    tmp_path: Path,
+    path: str,
+    diagnostic: str,
+) -> None:
+    repo = tmp_path / "repo"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    artifact = repo / path
+    artifact.write_text(
+        artifact.read_text(encoding="utf-8") + "\nforged\n",
+        encoding="utf-8",
+    )
+    hostile = commit(repo, f"hostile {Path(path).name}")
+    status = VALIDATOR._status_at(repo, hostile)
+    assert type(status) is dict
+    errors = VALIDATOR._g0_t06_workflow_lifecycle_route_errors(
+        status,
+        repo,
+        hostile,
+    )
+    assert any(diagnostic in error for error in errors)
+
+
+def test_g0_t06_lifecycle_next_authorization_fails_closed() -> None:
+    subject = git(ROOT, "rev-parse", "HEAD")
+    status = copy.deepcopy(VALIDATOR._status_at(ROOT, subject))
+    assert type(status) is dict
+    status["next_authorization"] = {
+        "gate": "G1",
+        "task_id": "G1-T01",
+        "state": "authorized",
+    }
+    errors = VALIDATOR._g0_t06_workflow_lifecycle_route_errors(
+        status,
+        ROOT,
+        subject,
+    )
+    assert any("G1-T01 not_authorized" in error for error in errors)

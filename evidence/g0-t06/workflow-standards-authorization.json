@@ -1,13 +1,10 @@
 {
-  "schema_version": "workflow-standards-authorization.v1",
+  "schema_version": "workflow-standards-authorization.v2",
   "project": "yaobizuoduo",
   "decision": "authorize_governance_activation_and_ingestion",
   "task_id": "G0-T06",
   "risk": "D0",
   "authoritative_base_sha": "af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32",
-  "proposal_pr": 35,
-  "proposal_head_sha": "31c5cbdc89c940fa7c911f5ac1c5beb4fb2fb1e1",
-  "proposal_failed_ci_run_id": "30105873742",
   "standards_path": "docs/OPTIMIZED_PRODUCT_WORKFLOW.md",
   "standards_sha256": "3b61237d7f05d3aa14a85c6be2a2326fdb1afdaf9c1fb1505ebd8b1e82a12ed6",
   "history_policy": "preserve_pr35_head_and_failed_ci",
@@ -33,5 +30,32 @@
     "task_id": "G1-T01",
     "state": "not_authorized"
   },
-  "payload_sha256": "e57fbdc0584483d14dae15eef72675fe3c8163f6c9cef4d14618fa281b6d8c8a"
+  "proposal": {
+    "repository": "weizhenhaihaha-arch/yaobizuoduo",
+    "number": 35,
+    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/pull/35",
+    "state": "CLOSED",
+    "is_draft": true,
+    "merged": false,
+    "merged_at": null,
+    "base_sha": "af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32",
+    "head_sha": "31c5cbdc89c940fa7c911f5ac1c5beb4fb2fb1e1",
+    "reviews": {
+      "state": "empty",
+      "count": 0,
+      "items": []
+    }
+  },
+  "failed_ci": {
+    "repository": "weizhenhaihaha-arch/yaobizuoduo",
+    "event": "pull_request",
+    "workflow": "G0 exact-head CI",
+    "check": "G0 / exact-head",
+    "subject_sha": "31c5cbdc89c940fa7c911f5ac1c5beb4fb2fb1e1",
+    "run_id": "30105873742",
+    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30105873742",
+    "status": "completed",
+    "conclusion": "failure"
+  },
+  "payload_sha256": "a232a975e4772a46cadf18a2fd5c5fde2b14089271c15a1730e1c6702d754fed"
 }

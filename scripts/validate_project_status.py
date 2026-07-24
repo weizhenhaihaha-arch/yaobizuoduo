@@ -189,7 +189,20 @@ G0_T06_WORKFLOW_DOCUMENT_SHA256 = (
 G0_T06_WORKFLOW_RECEIPT_PATH = (
     "evidence/g0-t06/workflow-standards-authorization.json"
 )
-G0_T06_WORKFLOW_RECEIPT_VERSION = "workflow-standards-authorization.v1"
+G0_T06_WORKFLOW_AUTHORIZATION_RECEIPT_VERSION = (
+    "workflow-standards-authorization.v1"
+)
+G0_T06_WORKFLOW_LIFECYCLE_RECEIPT_VERSION = (
+    "workflow-standards-authorization.v2"
+)
+G0_T06_WORKFLOW_REPOSITORY = "weizhenhaihaha-arch/yaobizuoduo"
+G0_T06_WORKFLOW_PROPOSAL_URL = (
+    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/pull/35"
+)
+G0_T06_WORKFLOW_FAILED_RUN_URL = (
+    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/"
+    + G0_T06_WORKFLOW_FAILED_RUN
+)
 G0_T06_WORKFLOW_AUTHORIZATION_ALLOWED = frozenset(
     {
         "PROJECT_STATUS.yaml",
@@ -4735,7 +4748,7 @@ def _package_a_g0_t05_g3_lifecycle_parent_errors(
 
 def _g0_t06_workflow_authorization_receipt() -> dict[str, Any]:
     receipt: dict[str, Any] = {
-        "schema_version": G0_T06_WORKFLOW_RECEIPT_VERSION,
+        "schema_version": G0_T06_WORKFLOW_AUTHORIZATION_RECEIPT_VERSION,
         "project": "yaobizuoduo",
         "decision": "authorize_governance_activation_and_ingestion",
         "task_id": "G0-T06",
@@ -4769,6 +4782,40 @@ def _g0_t06_workflow_authorization_receipt() -> dict[str, Any]:
             "task_id": "G1-T01",
             "state": "not_authorized",
         },
+    }
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
+
+
+def _g0_t06_workflow_lifecycle_receipt() -> dict[str, Any]:
+    receipt = _g0_t06_workflow_authorization_receipt()
+    receipt.pop("payload_sha256")
+    receipt["schema_version"] = G0_T06_WORKFLOW_LIFECYCLE_RECEIPT_VERSION
+    receipt.pop("proposal_pr")
+    receipt.pop("proposal_head_sha")
+    receipt.pop("proposal_failed_ci_run_id")
+    receipt["proposal"] = {
+        "repository": G0_T06_WORKFLOW_REPOSITORY,
+        "number": G0_T06_WORKFLOW_PROPOSAL_PR,
+        "url": G0_T06_WORKFLOW_PROPOSAL_URL,
+        "state": "CLOSED",
+        "is_draft": True,
+        "merged": False,
+        "merged_at": None,
+        "base_sha": G0_T06_WORKFLOW_BASE,
+        "head_sha": G0_T06_WORKFLOW_PROPOSAL,
+        "reviews": {"state": "empty", "count": 0, "items": []},
+    }
+    receipt["failed_ci"] = {
+        "repository": G0_T06_WORKFLOW_REPOSITORY,
+        "event": "pull_request",
+        "workflow": "G0 exact-head CI",
+        "check": "G0 / exact-head",
+        "subject_sha": G0_T06_WORKFLOW_PROPOSAL,
+        "run_id": G0_T06_WORKFLOW_FAILED_RUN,
+        "url": G0_T06_WORKFLOW_FAILED_RUN_URL,
+        "status": "completed",
+        "conclusion": "failure",
     }
     receipt["payload_sha256"] = _payload_digest(receipt)
     return receipt
@@ -4812,6 +4859,47 @@ def _g0_t06_workflow_authorization_receipt_errors(
         []
         if ok_bytes and actual == expected
         else ["$: G0-T06 workflow authorization receipt bytes or digest drifted"]
+    )
+
+
+def _g0_t06_workflow_lifecycle_receipt_errors(
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    ok_entry, entry = _git(
+        root,
+        "ls-tree",
+        subject_sha,
+        "--",
+        G0_T06_WORKFLOW_RECEIPT_PATH,
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != G0_T06_WORKFLOW_RECEIPT_PATH
+    ):
+        return [
+            "$: G0-T06 workflow lifecycle receipt must be an exact committed 100644 blob"
+        ]
+    ok_bytes, actual = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{G0_T06_WORKFLOW_RECEIPT_PATH}",
+    )
+    expected = (
+        json.dumps(
+            _g0_t06_workflow_lifecycle_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    return (
+        []
+        if ok_bytes and actual == expected
+        else ["$: G0-T06 workflow lifecycle receipt bytes or digest drifted"]
     )
 
 
@@ -5119,6 +5207,95 @@ def _g0_t06_workflow_lifecycle_parent_errors(
         errors.append(
             "$.release: release identity changed across direct first parent"
         )
+    return errors
+
+
+def _g0_t06_workflow_lifecycle_route_errors(
+    status: dict[str, Any],
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    try:
+        task = status["active_tasks"][0]
+    except (KeyError, IndexError, TypeError):
+        return []
+    if task.get("task_id") != "G0-T06" or task.get("state") == "authorized":
+        return []
+    errors: list[str] = []
+    if not _is_g0_t06_workflow_status(status):
+        errors.append(
+            "$: G0-T06 workflow lifecycle must preserve exact task, baseline and G1-T01 not_authorized boundary"
+        )
+        return errors
+    if status.get("capability") != {
+        "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+        "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED",
+    }:
+        errors.append(
+            "$: G0-T06 workflow lifecycle cannot change offline capability maturity"
+        )
+    if status.get("release") != {
+        "product_owner_approval": None,
+        "release_manifest": None,
+    }:
+        errors.append(
+            "$: G0-T06 workflow lifecycle cannot authorize deployment or release"
+        )
+    authorization = _g0_t06_workflow_authorization_subject(
+        root,
+        subject_sha,
+    )
+    if authorization is None:
+        errors.append(
+            "$: G0-T06 workflow lifecycle must descend from the unique exact PR35 authorization merge"
+        )
+        return errors
+    ok_parents, parents_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        authorization,
+    )
+    if (parents_text.split() if ok_parents else []) != [
+        authorization,
+        G0_T06_WORKFLOW_BASE,
+        G0_T06_WORKFLOW_PROPOSAL,
+    ]:
+        errors.append(
+            "$: G0-T06 workflow authorization ancestry no longer binds exact base and PR35 proposal"
+        )
+    changed = _g0_t03_commit_changed_paths(
+        root,
+        G0_T06_WORKFLOW_BASE,
+        subject_sha,
+    )
+    outside = sorted(changed - G0_T06_WORKFLOW_AUTHORIZATION_ALLOWED)
+    if outside:
+        errors.append(
+            "$: G0-T06 workflow lifecycle cumulative changed paths exceed exact eight-path allowlist: "
+            + ", ".join(outside)
+        )
+    ok_document, document = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{G0_T06_WORKFLOW_DOCUMENT}",
+    )
+    if (
+        not ok_document
+        or hashlib.sha256(document).hexdigest()
+        != G0_T06_WORKFLOW_DOCUMENT_SHA256
+    ):
+        errors.append(
+            "$: G0-T06 workflow lifecycle standards document drifted from approved PR35 digest"
+        )
+    errors.extend(
+        _g0_t06_workflow_authorization_receipt_errors(root, authorization)
+    )
+    errors.extend(
+        _g0_t06_workflow_lifecycle_receipt_errors(root, subject_sha)
+    )
     return errors
 
 
@@ -9658,6 +9835,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     errors.extend(_package_a_persistence_errors(status, root, head))
     errors.extend(_g0_t04_g4_route_errors(status, root, head))
     errors.extend(_package_a_g0_t05_g3_route_errors(status, root, head))
+    errors.extend(_g0_t06_workflow_lifecycle_route_errors(status, root, head))
     if (
         task["task_id"] == "G0-T04"
         and task["state"] == "awaiting_review"
