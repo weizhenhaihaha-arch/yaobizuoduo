@@ -25,8 +25,8 @@
     {
       "task_id": "G0-T06",
       "risk": "D0",
-      "state": "accepted_pending_merge",
-      "transition": {"from": "awaiting_review", "to": "accepted_pending_merge"},
+      "state": "closed",
+      "transition": {"from": "merged_verified", "to": "closed"},
       "candidate_generation": 4
     }
   ],
@@ -39,16 +39,16 @@
       "ci": {"status": "success", "subject_sha": "cab654c8650ab80333ab0f417c01421d54928a33", "run_id": "30109149237", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30109149237"}
     },
     "closure": {
-      "commit_sha": null,
-      "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "5c6055bf8ff807d383d2c543016bad9560ee2e45",
+      "ci": {"status": "success", "subject_sha": "5c6055bf8ff807d383d2c543016bad9560ee2e45", "run_id": "30126218254", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30126218254"}
     },
     "merged_main": {
-      "commit_sha": null,
-      "ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "a68662eb0d46514953f6e6888d3f3f7a4d9eeee3",
+      "ci": {"status": "success", "subject_sha": "a68662eb0d46514953f6e6888d3f3f7a4d9eeee3", "run_id": "30126273246", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30126273246"}
     },
     "finalization": {
-      "commit_sha": null,
-      "d0_ci": {"status": "not_run", "subject_sha": null, "run_id": null, "url": null}
+      "commit_sha": "e003790cb20de3fa2903f89ee94899ebbf08d0d4",
+      "d0_ci": {"status": "success", "subject_sha": "e003790cb20de3fa2903f89ee94899ebbf08d0d4", "run_id": "30126525598", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30126525598"}
     }
   },
   "review": {
