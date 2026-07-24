@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `returned`
+- Status: `in_progress`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -79,3 +79,5 @@ it because the direct-parent validator did not explicitly preserve pending
 review identity during the `in_progress -> awaiting_review` delivery
 transition. The three earlier security blockers remain closed. A next
 generation may repair only this exact transition invariant and its regression.
+Generation 4 is now the sole active repair; all generation-3 evidence was
+cleared atomically from current state and remains preserved in Git history.
