@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -62,4 +62,12 @@ code/security found that cumulative allowlist, immutable receipt/document,
 next-authorization and complete PR #35 failure identity were not yet enforced
 across every lifecycle state. Architecture is `WATCH` until those exact
 mechanical boundaries are present. Generation 3 is now the sole active repair
-and may change only those exact fail-closed governance boundaries.
+and may change only those exact fail-closed governance boundaries. The bounded
+generation-3 implementation is
+`d295a00dd34470c4f0bf0ded638f28cc92a8e935`: it carries the cumulative
+eight-path allowlist, exact standards and receipt bytes, the unchanged
+`G1-T01 not_authorized` boundary, and full PR #35/failed-CI identity through
+the lifecycle. Canonical validation, 113 non-governance Python tests, 13
+focused adversarial governance tests, 10 frontend tests, and the frontend
+production build passed. The delivery candidate is the implicit next committed
+HEAD pending exact PR CI and independent reviews.
