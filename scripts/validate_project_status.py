@@ -178,6 +178,19 @@ PACKAGE_A_G0_T05_G3_ALLOWED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+PACKAGE_A_G0_T05_G3_PR29_MAIN = (
+    "5f0ee4721bdd5baa89a9711ed740f751dcda00ef"
+)
+PACKAGE_A_G0_T05_G3_PR29_HEAD = (
+    "57e74829431b2396cd32ee4d99e5271b81b2e5a2"
+)
+PACKAGE_A_G0_T05_G3_PR29_REPAIR_PATHS = frozenset(
+    {
+        "PROJECT_MEMORY.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 PACKAGE_A_ORDERED_TASKS = ["G0-T05", "G1-T01"]
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_ORIGIN = "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373"
@@ -3239,6 +3252,10 @@ def _is_package_a_g0_t05_g3(status: dict[str, Any]) -> bool:
         return (
             status["current_gate"] == "G0"
             and task["task_id"] == "G0-T05"
+            and task["risk"] == "D0"
+            and task["candidate_generation"] == 3
+            and status["evidence"]["authorization_baseline_sha"]
+            == PACKAGE_A_REACTIVATION_BASE
         )
     except (KeyError, IndexError, TypeError):
         return False
@@ -3357,6 +3374,14 @@ def _package_a_g0_t05_g3_route_errors(
 ) -> list[str]:
     if not _is_package_a_g0_t05_g3(status):
         return []
+    recovery_errors = _package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        root,
+        head,
+        require_canonical_main=True,
+    )
+    if recovery_errors is not None:
+        return recovery_errors
     task = status["active_tasks"][0]
     if task["state"] != "authorized" or task["transition"] != {"from": "closed", "to": "authorized"}:
         return ["$: Package A generation-3 authorization forbids premature implementation or lifecycle drift"]
@@ -3384,6 +3409,155 @@ def _package_a_g0_t05_g3_route_errors(
             errors.append("$: Package A generation-3 protected merge requires exact local and fetched main")
         return errors
     return ["$: Package A generation-3 authorization route parent topology drifted"]
+
+
+def _package_a_g0_t05_g3_pr29_recovery_errors(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    *,
+    require_canonical_main: bool,
+) -> list[str] | None:
+    if (
+        not _is_package_a_g0_t05_g3(status)
+        or head == PACKAGE_A_G0_T05_G3_PR29_MAIN
+    ):
+        return None
+    ok_head, head_line = _git(
+        root, "rev-list", "--parents", "-n", "1", head
+    )
+    head_parts = head_line.split() if ok_head else []
+    repair_head = ""
+    is_merge = len(head_parts) == 3
+    if len(head_parts) == 2 and _is_ancestor(
+        root, PACKAGE_A_G0_T05_G3_PR29_MAIN, head
+    ):
+        repair_head = head
+    elif len(head_parts) == 3:
+        possible_repair = head_parts[2]
+        if (
+            head_parts[1] == PACKAGE_A_G0_T05_G3_PR29_MAIN
+            or _is_ancestor(
+                root,
+                PACKAGE_A_G0_T05_G3_PR29_MAIN,
+                possible_repair,
+            )
+        ):
+            repair_head = possible_repair
+    if not repair_head:
+        return None
+
+    errors: list[str] = []
+    ok_main_node, main_line = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        PACKAGE_A_G0_T05_G3_PR29_MAIN,
+    )
+    ok_main_tree, main_tree = _git(
+        root,
+        "rev-parse",
+        f"{PACKAGE_A_G0_T05_G3_PR29_MAIN}^{{tree}}",
+    )
+    ok_head_tree, frozen_head_tree = _git(
+        root,
+        "rev-parse",
+        f"{PACKAGE_A_G0_T05_G3_PR29_HEAD}^{{tree}}",
+    )
+    if (main_line.split() if ok_main_node else []) != [
+        PACKAGE_A_G0_T05_G3_PR29_MAIN,
+        PACKAGE_A_REACTIVATION_BASE,
+        PACKAGE_A_G0_T05_G3_PR29_HEAD,
+    ]:
+        errors.append("$: PR29 frozen main ordered parents drifted")
+    if (
+        not ok_main_tree
+        or not ok_head_tree
+        or main_tree != frozen_head_tree
+    ):
+        errors.append("$: PR29 frozen main tree must equal frozen PR head")
+    frozen_status = _status_at(root, PACKAGE_A_G0_T05_G3_PR29_MAIN)
+    if type(frozen_status) is not dict or not _typed_equal(
+        status, frozen_status
+    ):
+        errors.append("$: PR29 recovery must preserve exact authorized status")
+
+    ok_lineage, lineage_text = _git(
+        root,
+        "rev-list",
+        "--first-parent",
+        f"{PACKAGE_A_G0_T05_G3_PR29_MAIN}..{repair_head}",
+    )
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    if not lineage or lineage[0] != repair_head:
+        errors.append("$: PR29 recovery is not rooted at exact frozen main")
+    for index, sha in enumerate(lineage):
+        expected_parent = (
+            lineage[index + 1]
+            if index + 1 < len(lineage)
+            else PACKAGE_A_G0_T05_G3_PR29_MAIN
+        )
+        ok_sha, sha_line = _git(
+            root, "rev-list", "--parents", "-n", "1", sha
+        )
+        if (
+            (sha_line.split() if ok_sha else [])
+            != [sha, expected_parent]
+            or not _typed_equal(_status_at(root, sha), frozen_status)
+        ):
+            errors.append(
+                "$: PR29 recovery must remain status-identical strict single-parent"
+            )
+            break
+    changed = _g0_t03_commit_changed_paths(
+        root, PACKAGE_A_G0_T05_G3_PR29_MAIN, repair_head
+    )
+    if changed != PACKAGE_A_G0_T05_G3_PR29_REPAIR_PATHS:
+        errors.append("$: PR29 recovery exact three-path scope drifted")
+
+    if is_merge:
+        if head_parts[1:] != [
+            PACKAGE_A_G0_T05_G3_PR29_MAIN,
+            repair_head,
+        ]:
+            errors.append("$: PR29 recovery merge ordered parents drifted")
+        ok_merge_tree, merge_tree = _git(
+            root, "rev-parse", f"{head}^{{tree}}"
+        )
+        ok_repair_tree, repair_tree = _git(
+            root, "rev-parse", f"{repair_head}^{{tree}}"
+        )
+        if (
+            not ok_merge_tree
+            or not ok_repair_tree
+            or merge_tree != repair_tree
+        ):
+            errors.append(
+                "$: PR29 recovery merge tree must equal exact repair head"
+            )
+        if not _typed_equal(_status_at(root, head), frozen_status):
+            errors.append("$: PR29 recovery merge status drifted")
+
+    if require_canonical_main:
+        ok_local, local_main = _git(
+            root, "rev-parse", "--verify", "refs/heads/main"
+        )
+        ok_remote, remote_main = _git(
+            root, "rev-parse", "--verify", "refs/remotes/origin/main"
+        )
+        expected_main = head if is_merge else PACKAGE_A_G0_T05_G3_PR29_MAIN
+        if (
+            not ok_local
+            or not ok_remote
+            or local_main != expected_main
+            or remote_main != expected_main
+        ):
+            errors.append(
+                "$: PR29 recovery requires exact local and fetched authoritative main"
+            )
+    return errors
 
 
 def _g0_t04_g4_canonical_lineage_errors(root: Path, governed_head: str) -> list[str]:
@@ -7637,6 +7811,16 @@ def _canonical_g0_merge_bridge(
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
     if _is_package_a_g0_t05_g3(status):
+        recovery_errors = _package_a_g0_t05_g3_pr29_recovery_errors(
+            status,
+            root,
+            head,
+            require_canonical_main=require_canonical_main,
+        )
+        if recovery_errors is not None:
+            if recovery_errors:
+                return None, recovery_errors
+            return PACKAGE_A_G0_T05_G3_PR29_MAIN, []
         ok_package, package_parents_text = _git(
             root, "rev-list", "--parents", "-n", "1", head
         )
