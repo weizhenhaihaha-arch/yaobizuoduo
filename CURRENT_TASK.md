@@ -3,7 +3,7 @@
 - Task ID: `G0-T05`
 - Gate: G0
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Baseline: `dcb942a80a91312fad12d90b5e362cbdd0611017`
 
 ## Implementation boundary
@@ -44,13 +44,14 @@ The frozen Package A identities are:
 
 ## Delivery and stop boundary
 
-Implementation and delivery must remain a strict single-parent lineage from
+Implementation `05de8b0c54294307c0c03aeb1350b4d134b62a22` and delivery
+must remain a strict single-parent lineage from
 the activation main. The cumulative changed paths must stay inside the frozen
 seven-path allowlist, while the activation receipt, manifest/schema blobs,
 ruleset identity, Package order, capability ceiling, and existing history stay
 unchanged.
 
-Delivery stops at `awaiting_review` until exact-head CI and independent
+This delivery stops at `awaiting_review` until exact-head CI and independent
 code/security `APPROVE` plus architecture/route `CLEAR`. G1-T01,
 workflow/ruleset mutation, product code, network, credentials, trading,
 deployment, release, and system modification remain forbidden.
