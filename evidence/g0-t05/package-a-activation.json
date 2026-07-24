@@ -1,0 +1,47 @@
+{
+  "schema_version": "package-a-activation.v2",
+  "package_id": "PACKAGE-A",
+  "package_generation": 2,
+  "manifest_path": "governance/packages/package-a.manifest.json",
+  "schema_path": "schemas/package_a_manifest.schema.json",
+  "manifest_blob": "f523c793a58d27e8ffd79da01048c8cd93aaa315",
+  "schema_blob": "132656bcda439c20a2ade78d30116c49706de7b3",
+  "manifest_payload_sha256": "815a40dc1fb47b367e1fe5707c16911862feeb929b0356aff769d0544500ca27",
+  "first_task_id": "G0-T05",
+  "package_state": "authorized",
+  "product_owner_confirmation": "exact_payload_digest_confirmed",
+  "g0_t04_closed_sha": "dcb942a80a91312fad12d90b5e362cbdd0611017",
+  "terminal_main_ci": {
+    "repository": "weizhenhaihaha-arch/yaobizuoduo",
+    "event": "push",
+    "ref": "refs/heads/main",
+    "check": "G0 / exact-head",
+    "subject_sha": "dcb942a80a91312fad12d90b5e362cbdd0611017",
+    "run_id": "30043450574",
+    "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/30043450574",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "ruleset": {
+    "id": "19526291",
+    "evidence_digest": "73aa3644a4c571c7101b0ac36547bd1be2edc306846045d2d36ad07ac86c5bb1"
+  },
+  "generation_selection": {
+    "observed_generations": [
+      1,
+      2
+    ],
+    "selected_generation": 3,
+    "rule": "minimum_unused_integer_strictly_greater_than_all_history"
+  },
+  "superseded_activation": {
+    "blob": "c061d55218098fd5957ef75d40cb855635371bb6",
+    "reuse_forbidden": true
+  },
+  "scope": {
+    "g0_t05_implementation_authorized": false,
+    "g1_t01_authorized": false,
+    "product_or_network_change_authorized": false
+  },
+  "payload_sha256": "3f14e5c2c2fe0d4f6c3b16dce80406dbaaa3cdd1aa8b6b13a410c721299f5054"
+}

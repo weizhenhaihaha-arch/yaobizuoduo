@@ -421,10 +421,28 @@ def clone_with_ledger_migration(tmp_path: Path) -> tuple[Path, dict]:
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
     git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
-    git(repo, "update-ref", "refs/heads/main", "refs/remotes/origin/main")
-    status = json.loads((ROOT / "PROJECT_STATUS.yaml").read_text(encoding="utf-8"))
+    git(
+        repo,
+        "switch",
+        "--detach",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+    )
+    status = json.loads(
+        (repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8")
+    )
     write_governed(repo, status)
-    (repo / "schemas" / "project_status.schema.json").write_text(SCHEMA.read_text(encoding="utf-8"), encoding="utf-8")
     commit(repo, "install sealed transition ledger")
     return repo, status
 
@@ -805,8 +823,14 @@ def make_g0_t04_anomaly_seal(
     seal_path = repo / VALIDATOR.G0_T04_ANOMALY_SEAL_PATH
     seal_path.parent.mkdir(parents=True, exist_ok=True)
     seal_path.write_text(json.dumps(seal, indent=2, ensure_ascii=False) + "\n")
-    shutil.copy2(SCRIPT, repo / "scripts/validate_project_status.py")
-    shutil.copy2(ROOT / "tests/test_g0_project_status.py", repo / "tests/test_g0_project_status.py")
+    git(
+        repo,
+        "checkout",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+        "--",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    )
     task = status["active_tasks"][0]
     (repo / "CURRENT_TASK.md").write_text(
         "# G0-T04 anomaly recovery seal\n\n"
@@ -817,8 +841,14 @@ def make_g0_t04_anomaly_seal(
         f"- Baseline: `{status['evidence']['authorization_baseline_sha']}`\n",
         encoding="utf-8",
     )
-    shutil.copy2(ROOT / "PROJECT_MEMORY.md", repo / "PROJECT_MEMORY.md")
-    shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
+    git(
+        repo,
+        "checkout",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+        "--",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+    )
     if mutation == "package":
         with (repo / "governance/packages/package-a.manifest.json").open("a") as handle:
             handle.write("\n")
@@ -869,8 +899,14 @@ def make_g0_t04_post_merge_repair(
     with (repo / "PROJECT_MEMORY.md").open("a") as handle:
         handle.write("\n- G0-T04 post-merge fixture repair remains test-only.\n")
     first = commit(repo, "record clone-stable fixture repair")
-    shutil.copy2(SCRIPT, repo / "scripts/validate_project_status.py")
-    shutil.copy2(ROOT / "tests/test_g0_project_status.py", repo / "tests/test_g0_project_status.py")
+    git(
+        repo,
+        "checkout",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+        "--",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    )
     with (repo / "PROJECT_MEMORY.md").open("a") as handle:
         handle.write("\n- Exact F-rooted repair validator is fail closed.\n")
     if mutation == "ordinary":
@@ -4314,8 +4350,25 @@ def test_g0_t04_generation4_main_drift_seal_rejects_substitutions(
         "origin",
         "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
     )
+    git(
+        repo,
+        "switch",
+        "--detach",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+    )
     seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
-    shutil.copy2(G0_T04_G4_ROUTE_SEAL, seal_path)
     if mutation in {"pr24", "abandoned", "competing", "lineage"}:
         seal = json.loads(seal_path.read_text(encoding="utf-8"))
         if mutation == "pr24":
@@ -5629,3 +5682,278 @@ def test_g0_t04_generation4_terminal_main_hostiles_fail_full_validator(
         ),
     }[mutation]
     assert expected in result.stdout
+
+
+def make_package_a_g0_t05_g3_repo(
+    tmp_path: Path,
+    *,
+    status_mutation: str | None = None,
+    receipt_mutation: tuple[str, object] | None = None,
+    omitted_path: str | None = None,
+    extra_path: str | None = None,
+) -> tuple[Path, str, dict]:
+    repo = tmp_path / f"package-a-g0-t05-g3-{status_mutation or 'exact'}"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "checkout", "--quiet", "--detach", VALIDATOR.PACKAGE_A_REACTIVATION_BASE)
+    git(repo, "update-ref", "refs/heads/main", VALIDATOR.PACKAGE_A_REACTIVATION_BASE)
+    git(repo, "update-ref", "refs/remotes/origin/main", VALIDATOR.PACKAGE_A_REACTIVATION_BASE)
+    git(repo, "remote", "set-url", "origin", "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git")
+    baseline = VALIDATOR._status_at(repo, VALIDATOR.PACKAGE_A_REACTIVATION_BASE)
+    assert type(baseline) is dict
+    status = copy.deepcopy(baseline)
+    status["active_tasks"][0] = {
+        "task_id": "G0-T05", "risk": "D0", "state": "authorized",
+        "transition": {"from": "closed", "to": "authorized"},
+        "candidate_generation": 3,
+    }
+    status["evidence"] = copy.deepcopy(
+        json.loads((ROOT / "PROJECT_STATUS.yaml").read_text())["evidence"]
+    )
+    status["review"] = {
+        "code_security": "pending", "architecture": "pending",
+        "reviewed_candidate_sha": None,
+    }
+    status["blockers"] = []
+    status["next_authorization"] = {
+        "gate": "G1", "task_id": "G1-T01", "state": "not_authorized"
+    }
+    if status_mutation == "generation":
+        status["active_tasks"][0]["candidate_generation"] = 2
+    elif status_mutation == "baseline":
+        status["evidence"]["authorization_baseline_sha"] = "f" * 40
+    elif status_mutation == "in_progress":
+        status["active_tasks"][0].update(
+            state="in_progress",
+            transition={"from": "authorized", "to": "in_progress"},
+        )
+    elif status_mutation == "capability":
+        status["capability"]["maturity"] = "INTEGRATION_ACCEPTED"
+    elif status_mutation == "release":
+        status["release"]["product_owner_approval"] = True
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    activation_source = ROOT / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
+    receipt = json.loads(activation_source.read_text(encoding="utf-8"))
+    if receipt_mutation is not None:
+        key, value = receipt_mutation
+        target = receipt
+        parts = key.split(".")
+        for part in parts[:-1]:
+            target = target[part]
+        target[parts[-1]] = value
+    (repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH).parent.mkdir(
+        parents=True, exist_ok=True
+    )
+    if receipt_mutation is None:
+        shutil.copy2(
+            activation_source,
+            repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH,
+        )
+    else:
+        write_digest_json(repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH, receipt)
+    shutil.copy2(ROOT / "CURRENT_TASK.md", repo / "CURRENT_TASK.md")
+    shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
+    for relative in (
+        "PROJECT_MEMORY.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        path = repo / relative
+        path.write_text(path.read_text() + "\nPackage reactivation fixture.\n")
+    if omitted_path is not None:
+        if omitted_path == VALIDATOR.PACKAGE_A_ACTIVATION_PATH:
+            (repo / omitted_path).unlink()
+        else:
+            git(repo, "checkout", VALIDATOR.PACKAGE_A_REACTIVATION_BASE, "--", omitted_path)
+    if extra_path is not None:
+        path = repo / extra_path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("forbidden\n")
+    candidate = commit(repo, "authorize Package A G0-T05 generation 3")
+    return repo, candidate, status
+
+
+def test_package_a_g0_t05_g3_exact_authorization_passes_route(
+    tmp_path: Path,
+) -> None:
+    repo, candidate, status = make_package_a_g0_t05_g3_repo(tmp_path)
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(status, repo, candidate) == []
+    schema = json.loads(
+        (repo / "schemas/project_status.schema.json").read_text(encoding="utf-8")
+    )
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, candidate, schema
+    )
+    assert governed == VALIDATOR.PACKAGE_A_REACTIVATION_BASE
+    assert errors == []
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml", repo_root=repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    "omitted_path", sorted(VALIDATOR.PACKAGE_A_G0_T05_G3_ALLOWED)
+)
+def test_package_a_g0_t05_g3_requires_exact_seven_paths(
+    tmp_path: Path,
+    omitted_path: str,
+) -> None:
+    repo, candidate, status = make_package_a_g0_t05_g3_repo(
+        tmp_path, omitted_path=omitted_path
+    )
+    assert "required seven-path scope drifted" in "\n".join(
+        VALIDATOR._package_a_g0_t05_g3_route_errors(status, repo, candidate)
+    )
+
+
+@pytest.mark.parametrize(
+    "mutation", ["generation", "baseline", "in_progress", "capability", "release"]
+)
+def test_package_a_g0_t05_g3_rejects_status_and_lifecycle_drift(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    repo, candidate, status = make_package_a_g0_t05_g3_repo(
+        tmp_path, status_mutation=mutation
+    )
+    errors = VALIDATOR._package_a_g0_t05_g3_route_errors(status, repo, candidate)
+    expected = (
+        "forbids premature implementation"
+        if mutation == "in_progress"
+        else "exact terminal-N projection"
+    )
+    assert expected in "\n".join(errors)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("g0_t04_closed_sha", "f" * 40),
+        ("manifest_payload_sha256", "f" * 64),
+        ("manifest_blob", VALIDATOR.PACKAGE_A_OLD_ACTIVATION_BLOB),
+        ("schema_blob", "f" * 40),
+        ("terminal_main_ci.run_id", "0"),
+        ("terminal_main_ci.subject_sha", "f" * 40),
+        ("ruleset.id", "0"),
+        ("ruleset.evidence_sha256", "f" * 64),
+        ("generation_selection", {"observed_generations": [1], "selected_generation": 2}),
+    ],
+)
+def test_package_a_g0_t05_g3_rejects_activation_identity_drift(
+    tmp_path: Path,
+    field: str,
+    value: object,
+) -> None:
+    repo, candidate, status = make_package_a_g0_t05_g3_repo(
+        tmp_path, receipt_mutation=(field, value)
+    )
+    schema = json.loads(
+        (repo / "schemas/project_status.schema.json").read_text(encoding="utf-8")
+    )
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, candidate, schema
+    )
+    assert governed is None
+    assert "reactivation bytes" in "\n".join(errors)
+
+
+def test_package_a_g0_t05_g3_rejects_extra_product_path(tmp_path: Path) -> None:
+    repo, candidate, status = make_package_a_g0_t05_g3_repo(
+        tmp_path, extra_path="src/product.py"
+    )
+    assert "required seven-path scope drifted" in "\n".join(
+        VALIDATOR._package_a_g0_t05_g3_route_errors(status, repo, candidate)
+    )
+
+
+def test_package_a_g0_t05_g3_rejects_substituted_direct_parent(
+    tmp_path: Path,
+) -> None:
+    repo, candidate, status = make_package_a_g0_t05_g3_repo(tmp_path)
+    tree = git(repo, "rev-parse", f"{candidate}^{{tree}}")
+    wrong_parent = git(
+        repo, "rev-parse", f"{VALIDATOR.PACKAGE_A_REACTIVATION_BASE}^"
+    )
+    substituted = git(
+        repo, "commit-tree", tree, "-p", wrong_parent,
+        "-m", "substituted Package A authorization",
+    )
+    schema = json.loads(
+        (repo / "schemas/project_status.schema.json").read_text(encoding="utf-8")
+    )
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, substituted, schema
+    )
+    assert governed is None
+    assert "strict direct child" in "\n".join(errors)
+
+
+@pytest.mark.parametrize("mutation", ["swapped_parents", "wrong_tree", "moving_main"])
+def test_package_a_g0_t05_g3_rejects_protected_merge_topology_drift(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    repo, candidate, status = make_package_a_g0_t05_g3_repo(tmp_path)
+    candidate_tree = git(repo, "rev-parse", f"{candidate}^{{tree}}")
+    merge_tree = (
+        git(repo, "rev-parse", f"{VALIDATOR.PACKAGE_A_REACTIVATION_BASE}^{{tree}}")
+        if mutation == "wrong_tree"
+        else candidate_tree
+    )
+    parents = (
+        [candidate, VALIDATOR.PACKAGE_A_REACTIVATION_BASE]
+        if mutation == "swapped_parents"
+        else [VALIDATOR.PACKAGE_A_REACTIVATION_BASE, candidate]
+    )
+    merge = git(
+        repo, "commit-tree", merge_tree,
+        "-p", parents[0], "-p", parents[1],
+        "-m", "hostile Package A protected merge",
+    )
+    git(repo, "checkout", "--quiet", "--detach", merge)
+    if mutation != "moving_main":
+        git(repo, "update-ref", "refs/heads/main", merge)
+        git(repo, "update-ref", "refs/remotes/origin/main", merge)
+    errors = "\n".join(
+        VALIDATOR._package_a_g0_t05_g3_route_errors(status, repo, merge)
+    )
+    expected = {
+        "swapped_parents": "first parent drifted",
+        "wrong_tree": "tree must equal authorization candidate",
+        "moving_main": "requires exact local and fetched main",
+    }[mutation]
+    assert expected in errors
+
+
+def test_package_a_g0_t05_g3_future_merge_passes_full_validator(
+    tmp_path: Path,
+) -> None:
+    repo, candidate, _ = make_package_a_g0_t05_g3_repo(tmp_path)
+    tree = git(repo, "rev-parse", f"{candidate}^{{tree}}")
+    merge = git(
+        repo, "commit-tree", tree,
+        "-p", VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+        "-p", candidate, "-m", "Package A generation-3 protected merge",
+    )
+    git(repo, "checkout", "--quiet", "--detach", merge)
+    git(repo, "update-ref", "refs/heads/main", merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", merge)
+    status = json.loads(
+        (repo / "PROJECT_STATUS.yaml").read_text(encoding="utf-8")
+    )
+    schema = json.loads(
+        (repo / "schemas/project_status.schema.json").read_text(encoding="utf-8")
+    )
+    governed, errors = VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, merge, schema
+    )
+    assert governed == VALIDATOR.PACKAGE_A_REACTIVATION_BASE
+    assert errors == []
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml", repo_root=repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert result.returncode == 0, result.stdout
