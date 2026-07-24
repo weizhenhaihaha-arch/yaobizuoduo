@@ -5708,8 +5708,12 @@ def make_package_a_g0_t05_g3_repo(
         "transition": {"from": "closed", "to": "authorized"},
         "candidate_generation": 3,
     }
+    implementation_main_status = VALIDATOR._status_at(
+        repo, VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
+    )
+    assert type(implementation_main_status) is dict
     status["evidence"] = copy.deepcopy(
-        json.loads((ROOT / "PROJECT_STATUS.yaml").read_text())["evidence"]
+        implementation_main_status["evidence"]
     )
     status["review"] = {
         "code_security": "pending", "architecture": "pending",
@@ -5733,8 +5737,16 @@ def make_package_a_g0_t05_g3_repo(
     elif status_mutation == "release":
         status["release"]["product_owner_approval"] = True
     write_status(repo / "PROJECT_STATUS.yaml", status)
-    activation_source = ROOT / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
-    receipt = json.loads(activation_source.read_text(encoding="utf-8"))
+    frozen_activation = (
+        git(
+            repo,
+            "show",
+            f"{VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN}:"
+            f"{VALIDATOR.PACKAGE_A_ACTIVATION_PATH}",
+        )
+        + "\n"
+    )
+    receipt = json.loads(frozen_activation)
     if receipt_mutation is not None:
         key, value = receipt_mutation
         target = receipt
@@ -5746,14 +5758,23 @@ def make_package_a_g0_t05_g3_repo(
         parents=True, exist_ok=True
     )
     if receipt_mutation is None:
-        shutil.copy2(
-            activation_source,
-            repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH,
+        (repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH).write_text(
+            frozen_activation,
+            encoding="utf-8",
         )
     else:
         write_digest_json(repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH, receipt)
-    shutil.copy2(ROOT / "CURRENT_TASK.md", repo / "CURRENT_TASK.md")
-    shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
+    for relative in ("CURRENT_TASK.md", "docs/NEXT_WORKFLOW.md"):
+        (repo / relative).write_text(
+            git(
+                repo,
+                "show",
+                f"{VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN}:"
+                f"{relative}",
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     for relative in (
         "PROJECT_MEMORY.md",
         "scripts/validate_project_status.py",
