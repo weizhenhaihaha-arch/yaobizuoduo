@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `authorized`
+- Status: `in_progress`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -43,4 +43,7 @@ LOCAL-PREVIEW expansion remain forbidden.
 
 ## Delivery verification
 
-Pending authorized-card implementation and exact-head validation.
+Authorization topology, exact eight-path scope, receipt bytes, approved
+standards digest, canonical status validation, focused adversarial regressions,
+Python compilation and whitespace checks passed. Delivery identity remains
+pending.
