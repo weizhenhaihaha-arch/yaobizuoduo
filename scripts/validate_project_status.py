@@ -3445,7 +3445,13 @@ def _package_a_g0_t05_g3_route_errors(
             f"{PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN}..{head}",
         )
         lineage = lineage_text.splitlines() if ok_lineage else []
-        if not lineage or lineage[0] != head:
+        if (
+            not _is_ancestor(
+                root, PACKAGE_A_G0_T05_G3_ACTIVATION_MAIN, head
+            )
+            or not lineage
+            or lineage[0] != head
+        ):
             errors.append("$: G0-T05 generation-3 implementation is not rooted at activation main")
         for index, sha in enumerate(lineage):
             expected_parent = (
