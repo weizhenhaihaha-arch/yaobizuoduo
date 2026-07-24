@@ -178,6 +178,29 @@ PACKAGE_A_G0_T05_G3_ALLOWED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+PACKAGE_A_G0_T05_G3_PR29_MAIN = (
+    "5f0ee4721bdd5baa89a9711ed740f751dcda00ef"
+)
+PACKAGE_A_G0_T05_G3_PR29_HEAD = (
+    "57e74829431b2396cd32ee4d99e5271b81b2e5a2"
+)
+PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH = (
+    "evidence/g0-t05/pr29-main-drift-reconciliation.json"
+)
+PACKAGE_A_G0_T05_G3_PR30_LINEAGE = (
+    "05de8b08529bac32967db2ac0c8342cc005593de",
+    "fbfa7c6b2f946282c0b6a4db12089d4d2ee50f58",
+    "53ffe4e4e101d5740b3f640d9e407719485a51fb",
+    "4d5e6e682f9613dbd249d660ff4ce383230e5ab1",
+)
+PACKAGE_A_G0_T05_G3_PR29_REPAIR_PATHS = frozenset(
+    {
+        "PROJECT_MEMORY.md",
+        PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 PACKAGE_A_ORDERED_TASKS = ["G0-T05", "G1-T01"]
 G0_T04_ANOMALY_MAIN = "4f358cf42b9a8e0f741563425fc26cf532df98fb"
 G0_T04_ANOMALY_ORIGIN = "8f3cfc2ba8c7ba533c8e7d065c0f7e5c27a3e373"
@@ -806,6 +829,17 @@ def _package_a_persistence_errors(
     ok_diff, changed_text = _git(root, "diff", "--name-only", baseline, head)
     changed = {line for line in changed_text.splitlines() if line} if ok_diff else None
     allowed_paths = set(card.get("allowed_paths", [])) if type(card) is dict else set()
+    if (
+        task_id == "G0-T05"
+        and _is_package_a_g0_t05_g3(status)
+        and head != PACKAGE_A_G0_T05_G3_PR29_MAIN
+        and _is_ancestor(root, PACKAGE_A_G0_T05_G3_PR29_MAIN, head)
+    ):
+        # This governance-only reconciliation receipt is deliberately outside
+        # the frozen implementation card.  The dedicated PR29 recovery route
+        # below requires the exact receipt bytes, exact four-path repair scope,
+        # unchanged authorized status, and excludes all stopped PR30 ancestry.
+        allowed_paths.add(PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH)
     if changed is None or not changed.issubset(allowed_paths):
         errors.append(f"$.package_a.cards: {task_id} changed paths exceed its immutable allowlist")
     return errors
@@ -3239,6 +3273,10 @@ def _is_package_a_g0_t05_g3(status: dict[str, Any]) -> bool:
         return (
             status["current_gate"] == "G0"
             and task["task_id"] == "G0-T05"
+            and task["risk"] == "D0"
+            and task["candidate_generation"] == 3
+            and status["evidence"]["authorization_baseline_sha"]
+            == PACKAGE_A_REACTIVATION_BASE
         )
     except (KeyError, IndexError, TypeError):
         return False
@@ -3357,6 +3395,14 @@ def _package_a_g0_t05_g3_route_errors(
 ) -> list[str]:
     if not _is_package_a_g0_t05_g3(status):
         return []
+    recovery_errors = _package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        root,
+        head,
+        require_canonical_main=True,
+    )
+    if recovery_errors is not None:
+        return recovery_errors
     task = status["active_tasks"][0]
     if task["state"] != "authorized" or task["transition"] != {"from": "closed", "to": "authorized"}:
         return ["$: Package A generation-3 authorization forbids premature implementation or lifecycle drift"]
@@ -3384,6 +3430,294 @@ def _package_a_g0_t05_g3_route_errors(
             errors.append("$: Package A generation-3 protected merge requires exact local and fetched main")
         return errors
     return ["$: Package A generation-3 authorization route parent topology drifted"]
+
+
+def _package_a_g0_t05_g3_pr29_receipt() -> dict[str, Any]:
+    receipt: dict[str, Any] = {
+        "schema_version": "g0-t05-pr29-main-drift-reconciliation.v1",
+        "project": "yaobizuoduo",
+        "task_id": "G0-T05",
+        "candidate_generation": 3,
+        "purpose": "pr29_empty_review_main_drift_reconciliation",
+        "pr29": {
+            "number": 29,
+            "base_sha": PACKAGE_A_REACTIVATION_BASE,
+            "head_sha": PACKAGE_A_G0_T05_G3_PR29_HEAD,
+            "merge_sha": PACKAGE_A_G0_T05_G3_PR29_MAIN,
+            "ordered_parents": [
+                PACKAGE_A_REACTIVATION_BASE,
+                PACKAGE_A_G0_T05_G3_PR29_HEAD,
+            ],
+            "tree_sha": "02f0c6025c9ec2544f4ccff3d1212e4fd431a186",
+            "reviews": {"state": "empty", "count": 0, "items": []},
+            "pull_request_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "pull_request",
+                "check": "G0 / exact-head",
+                "subject_sha": PACKAGE_A_G0_T05_G3_PR29_HEAD,
+                "run_id": "30060843298",
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    "actions/runs/30060843298"
+                ),
+                "status": "completed",
+                "conclusion": "success",
+                "authority": "anomaly_history_only",
+            },
+            "main_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "push",
+                "ref": "refs/heads/main",
+                "check": "G0 / exact-head",
+                "subject_sha": PACKAGE_A_G0_T05_G3_PR29_MAIN,
+                "run_id": "30060875943",
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    "actions/runs/30060875943"
+                ),
+                "status": "completed",
+                "conclusion": "success",
+                "authority": "anomaly_history_only",
+            },
+        },
+        "pr30": {
+            "number": 30,
+            "base_sha": PACKAGE_A_G0_T05_G3_PR29_MAIN,
+            "head_sha": PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+            "lineage": list(PACKAGE_A_G0_T05_G3_PR30_LINEAGE),
+            "state_at_seal": "open",
+            "reviews": {"state": "empty", "count": 0, "items": []},
+            "pull_request_ci": {
+                "repository": "weizhenhaihaha-arch/yaobizuoduo",
+                "event": "pull_request",
+                "check": "G0 / exact-head",
+                "subject_sha": PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+                "run_id": "30062597947",
+                "url": (
+                    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                    "actions/runs/30062597947"
+                ),
+                "status": "completed",
+                "conclusion": "success",
+                "authority": "non_authoritative_stopped_history",
+            },
+            "disposition": {
+                "authority": "non_authoritative_stopped_history",
+                "merge_authorized": False,
+                "reuse_authorized": False,
+                "history_rewrite_authorized": False,
+            },
+        },
+        "scope": {
+            "g0_t05_implementation_authorized": False,
+            "g1_or_later_authorized": False,
+            "market_credentials_trading_ruleset_deploy_release_authorized": False,
+        },
+    }
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
+
+
+def _package_a_g0_t05_g3_pr29_receipt_errors(
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    ok_entry, entry = _git(
+        root,
+        "ls-tree",
+        subject_sha,
+        "--",
+        PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH,
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if len(fields) != 4 or fields[0] != "100644" or fields[1] != "blob":
+        return ["$: PR29 reconciliation receipt must be an exact committed 100644 blob"]
+    ok_bytes, actual = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH}",
+    )
+    expected = (
+        json.dumps(
+            _package_a_g0_t05_g3_pr29_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    if not ok_bytes or actual != expected:
+        return ["$: PR29 reconciliation receipt bytes or immutable evidence drifted"]
+    ok_prior, _ = _git(
+        root,
+        "cat-file",
+        "-e",
+        (
+            f"{PACKAGE_A_G0_T05_G3_PR29_MAIN}:"
+            f"{PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH}"
+        ),
+    )
+    if ok_prior:
+        return ["$: PR29 reconciliation receipt must be created only by recovery"]
+    return []
+
+
+def _package_a_g0_t05_g3_pr29_recovery_errors(
+    status: dict[str, Any],
+    root: Path,
+    head: str,
+    *,
+    require_canonical_main: bool,
+) -> list[str] | None:
+    if (
+        not _is_package_a_g0_t05_g3(status)
+        or head == PACKAGE_A_G0_T05_G3_PR29_MAIN
+    ):
+        return None
+    ok_head, head_line = _git(
+        root, "rev-list", "--parents", "-n", "1", head
+    )
+    head_parts = head_line.split() if ok_head else []
+    repair_head = ""
+    is_merge = len(head_parts) == 3
+    if len(head_parts) == 2 and _is_ancestor(
+        root, PACKAGE_A_G0_T05_G3_PR29_MAIN, head
+    ):
+        repair_head = head
+    elif len(head_parts) == 3:
+        possible_repair = head_parts[2]
+        if (
+            head_parts[1] == PACKAGE_A_G0_T05_G3_PR29_MAIN
+            or _is_ancestor(
+                root,
+                PACKAGE_A_G0_T05_G3_PR29_MAIN,
+                possible_repair,
+            )
+        ):
+            repair_head = possible_repair
+    if not repair_head:
+        return None
+
+    errors: list[str] = []
+    ok_main_node, main_line = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        PACKAGE_A_G0_T05_G3_PR29_MAIN,
+    )
+    ok_main_tree, main_tree = _git(
+        root,
+        "rev-parse",
+        f"{PACKAGE_A_G0_T05_G3_PR29_MAIN}^{{tree}}",
+    )
+    ok_head_tree, frozen_head_tree = _git(
+        root,
+        "rev-parse",
+        f"{PACKAGE_A_G0_T05_G3_PR29_HEAD}^{{tree}}",
+    )
+    if (main_line.split() if ok_main_node else []) != [
+        PACKAGE_A_G0_T05_G3_PR29_MAIN,
+        PACKAGE_A_REACTIVATION_BASE,
+        PACKAGE_A_G0_T05_G3_PR29_HEAD,
+    ]:
+        errors.append("$: PR29 frozen main ordered parents drifted")
+    if (
+        not ok_main_tree
+        or not ok_head_tree
+        or main_tree != frozen_head_tree
+    ):
+        errors.append("$: PR29 frozen main tree must equal frozen PR head")
+    errors.extend(
+        _package_a_g0_t05_g3_pr29_receipt_errors(root, repair_head)
+    )
+    for forbidden_sha in PACKAGE_A_G0_T05_G3_PR30_LINEAGE:
+        if _is_ancestor(root, forbidden_sha, repair_head):
+            errors.append(
+                "$: PR30 stopped implementation history must not enter "
+                "the PR29 recovery lineage"
+            )
+            break
+    frozen_status = _status_at(root, PACKAGE_A_G0_T05_G3_PR29_MAIN)
+    if type(frozen_status) is not dict or not _typed_equal(
+        status, frozen_status
+    ):
+        errors.append("$: PR29 recovery must preserve exact authorized status")
+
+    ok_lineage, lineage_text = _git(
+        root,
+        "rev-list",
+        "--first-parent",
+        f"{PACKAGE_A_G0_T05_G3_PR29_MAIN}..{repair_head}",
+    )
+    lineage = lineage_text.splitlines() if ok_lineage else []
+    if not lineage or lineage[0] != repair_head:
+        errors.append("$: PR29 recovery is not rooted at exact frozen main")
+    for index, sha in enumerate(lineage):
+        expected_parent = (
+            lineage[index + 1]
+            if index + 1 < len(lineage)
+            else PACKAGE_A_G0_T05_G3_PR29_MAIN
+        )
+        ok_sha, sha_line = _git(
+            root, "rev-list", "--parents", "-n", "1", sha
+        )
+        if (
+            (sha_line.split() if ok_sha else [])
+            != [sha, expected_parent]
+            or not _typed_equal(_status_at(root, sha), frozen_status)
+        ):
+            errors.append(
+                "$: PR29 recovery must remain status-identical strict single-parent"
+            )
+            break
+    changed = _g0_t03_commit_changed_paths(
+        root, PACKAGE_A_G0_T05_G3_PR29_MAIN, repair_head
+    )
+    if changed != PACKAGE_A_G0_T05_G3_PR29_REPAIR_PATHS:
+        errors.append("$: PR29 recovery exact four-path scope drifted")
+
+    if is_merge:
+        if head_parts[1:] != [
+            PACKAGE_A_G0_T05_G3_PR29_MAIN,
+            repair_head,
+        ]:
+            errors.append("$: PR29 recovery merge ordered parents drifted")
+        ok_merge_tree, merge_tree = _git(
+            root, "rev-parse", f"{head}^{{tree}}"
+        )
+        ok_repair_tree, repair_tree = _git(
+            root, "rev-parse", f"{repair_head}^{{tree}}"
+        )
+        if (
+            not ok_merge_tree
+            or not ok_repair_tree
+            or merge_tree != repair_tree
+        ):
+            errors.append(
+                "$: PR29 recovery merge tree must equal exact repair head"
+            )
+        if not _typed_equal(_status_at(root, head), frozen_status):
+            errors.append("$: PR29 recovery merge status drifted")
+
+    if require_canonical_main:
+        ok_local, local_main = _git(
+            root, "rev-parse", "--verify", "refs/heads/main"
+        )
+        ok_remote, remote_main = _git(
+            root, "rev-parse", "--verify", "refs/remotes/origin/main"
+        )
+        expected_main = head if is_merge else PACKAGE_A_G0_T05_G3_PR29_MAIN
+        if (
+            not ok_local
+            or not ok_remote
+            or local_main != expected_main
+            or remote_main != expected_main
+        ):
+            errors.append(
+                "$: PR29 recovery requires exact local and fetched authoritative main"
+            )
+    return errors
 
 
 def _g0_t04_g4_canonical_lineage_errors(root: Path, governed_head: str) -> list[str]:
@@ -7637,6 +7971,16 @@ def _canonical_g0_merge_bridge(
         return None, [f"$: canonical G0 merge bridge status fails structural validation: {item}" for item in status_errors]
     task = status["active_tasks"][0]
     if _is_package_a_g0_t05_g3(status):
+        recovery_errors = _package_a_g0_t05_g3_pr29_recovery_errors(
+            status,
+            root,
+            head,
+            require_canonical_main=require_canonical_main,
+        )
+        if recovery_errors is not None:
+            if recovery_errors:
+                return None, recovery_errors
+            return PACKAGE_A_G0_T05_G3_PR29_MAIN, []
         ok_package, package_parents_text = _git(
             root, "rev-list", "--parents", "-n", "1", head
         )

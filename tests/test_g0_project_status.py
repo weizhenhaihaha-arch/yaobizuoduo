@@ -5957,3 +5957,189 @@ def test_package_a_g0_t05_g3_future_merge_passes_full_validator(
         schema_path=repo / "schemas/project_status.schema.json",
     )
     assert result.returncode == 0, result.stdout
+
+
+def test_package_a_g0_t05_g3_dispatch_preserves_frozen_generation2_history() -> None:
+    historical_merge = "12034455e52d70c94a502136661b5bf7500c5f77"
+    historical_governed_parent = "1851eff8974a2263152dd1e31b7191712f40b0d3"
+    status = VALIDATOR._status_at(ROOT, historical_merge)
+    schema = VALIDATOR._schema_at(ROOT, historical_merge)
+    assert status is not None
+    assert schema is not None
+    assert status["active_tasks"][0]["candidate_generation"] == 2
+    assert not VALIDATOR._is_package_a_g0_t05_g3(status)
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status,
+        ROOT,
+        historical_merge,
+        schema,
+        require_canonical_main=False,
+    ) == (historical_governed_parent, [])
+
+
+def make_package_a_g0_t05_g3_pr29_recovery(
+    tmp_path: Path,
+    *,
+    ordinary_path: bool = False,
+) -> tuple[Path, dict, str]:
+    repo = tmp_path / (
+        "g0-t05-g3-pr29-recovery-ordinary"
+        if ordinary_path
+        else "g0-t05-g3-pr29-recovery"
+    )
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    git(
+        repo,
+        "switch",
+        "-c",
+        "g0-t05-g3-pr29-recovery",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN,
+    )
+    for relative in (
+        "PROJECT_MEMORY.md",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        source = ROOT / relative
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    if ordinary_path:
+        (repo / "ordinary.txt").write_text("scope escape\n", encoding="utf-8")
+    repair = commit(repo, "repair frozen G0-T04 specialized dispatch")
+    status = VALIDATOR._status_at(repo, repair)
+    assert status is not None
+    return repo, status, repair
+
+
+def test_package_a_g0_t05_g3_pr29_recovery_and_future_merge_are_canonical(
+    tmp_path: Path,
+) -> None:
+    repo, status, repair = make_package_a_g0_t05_g3_pr29_recovery(tmp_path)
+    assert VALIDATOR._package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        repo,
+        repair,
+        require_canonical_main=True,
+    ) == []
+    schema = VALIDATOR._schema_at(repo, repair)
+    assert schema is not None
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status,
+        repo,
+        repair,
+        schema,
+        require_canonical_main=False,
+    ) == (VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN, [])
+
+    merged = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{repair}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN,
+        "-p",
+        repair,
+        "-m",
+        "merge PR29 specialized-dispatch recovery",
+    )
+    git(repo, "switch", "--detach", merged)
+    git(repo, "update-ref", "refs/heads/main", merged)
+    git(repo, "update-ref", "refs/remotes/origin/main", merged)
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status,
+        repo,
+        merged,
+        schema,
+        require_canonical_main=True,
+    ) == (VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_MAIN, [])
+
+
+def test_package_a_g0_t05_g3_pr29_recovery_rejects_ordinary_path(
+    tmp_path: Path,
+) -> None:
+    repo, status, repair = make_package_a_g0_t05_g3_pr29_recovery(
+        tmp_path,
+        ordinary_path=True,
+    )
+    errors = VALIDATOR._package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        repo,
+        repair,
+        require_canonical_main=True,
+    )
+    assert errors is not None
+    assert "$: PR29 recovery exact four-path scope drifted" in errors
+
+
+def test_package_a_g0_t05_g3_pr29_recovery_rejects_receipt_substitution(
+    tmp_path: Path,
+) -> None:
+    repo, _, _ = make_package_a_g0_t05_g3_pr29_recovery(tmp_path)
+    receipt_path = repo / VALIDATOR.PACKAGE_A_G0_T05_G3_PR29_RECEIPT_PATH
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    receipt["pr29"]["reviews"]["count"] = 1
+    write_digest_json(receipt_path, receipt)
+    substituted = commit(repo, "substitute frozen PR29 empty-review evidence")
+    status = VALIDATOR._status_at(repo, substituted)
+    assert status is not None
+    errors = VALIDATOR._package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        repo,
+        substituted,
+        require_canonical_main=True,
+    )
+    assert errors is not None
+    assert (
+        "$: PR29 reconciliation receipt bytes or immutable evidence drifted"
+        in errors
+    )
+
+
+def test_package_a_g0_t05_g3_pr29_recovery_rejects_pr30_import(
+    tmp_path: Path,
+) -> None:
+    repo, status, repair = make_package_a_g0_t05_g3_pr29_recovery(tmp_path)
+    imported = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{repair}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+        "-m",
+        "import stopped PR30 implementation history",
+    )
+    errors = VALIDATOR._package_a_g0_t05_g3_pr29_recovery_errors(
+        status,
+        repo,
+        imported,
+        require_canonical_main=True,
+    )
+    assert errors is not None
+    assert (
+        "$: PR30 stopped implementation history must not enter "
+        "the PR29 recovery lineage"
+        in errors
+    )
