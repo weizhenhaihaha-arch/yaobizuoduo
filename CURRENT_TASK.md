@@ -3,7 +3,7 @@
 - Task ID: `G0-T05`
 - Gate: G0
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Baseline: `dcb942a80a91312fad12d90b5e362cbdd0611017`
 - Implementation main: `d3a617ab3081e03276a96142ae2b76349e7b2ef9`
 
@@ -58,3 +58,18 @@ G1-T01 remains not authorized until G0-T05 is fully closed on authoritative
 main. Workflow/ruleset mutation, product code, market API, credentials,
 trading, deployment, release, fallback, a second product, and system
 modification remain forbidden.
+
+## Delivery verification
+
+- Exact implementation:
+  `5862c7b4b7c9080ba20ed40e0a81f157d72a7cc5`
+- Canonical validator: passed.
+- Package A / G0-T05 focused suite: `60 passed`.
+- Non-transport Python suite: `551 passed`.
+- Frontend Vitest suite: `10 passed`.
+- Frontend production build: passed.
+- Python compileall, Git diff, and secret checks: passed.
+
+The delivery candidate is implicit at this committed HEAD. Candidate CI and
+both independent reviews remain pending; no acceptance or G1 authority is
+claimed.
