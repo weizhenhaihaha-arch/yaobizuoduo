@@ -3,7 +3,7 @@
 - Task ID: `G0-T05`
 - Gate: G0
 - Risk: `D0`
-- Status: `accepted_pending_merge`
+- Status: `merged_verified`
 - Baseline: `dcb942a80a91312fad12d90b5e362cbdd0611017`
 - Implementation main: `d3a617ab3081e03276a96142ae2b76349e7b2ef9`
 
@@ -74,5 +74,9 @@ The exact delivery candidate is
 `a29c5f35bbbaada717c69c9d9b4749a07db2c464`. Its exact-head CI run
 `30087724361` succeeded. Independent code/security review returned `APPROVE`
 and architecture/route/time-causality review returned `CLEAR`, both bound to
-that exact candidate. The card is accepted pending protected-main merge; no
-G1 authority is claimed before G0-T05 fully closes.
+that exact candidate. Acceptance
+`3f30ac7f2cc6d2196a893b26d922984500429338` passed exact-head CI
+`30087824072`, then protected-main merge
+`c7ed76914e7728ab0ef95d85699663656dcddf04` preserved ordered parents
+`[d3a617ab…, 3f30ac7f…]` and passed main CI `30087883412`. The card is merged
+verified; terminal close remains pending and no G1 authority is claimed.
