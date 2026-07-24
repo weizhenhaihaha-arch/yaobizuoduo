@@ -6,6 +6,11 @@
 [`DEVELOPMENT_WORKFLOW.md`](DEVELOPMENT_WORKFLOW.md) 的 G0-G9 串行门禁，
 当前机器状态只以 [`PROJECT_STATUS.yaml`](PROJECT_STATUS.yaml) 为准。
 
+产品/架构与工程/安全双重评审通过的后续优化方案记录在
+[`docs/OPTIMIZED_PRODUCT_WORKFLOW.md`](docs/OPTIMIZED_PRODUCT_WORKFLOW.md)。
+该文件当前是待产品负责人确认的冻结提案，不会自行授权 P0、G1、公开行情、
+Paper 或其他能力。
+
 现有产品、策略、API、前端与通知成果仍只算
 `OFFLINE_EVIDENCE_ACCEPTED`；这不代表真实行情、连续 Paper、部署、发布或交易
 能力。任何公开行情接入、凭证、账户、订单、杠杆、做空、真实交易、部署或发布

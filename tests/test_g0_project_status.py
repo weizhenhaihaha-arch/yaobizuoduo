@@ -6730,3 +6730,95 @@ def test_package_a_g0_t05_g3_full_lifecycle_is_reachable(
     assert VALIDATOR._canonical_g0_merge_bridge(
         status, repo, terminal, schema
     ) == (close_record, [])
+
+
+def _g0_t06_workflow_authorization_sha() -> str:
+    for line in git(ROOT, "rev-list", "--all", "--parents").splitlines():
+        parts = line.split()
+        if parts[1:] == [
+            VALIDATOR.G0_T06_WORKFLOW_BASE,
+            VALIDATOR.G0_T06_WORKFLOW_PROPOSAL,
+        ]:
+            return parts[0]
+    raise AssertionError("G0-T06 workflow authorization merge is absent")
+
+
+def test_g0_t06_workflow_authorization_receipt_is_exact() -> None:
+    receipt = json.loads(
+        (ROOT / VALIDATOR.G0_T06_WORKFLOW_RECEIPT_PATH).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert receipt == VALIDATOR._g0_t06_workflow_authorization_receipt()
+    assert receipt["proposal_pr"] == 35
+    assert receipt["proposal_head_sha"] == VALIDATOR.G0_T06_WORKFLOW_PROPOSAL
+    assert receipt["proposal_failed_ci_run_id"] == "30105873742"
+    assert receipt["next_authorization"] == {
+        "gate": "G1",
+        "task_id": "G1-T01",
+        "state": "not_authorized",
+    }
+
+
+def test_g0_t06_workflow_authorization_exact_route_passes() -> None:
+    authorization = _g0_t06_workflow_authorization_sha()
+    status = VALIDATOR._status_at(ROOT, authorization)
+    parent = VALIDATOR._status_at(ROOT, VALIDATOR.G0_T06_WORKFLOW_BASE)
+    assert type(status) is dict
+    assert type(parent) is dict
+    assert VALIDATOR._g0_t06_workflow_authorization_parent_errors(
+        status,
+        parent,
+        VALIDATOR.G0_T06_WORKFLOW_BASE,
+        ROOT,
+        authorization,
+        require_current_main=False,
+    ) == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("task_id", "G1-T01"),
+        ("risk", "D1"),
+        ("candidate_generation", 2),
+    ],
+)
+def test_g0_t06_workflow_authorization_status_substitution_fails(
+    field: str,
+    value: object,
+) -> None:
+    authorization = _g0_t06_workflow_authorization_sha()
+    status = copy.deepcopy(VALIDATOR._status_at(ROOT, authorization))
+    parent = VALIDATOR._status_at(ROOT, VALIDATOR.G0_T06_WORKFLOW_BASE)
+    assert type(status) is dict
+    assert type(parent) is dict
+    status["active_tasks"][0][field] = value
+    errors = VALIDATOR._g0_t06_workflow_authorization_parent_errors(
+        status,
+        parent,
+        VALIDATOR.G0_T06_WORKFLOW_BASE,
+        ROOT,
+        authorization,
+        require_current_main=False,
+    )
+    assert errors is not None
+    assert any("exact closed-main projection" in error for error in errors)
+
+
+def test_g0_t06_workflow_authorization_wrong_topology_fails() -> None:
+    authorization = _g0_t06_workflow_authorization_sha()
+    status = VALIDATOR._status_at(ROOT, authorization)
+    parent = VALIDATOR._status_at(ROOT, VALIDATOR.G0_T06_WORKFLOW_BASE)
+    assert type(status) is dict
+    assert type(parent) is dict
+    errors = VALIDATOR._g0_t06_workflow_authorization_parent_errors(
+        status,
+        parent,
+        VALIDATOR.G0_T06_WORKFLOW_BASE,
+        ROOT,
+        VALIDATOR.G0_T06_WORKFLOW_PROPOSAL,
+        require_current_main=False,
+    )
+    assert errors is not None
+    assert any("ordered parents" in error for error in errors)
