@@ -178,6 +178,43 @@ PACKAGE_A_G0_T05_G3_ALLOWED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+G0_T06_WORKFLOW_BASE = "af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32"
+G0_T06_WORKFLOW_PROPOSAL = "31c5cbdc89c940fa7c911f5ac1c5beb4fb2fb1e1"
+G0_T06_WORKFLOW_PROPOSAL_PR = 35
+G0_T06_WORKFLOW_FAILED_RUN = "30105873742"
+G0_T06_WORKFLOW_DOCUMENT = "docs/OPTIMIZED_PRODUCT_WORKFLOW.md"
+G0_T06_WORKFLOW_DOCUMENT_SHA256 = (
+    "3b61237d7f05d3aa14a85c6be2a2326fdb1afdaf9c1fb1505ebd8b1e82a12ed6"
+)
+G0_T06_WORKFLOW_RECEIPT_PATH = (
+    "evidence/g0-t06/workflow-standards-authorization.json"
+)
+G0_T06_WORKFLOW_AUTHORIZATION_RECEIPT_VERSION = (
+    "workflow-standards-authorization.v1"
+)
+G0_T06_WORKFLOW_LIFECYCLE_RECEIPT_VERSION = (
+    "workflow-standards-authorization.v2"
+)
+G0_T06_WORKFLOW_REPOSITORY = "weizhenhaihaha-arch/yaobizuoduo"
+G0_T06_WORKFLOW_PROPOSAL_URL = (
+    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/pull/35"
+)
+G0_T06_WORKFLOW_FAILED_RUN_URL = (
+    "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/"
+    + G0_T06_WORKFLOW_FAILED_RUN
+)
+G0_T06_WORKFLOW_AUTHORIZATION_ALLOWED = frozenset(
+    {
+        "PROJECT_STATUS.yaml",
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "README.md",
+        G0_T06_WORKFLOW_DOCUMENT,
+        G0_T06_WORKFLOW_RECEIPT_PATH,
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    }
+)
 PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN = (
     "d3a617ab3081e03276a96142ae2b76349e7b2ef9"
 )
@@ -4709,6 +4746,601 @@ def _package_a_g0_t05_g3_lifecycle_parent_errors(
     return errors
 
 
+def _g0_t06_workflow_authorization_receipt() -> dict[str, Any]:
+    receipt: dict[str, Any] = {
+        "schema_version": G0_T06_WORKFLOW_AUTHORIZATION_RECEIPT_VERSION,
+        "project": "yaobizuoduo",
+        "decision": "authorize_governance_activation_and_ingestion",
+        "task_id": "G0-T06",
+        "risk": "D0",
+        "authoritative_base_sha": G0_T06_WORKFLOW_BASE,
+        "proposal_pr": G0_T06_WORKFLOW_PROPOSAL_PR,
+        "proposal_head_sha": G0_T06_WORKFLOW_PROPOSAL,
+        "proposal_failed_ci_run_id": G0_T06_WORKFLOW_FAILED_RUN,
+        "standards_path": G0_T06_WORKFLOW_DOCUMENT,
+        "standards_sha256": G0_T06_WORKFLOW_DOCUMENT_SHA256,
+        "history_policy": "preserve_pr35_head_and_failed_ci",
+        "authorized_scope": [
+            "canonical_state_and_task_mirrors",
+            "approved_standards_document_and_readme_link",
+            "authorization_receipt",
+            "validator_regression",
+            "durable_memory",
+        ],
+        "forbidden_scope": [
+            "P0_or_G1_implementation",
+            "market_data_access",
+            "strategy_or_product_code",
+            "credentials",
+            "orders_or_trading",
+            "ruleset_changes",
+            "deployment_or_release",
+            "LOCAL_PREVIEW_expansion",
+        ],
+        "next_authorization": {
+            "gate": "G1",
+            "task_id": "G1-T01",
+            "state": "not_authorized",
+        },
+    }
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
+
+
+def _g0_t06_workflow_lifecycle_receipt() -> dict[str, Any]:
+    receipt = _g0_t06_workflow_authorization_receipt()
+    receipt.pop("payload_sha256")
+    receipt["schema_version"] = G0_T06_WORKFLOW_LIFECYCLE_RECEIPT_VERSION
+    receipt.pop("proposal_pr")
+    receipt.pop("proposal_head_sha")
+    receipt.pop("proposal_failed_ci_run_id")
+    receipt["proposal"] = {
+        "repository": G0_T06_WORKFLOW_REPOSITORY,
+        "number": G0_T06_WORKFLOW_PROPOSAL_PR,
+        "url": G0_T06_WORKFLOW_PROPOSAL_URL,
+        "state": "CLOSED",
+        "is_draft": True,
+        "merged": False,
+        "merged_at": None,
+        "base_sha": G0_T06_WORKFLOW_BASE,
+        "head_sha": G0_T06_WORKFLOW_PROPOSAL,
+        "reviews": {"state": "empty", "count": 0, "items": []},
+    }
+    receipt["failed_ci"] = {
+        "repository": G0_T06_WORKFLOW_REPOSITORY,
+        "event": "pull_request",
+        "workflow": "G0 exact-head CI",
+        "check": "G0 / exact-head",
+        "subject_sha": G0_T06_WORKFLOW_PROPOSAL,
+        "run_id": G0_T06_WORKFLOW_FAILED_RUN,
+        "url": G0_T06_WORKFLOW_FAILED_RUN_URL,
+        "status": "completed",
+        "conclusion": "failure",
+    }
+    receipt["payload_sha256"] = _payload_digest(receipt)
+    return receipt
+
+
+def _g0_t06_workflow_authorization_receipt_errors(
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    ok_entry, entry = _git(
+        root,
+        "ls-tree",
+        subject_sha,
+        "--",
+        G0_T06_WORKFLOW_RECEIPT_PATH,
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != G0_T06_WORKFLOW_RECEIPT_PATH
+    ):
+        return [
+            "$: G0-T06 workflow authorization receipt must be an exact committed 100644 blob"
+        ]
+    ok_bytes, actual = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{G0_T06_WORKFLOW_RECEIPT_PATH}",
+    )
+    expected = (
+        json.dumps(
+            _g0_t06_workflow_authorization_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    return (
+        []
+        if ok_bytes and actual == expected
+        else ["$: G0-T06 workflow authorization receipt bytes or digest drifted"]
+    )
+
+
+def _g0_t06_workflow_lifecycle_receipt_errors(
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    ok_entry, entry = _git(
+        root,
+        "ls-tree",
+        subject_sha,
+        "--",
+        G0_T06_WORKFLOW_RECEIPT_PATH,
+    )
+    fields = entry.split(None, 3) if ok_entry else []
+    if (
+        len(fields) != 4
+        or fields[0] != "100644"
+        or fields[1] != "blob"
+        or fields[3] != G0_T06_WORKFLOW_RECEIPT_PATH
+    ):
+        return [
+            "$: G0-T06 workflow lifecycle receipt must be an exact committed 100644 blob"
+        ]
+    ok_bytes, actual = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{G0_T06_WORKFLOW_RECEIPT_PATH}",
+    )
+    expected = (
+        json.dumps(
+            _g0_t06_workflow_lifecycle_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    return (
+        []
+        if ok_bytes and actual == expected
+        else ["$: G0-T06 workflow lifecycle receipt bytes or digest drifted"]
+    )
+
+
+def _g0_t06_workflow_authorization_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+    parent_sha: str | None,
+    root: Path | None,
+    child_sha: str | None,
+    *,
+    require_current_main: bool,
+) -> list[str] | None:
+    try:
+        task = status["active_tasks"][0]
+    except (KeyError, IndexError, TypeError):
+        return None
+    authorization_topology = False
+    if root is not None and child_sha is not None:
+        ok_subject, subject_parents = _git(
+            root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            child_sha,
+        )
+        authorization_topology = (
+            subject_parents.split() if ok_subject else []
+        ) == [
+            child_sha,
+            G0_T06_WORKFLOW_BASE,
+            G0_T06_WORKFLOW_PROPOSAL,
+        ]
+    if not (
+        task.get("state") == "authorized"
+        and (
+            task.get("task_id") == "G0-T06"
+            or authorization_topology
+        )
+    ):
+        return None
+    if root is None or child_sha is None:
+        return ["$: G0-T06 workflow authorization requires repository evidence"]
+    errors: list[str] = []
+    ok_parents, parents_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        child_sha,
+    )
+    if (parents_text.split() if ok_parents else []) != [
+        child_sha,
+        G0_T06_WORKFLOW_BASE,
+        G0_T06_WORKFLOW_PROPOSAL,
+    ]:
+        errors.append(
+            "$: G0-T06 workflow authorization ordered parents must bind authoritative main and PR35 proposal"
+        )
+    if parent_sha != G0_T06_WORKFLOW_BASE:
+        errors.append(
+            "$: G0-T06 workflow authorization first parent must be exact authoritative G0-T05 close"
+        )
+    try:
+        parent_task = parent["active_tasks"][0]
+    except (KeyError, IndexError, TypeError):
+        parent_task = {}
+    if (
+        parent_task.get("task_id") != "G0-T05"
+        or parent_task.get("state") != "closed"
+        or parent.get("next_authorization")
+        != {"gate": "G1", "task_id": "G1-T01", "state": "not_authorized"}
+    ):
+        errors.append(
+            "$: G0-T06 workflow authorization baseline must retain the exact closed G0-T05 boundary"
+        )
+    expected = copy.deepcopy(parent)
+    expected["active_tasks"][0] = {
+        "task_id": "G0-T06",
+        "risk": "D0",
+        "state": "authorized",
+        "transition": {"from": "closed", "to": "authorized"},
+        "candidate_generation": 1,
+    }
+    expected["evidence"] = {
+        "authorization_baseline_sha": G0_T06_WORKFLOW_BASE,
+        "implementation_sha": None,
+        "candidate": {
+            "commit_sha": None,
+            "local_verification": {
+                "status": "pending",
+                "subject": "delivery_head",
+            },
+            "ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+        "closure": {
+            "commit_sha": None,
+            "ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+        "merged_main": {
+            "commit_sha": None,
+            "ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+        "finalization": {
+            "commit_sha": None,
+            "d0_ci": {
+                "status": "not_run",
+                "subject_sha": None,
+                "run_id": None,
+                "url": None,
+            },
+        },
+    }
+    expected["review"] = {
+        "code_security": "pending",
+        "architecture": "pending",
+        "reviewed_candidate_sha": None,
+    }
+    expected["bootstrap_exception"] = None
+    expected["blockers"] = []
+    if status != expected:
+        errors.append(
+            "$: G0-T06 workflow authorization status must be the exact closed-main projection"
+        )
+    changed = _g0_t03_commit_changed_paths(
+        root,
+        G0_T06_WORKFLOW_BASE,
+        child_sha,
+    )
+    if changed != G0_T06_WORKFLOW_AUTHORIZATION_ALLOWED:
+        errors.append(
+            "$: G0-T06 workflow authorization changed paths exceed its exact eight-path scope"
+        )
+    ok_document, document = _git_bytes(
+        root,
+        "show",
+        f"{child_sha}:{G0_T06_WORKFLOW_DOCUMENT}",
+    )
+    if (
+        not ok_document
+        or hashlib.sha256(document).hexdigest()
+        != G0_T06_WORKFLOW_DOCUMENT_SHA256
+    ):
+        errors.append(
+            "$: G0-T06 workflow standards document digest drifted from approved PR35"
+        )
+    errors.extend(
+        _g0_t06_workflow_authorization_receipt_errors(root, child_sha)
+    )
+    if require_current_main:
+        ok_main, main = _git(root, "rev-parse", "--verify", "refs/heads/main")
+        ok_remote, remote = _git(
+            root,
+            "rev-parse",
+            "--verify",
+            "refs/remotes/origin/main",
+        )
+        if (
+            not ok_main
+            or not ok_remote
+            or main != G0_T06_WORKFLOW_BASE
+            or remote != G0_T06_WORKFLOW_BASE
+        ):
+            errors.append(
+                "$: G0-T06 workflow authorization requires exact local and fetched authoritative main"
+            )
+    return errors
+
+
+def _g0_t06_workflow_authorization_subject(
+    root: Path,
+    descendant: str,
+) -> str | None:
+    ok, lines = _git(
+        root,
+        "rev-list",
+        "--ancestry-path",
+        "--parents",
+        f"{G0_T06_WORKFLOW_BASE}..{descendant}",
+    )
+    if not ok:
+        return None
+    matches = [
+        parts[0]
+        for line in lines.splitlines()
+        if (parts := line.split())[1:]
+        == [G0_T06_WORKFLOW_BASE, G0_T06_WORKFLOW_PROPOSAL]
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _is_g0_t06_workflow_status(status: dict[str, Any]) -> bool:
+    try:
+        task = status["active_tasks"][0]
+        return (
+            status["current_gate"] == "G0"
+            and task["task_id"] == "G0-T06"
+            and task["risk"] == "D0"
+            and type(task["candidate_generation"]) is int
+            and task["candidate_generation"] >= 1
+            and status["evidence"]["authorization_baseline_sha"]
+            == G0_T06_WORKFLOW_BASE
+            and status["next_authorization"]
+            == {
+                "gate": "G1",
+                "task_id": "G1-T01",
+                "state": "not_authorized",
+            }
+        )
+    except (KeyError, IndexError, TypeError):
+        return False
+
+
+def _g0_t06_workflow_lifecycle_parent_errors(
+    status: dict[str, Any],
+    parent: dict[str, Any],
+) -> list[str]:
+    errors: list[str] = []
+    current_task = status["active_tasks"][0]
+    parent_task = parent["active_tasks"][0]
+    if _typed_equal(parent, status):
+        if current_task["state"] != "in_progress":
+            errors.append(
+                "$: same-status G0-T06 commits are restricted to in-progress implementation work"
+            )
+        return errors
+    immutable = [
+        ("project", status["project"], parent["project"]),
+        (
+            "authoritative_main_ref",
+            status["authoritative_main_ref"],
+            parent["authoritative_main_ref"],
+        ),
+        ("current_gate", status["current_gate"], parent["current_gate"]),
+        ("task_id", current_task["task_id"], parent_task["task_id"]),
+        ("risk", current_task["risk"], parent_task["risk"]),
+        (
+            "authorization_baseline_sha",
+            status["evidence"]["authorization_baseline_sha"],
+            parent["evidence"]["authorization_baseline_sha"],
+        ),
+    ]
+    if (
+        parent.get("transition_ledger") is not None
+        and not _typed_equal(
+            status.get("transition_ledger"),
+            parent.get("transition_ledger"),
+        )
+    ):
+        errors.append(
+            "$.transition_ledger: sealed history identity is immutable"
+        )
+    for label, current, previous in immutable:
+        if not _typed_equal(current, previous):
+            errors.append(
+                f"$: immutable {label} changed from direct first parent"
+            )
+    parent_state = parent_task["state"]
+    if current_task["transition"]["from"] != parent_state:
+        errors.append(
+            "$.active_tasks[0].transition.from: must equal direct first parent state"
+        )
+    returned_repair = (
+        parent_state == "returned"
+        and current_task["state"] == "in_progress"
+    )
+    if returned_repair:
+        if (
+            current_task["candidate_generation"]
+            != parent_task["candidate_generation"] + 1
+        ):
+            errors.append(
+                "$.active_tasks[0].candidate_generation: returned repair must be exactly parent generation plus one"
+            )
+        if not _cleared_handoff(status):
+            errors.append(
+                "$: returned G0-T06 repair must atomically clear prior evidence, review, CI and blockers"
+            )
+    else:
+        if (
+            current_task["candidate_generation"]
+            != parent_task["candidate_generation"]
+        ):
+            errors.append(
+                "$.active_tasks[0].candidate_generation: ordinary transition must preserve parent generation"
+            )
+        parent_evidence = parent["evidence"]
+        for phase in ("candidate", "closure", "merged_main", "finalization"):
+            old_sha = parent_evidence[phase].get("commit_sha")
+            new_sha = status["evidence"][phase].get("commit_sha")
+            if old_sha is not None and not _typed_equal(new_sha, old_sha):
+                errors.append(
+                    f"$.evidence.{phase}.commit_sha: immutable phase identity changed across direct parent"
+                )
+        old_implementation = parent_evidence.get("implementation_sha")
+        if old_implementation is not None and not _typed_equal(
+            status["evidence"].get("implementation_sha"),
+            old_implementation,
+        ):
+            errors.append(
+                "$.evidence.implementation_sha: immutable implementation identity changed across direct parent"
+            )
+        errors.extend(_ci_continuity_errors(status, parent))
+    errors.extend(_maturity_continuity_errors(status, parent))
+    if (
+        not returned_repair
+        and current_task["state"] in {"in_progress", "awaiting_review"}
+        and parent_state in {"authorized", "in_progress"}
+        and not _typed_equal(status.get("review"), parent.get("review"))
+    ):
+        errors.append(
+            "$.review: G0-T06 review identity changed outside a declared phase transition"
+        )
+    if (
+        not returned_repair
+        and current_task["state"] in {"in_progress", "awaiting_review"}
+        and parent_state in {"authorized", "in_progress"}
+        and not _typed_equal(status.get("blockers"), parent.get("blockers"))
+    ):
+        errors.append(
+            "$.blockers: G0-T06 blocker identity changed outside a declared phase transition"
+        )
+    if not _typed_equal(
+        status.get("bootstrap_exception"),
+        parent.get("bootstrap_exception"),
+    ):
+        errors.append(
+            "$.bootstrap_exception: G0-T06 cannot introduce a bootstrap exception"
+        )
+    if status.get("release") != parent.get("release"):
+        errors.append(
+            "$.release: release identity changed across direct first parent"
+        )
+    return errors
+
+
+def _g0_t06_workflow_lifecycle_route_errors(
+    status: dict[str, Any],
+    root: Path,
+    subject_sha: str,
+) -> list[str]:
+    try:
+        task = status["active_tasks"][0]
+    except (KeyError, IndexError, TypeError):
+        return []
+    if task.get("task_id") != "G0-T06" or task.get("state") == "authorized":
+        return []
+    errors: list[str] = []
+    if not _is_g0_t06_workflow_status(status):
+        errors.append(
+            "$: G0-T06 workflow lifecycle must preserve exact task, baseline and G1-T01 not_authorized boundary"
+        )
+        return errors
+    if status.get("capability") != {
+        "maturity": "OFFLINE_EVIDENCE_ACCEPTED",
+        "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED",
+    }:
+        errors.append(
+            "$: G0-T06 workflow lifecycle cannot change offline capability maturity"
+        )
+    if status.get("release") != {
+        "product_owner_approval": None,
+        "release_manifest": None,
+    }:
+        errors.append(
+            "$: G0-T06 workflow lifecycle cannot authorize deployment or release"
+        )
+    authorization = _g0_t06_workflow_authorization_subject(
+        root,
+        subject_sha,
+    )
+    if authorization is None:
+        errors.append(
+            "$: G0-T06 workflow lifecycle must descend from the unique exact PR35 authorization merge"
+        )
+        return errors
+    ok_parents, parents_text = _git(
+        root,
+        "rev-list",
+        "--parents",
+        "-n",
+        "1",
+        authorization,
+    )
+    if (parents_text.split() if ok_parents else []) != [
+        authorization,
+        G0_T06_WORKFLOW_BASE,
+        G0_T06_WORKFLOW_PROPOSAL,
+    ]:
+        errors.append(
+            "$: G0-T06 workflow authorization ancestry no longer binds exact base and PR35 proposal"
+        )
+    changed = _g0_t03_commit_changed_paths(
+        root,
+        G0_T06_WORKFLOW_BASE,
+        subject_sha,
+    )
+    outside = sorted(changed - G0_T06_WORKFLOW_AUTHORIZATION_ALLOWED)
+    if outside:
+        errors.append(
+            "$: G0-T06 workflow lifecycle cumulative changed paths exceed exact eight-path allowlist: "
+            + ", ".join(outside)
+        )
+    ok_document, document = _git_bytes(
+        root,
+        "show",
+        f"{subject_sha}:{G0_T06_WORKFLOW_DOCUMENT}",
+    )
+    if (
+        not ok_document
+        or hashlib.sha256(document).hexdigest()
+        != G0_T06_WORKFLOW_DOCUMENT_SHA256
+    ):
+        errors.append(
+            "$: G0-T06 workflow lifecycle standards document drifted from approved PR35 digest"
+        )
+    errors.extend(
+        _g0_t06_workflow_authorization_receipt_errors(root, authorization)
+    )
+    errors.extend(
+        _g0_t06_workflow_lifecycle_receipt_errors(root, subject_sha)
+    )
+    return errors
+
+
 def _parent_status_errors(
     status: dict[str, Any],
     parent: dict[str, Any] | None,
@@ -4735,6 +5367,47 @@ def _parent_status_errors(
     except (KeyError, IndexError, TypeError):
         return ["$: direct first parent canonical status is structurally incompatible"]
     parent_state = parent_task["state"]
+    if (
+        root is not None
+        and child_sha is not None
+        and parent_sha is not None
+        and _is_g0_t06_workflow_status(status)
+        and _is_g0_t06_workflow_status(parent)
+        and current_task["state"]
+        in {
+            "in_progress",
+            "awaiting_review",
+            "returned",
+            "accepted_pending_merge",
+            "merged_verified",
+            "closed",
+        }
+    ):
+        authorization = _g0_t06_workflow_authorization_subject(
+            root,
+            child_sha,
+        )
+        if (
+            authorization is not None
+            and _is_ancestor(root, authorization, parent_sha)
+            and _is_ancestor(root, authorization, child_sha)
+        ):
+            return _g0_t06_workflow_lifecycle_parent_errors(
+                status,
+                parent,
+            )
+    workflow_authorization_errors = (
+        _g0_t06_workflow_authorization_parent_errors(
+            status,
+            parent,
+            parent_sha,
+            root,
+            child_sha,
+            require_current_main=require_current_main,
+        )
+    )
+    if workflow_authorization_errors is not None:
+        return workflow_authorization_errors
     if (
         root is not None
         and parent_sha is not None
@@ -9204,6 +9877,7 @@ def _repository_errors(status: dict[str, Any], status_path: Path, repo_root: Pat
     errors.extend(_package_a_persistence_errors(status, root, head))
     errors.extend(_g0_t04_g4_route_errors(status, root, head))
     errors.extend(_package_a_g0_t05_g3_route_errors(status, root, head))
+    errors.extend(_g0_t06_workflow_lifecycle_route_errors(status, root, head))
     if (
         task["task_id"] == "G0-T04"
         and task["state"] == "awaiting_review"
