@@ -3,7 +3,7 @@
 - Task ID: `G0-T05`
 - Gate: G0
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `accepted_pending_merge`
 - Baseline: `dcb942a80a91312fad12d90b5e362cbdd0611017`
 - Implementation main: `d3a617ab3081e03276a96142ae2b76349e7b2ef9`
 
@@ -70,6 +70,9 @@ modification remain forbidden.
 - Frontend production build: passed.
 - Python compileall, Git diff, and secret checks: passed.
 
-The delivery candidate is implicit at this committed HEAD. Candidate CI and
-both independent reviews remain pending; no acceptance or G1 authority is
-claimed.
+The exact delivery candidate is
+`a29c5f35bbbaada717c69c9d9b4749a07db2c464`. Its exact-head CI run
+`30087724361` succeeded. Independent code/security review returned `APPROVE`
+and architecture/route/time-causality review returned `CLEAR`, both bound to
+that exact candidate. The card is accepted pending protected-main merge; no
+G1 authority is claimed before G0-T05 fully closes.
