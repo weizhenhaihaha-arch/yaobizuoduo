@@ -4916,12 +4916,29 @@ def _g0_t06_workflow_authorization_parent_errors(
         task = status["active_tasks"][0]
     except (KeyError, IndexError, TypeError):
         return None
+    authorization_topology = False
+    if root is not None and child_sha is not None:
+        ok_subject, subject_parents = _git(
+            root,
+            "rev-list",
+            "--parents",
+            "-n",
+            "1",
+            child_sha,
+        )
+        authorization_topology = (
+            subject_parents.split() if ok_subject else []
+        ) == [
+            child_sha,
+            G0_T06_WORKFLOW_BASE,
+            G0_T06_WORKFLOW_PROPOSAL,
+        ]
     if not (
-        task.get("task_id") == "G0-T06"
-        and task.get("risk") == "D0"
-        and task.get("state") == "authorized"
-        and task.get("transition") == {"from": "closed", "to": "authorized"}
-        and task.get("candidate_generation") == 1
+        task.get("state") == "authorized"
+        and (
+            task.get("task_id") == "G0-T06"
+            or authorization_topology
+        )
     ):
         return None
     if root is None or child_sha is None:
@@ -5203,6 +5220,21 @@ def _g0_t06_workflow_lifecycle_parent_errors(
             )
         errors.extend(_ci_continuity_errors(status, parent))
     errors.extend(_maturity_continuity_errors(status, parent))
+    if not _typed_equal(status.get("review"), parent.get("review")):
+        errors.append(
+            "$.review: G0-T06 review identity changed outside a declared phase transition"
+        )
+    if not _typed_equal(status.get("blockers"), parent.get("blockers")):
+        errors.append(
+            "$.blockers: G0-T06 blocker identity changed outside a declared phase transition"
+        )
+    if not _typed_equal(
+        status.get("bootstrap_exception"),
+        parent.get("bootstrap_exception"),
+    ):
+        errors.append(
+            "$.bootstrap_exception: G0-T06 cannot introduce a bootstrap exception"
+        )
     if status.get("release") != parent.get("release"):
         errors.append(
             "$.release: release identity changed across direct first parent"

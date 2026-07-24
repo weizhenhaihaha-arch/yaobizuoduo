@@ -6901,7 +6901,7 @@ def test_g0_t06_lifecycle_immutable_boundary_fails_closed() -> None:
         candidate,
         require_current_main=False,
     )
-    assert any("atomically clear prior evidence" in error for error in errors)
+    assert any("review identity changed" in error for error in errors)
 
 
 def test_g0_t06_lifecycle_exact_route_passes() -> None:
