@@ -5708,8 +5708,12 @@ def make_package_a_g0_t05_g3_repo(
         "transition": {"from": "closed", "to": "authorized"},
         "candidate_generation": 3,
     }
+    implementation_main_status = VALIDATOR._status_at(
+        repo, VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN
+    )
+    assert type(implementation_main_status) is dict
     status["evidence"] = copy.deepcopy(
-        json.loads((ROOT / "PROJECT_STATUS.yaml").read_text())["evidence"]
+        implementation_main_status["evidence"]
     )
     status["review"] = {
         "code_security": "pending", "architecture": "pending",
@@ -5733,8 +5737,16 @@ def make_package_a_g0_t05_g3_repo(
     elif status_mutation == "release":
         status["release"]["product_owner_approval"] = True
     write_status(repo / "PROJECT_STATUS.yaml", status)
-    activation_source = ROOT / VALIDATOR.PACKAGE_A_ACTIVATION_PATH
-    receipt = json.loads(activation_source.read_text(encoding="utf-8"))
+    frozen_activation = (
+        git(
+            repo,
+            "show",
+            f"{VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN}:"
+            f"{VALIDATOR.PACKAGE_A_ACTIVATION_PATH}",
+        )
+        + "\n"
+    )
+    receipt = json.loads(frozen_activation)
     if receipt_mutation is not None:
         key, value = receipt_mutation
         target = receipt
@@ -5746,14 +5758,23 @@ def make_package_a_g0_t05_g3_repo(
         parents=True, exist_ok=True
     )
     if receipt_mutation is None:
-        shutil.copy2(
-            activation_source,
-            repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH,
+        (repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH).write_text(
+            frozen_activation,
+            encoding="utf-8",
         )
     else:
         write_digest_json(repo / VALIDATOR.PACKAGE_A_ACTIVATION_PATH, receipt)
-    shutil.copy2(ROOT / "CURRENT_TASK.md", repo / "CURRENT_TASK.md")
-    shutil.copy2(ROOT / "docs/NEXT_WORKFLOW.md", repo / "docs/NEXT_WORKFLOW.md")
+    for relative in ("CURRENT_TASK.md", "docs/NEXT_WORKFLOW.md"):
+        (repo / relative).write_text(
+            git(
+                repo,
+                "show",
+                f"{VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN}:"
+                f"{relative}",
+            )
+            + "\n",
+            encoding="utf-8",
+        )
     for relative in (
         "PROJECT_MEMORY.md",
         "scripts/validate_project_status.py",
@@ -6353,3 +6374,359 @@ def test_package_a_g0_t05_g3_pr29_main_ci_recovery_requires_pr32_lineage(
     )
     assert governed == bypass
     assert "$: PR32 failed recovery attempt identity drifted" in errors
+
+
+def test_package_a_g0_t05_g3_current_implementation_route_is_exact(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "g0-t05-g3-current-implementation"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text())
+    status["active_tasks"][0].update(
+        state="in_progress",
+        transition={"from": "authorized", "to": "in_progress"},
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    for relative in (
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        source = ROOT / relative
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    implementation = commit(
+        repo, "start current G0-T05 generation 3 implementation"
+    )
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, implementation
+    ) == []
+
+    wrong_root = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{implementation}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+        "-m",
+        "wrong-root current implementation",
+    )
+    assert (
+        "$: Package A generation-3 authorization forbids premature "
+        "implementation or lifecycle drift"
+    ) in VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, wrong_root
+    )
+
+
+def test_package_a_g0_t05_g3_full_lifecycle_is_reachable(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "g0-t05-g3-full-lifecycle"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    for relative in (
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        shutil.copy2(ROOT / relative, repo / relative)
+    commit(repo, "complete G0-T05 generation 3 lifecycle route")
+
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text())
+    status["active_tasks"][0].update(
+        state="awaiting_review",
+        transition={"from": "in_progress", "to": "awaiting_review"},
+    )
+    status["evidence"]["implementation_sha"] = (
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION
+    )
+    status["evidence"]["candidate"]["local_verification"]["status"] = (
+        "success"
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    candidate = commit(repo, "deliver G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, candidate
+    ) == []
+
+    status["active_tasks"][0].update(
+        state="accepted_pending_merge",
+        transition={
+            "from": "awaiting_review",
+            "to": "accepted_pending_merge",
+        },
+    )
+    status["evidence"]["candidate"]["commit_sha"] = candidate
+    status["evidence"]["candidate"]["ci"] = {
+        "status": "success",
+        "subject_sha": candidate,
+        "run_id": "90000000001",
+        "url": (
+            "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+            "actions/runs/90000000001"
+        ),
+    }
+    status["review"] = {
+        "code_security": "approve",
+        "architecture": "clear",
+        "reviewed_candidate_sha": candidate,
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    acceptance = commit(repo, "accept G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, acceptance
+    ) == []
+
+    substituted_acceptance = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{acceptance}^{{tree}}"),
+        "-p",
+        acceptance,
+        "-m",
+        "substituted acceptance descendant",
+    )
+    hostile_merge = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{acceptance}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+        "-p",
+        substituted_acceptance,
+        "-m",
+        "hostile substituted G0-T05 acceptance merge",
+    )
+    hostile_errors = VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status,
+        repo,
+        hostile_merge,
+        require_canonical_main=False,
+    )
+    assert (
+        "$: G0-T05 generation-3 implementation merge second parent must "
+        "be the exact direct acceptance"
+    ) in hostile_errors
+    git(repo, "checkout", "--quiet", "--detach", hostile_merge)
+    git(repo, "update-ref", "refs/heads/main", hostile_merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", hostile_merge)
+    hostile_result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo_root=repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert hostile_result.returncode != 0
+    assert "exact direct acceptance" in hostile_result.stdout
+    git(repo, "checkout", "--quiet", "--detach", acceptance)
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+
+    merge = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{acceptance}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+        "-p",
+        acceptance,
+        "-m",
+        "merge G0-T05 generation 3",
+    )
+    git(repo, "checkout", "--quiet", "--detach", merge)
+    git(repo, "update-ref", "refs/heads/main", merge)
+    git(repo, "update-ref", "refs/remotes/origin/main", merge)
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, merge
+    ) == []
+
+    status["active_tasks"][0].update(
+        state="merged_verified",
+        transition={
+            "from": "accepted_pending_merge",
+            "to": "merged_verified",
+        },
+    )
+    status["evidence"]["closure"] = {
+        "commit_sha": acceptance,
+        "ci": {
+            "status": "success",
+            "subject_sha": acceptance,
+            "run_id": "90000000002",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/90000000002"
+            ),
+        },
+    }
+    status["evidence"]["merged_main"] = {
+        "commit_sha": merge,
+        "ci": {
+            "status": "success",
+            "subject_sha": merge,
+            "run_id": "90000000003",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/90000000003"
+            ),
+        },
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    finalization = commit(repo, "verify merged G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, finalization
+    ) == []
+
+    status["active_tasks"][0].update(
+        state="closed",
+        transition={"from": "merged_verified", "to": "closed"},
+    )
+    status["evidence"]["finalization"] = {
+        "commit_sha": finalization,
+        "d0_ci": {
+            "status": "success",
+            "subject_sha": finalization,
+            "run_id": "90000000004",
+            "url": (
+                "https://github.com/weizhenhaihaha-arch/yaobizuoduo/"
+                "actions/runs/90000000004"
+            ),
+        },
+    }
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    close_record = commit(repo, "close G0-T05 generation 3")
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, close_record
+    ) == []
+
+    substituted_close = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{close_record}^{{tree}}"),
+        "-p",
+        close_record,
+        "-m",
+        "substituted close descendant",
+    )
+    hostile_terminal = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{close_record}^{{tree}}"),
+        "-p",
+        merge,
+        "-p",
+        substituted_close,
+        "-m",
+        "hostile substituted G0-T05 terminal",
+    )
+    hostile_errors = VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status,
+        repo,
+        hostile_terminal,
+        require_canonical_main=False,
+    )
+    assert (
+        "$: G0-T05 generation-3 terminal bridge second parent must be "
+        "the exact direct close record"
+    ) in hostile_errors
+    git(repo, "checkout", "--quiet", "--detach", hostile_terminal)
+    git(repo, "update-ref", "refs/heads/main", hostile_terminal)
+    git(repo, "update-ref", "refs/remotes/origin/main", hostile_terminal)
+    hostile_result = run_validator(
+        repo / "PROJECT_STATUS.yaml",
+        repo_root=repo,
+        schema_path=repo / "schemas/project_status.schema.json",
+    )
+    assert hostile_result.returncode != 0
+    assert "exact direct close record" in hostile_result.stdout
+
+    terminal = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{close_record}^{{tree}}"),
+        "-p",
+        merge,
+        "-p",
+        close_record,
+        "-m",
+        "terminal G0-T05 generation 3",
+    )
+    git(repo, "checkout", "--quiet", "--detach", terminal)
+    git(repo, "update-ref", "refs/heads/main", terminal)
+    git(repo, "update-ref", "refs/remotes/origin/main", terminal)
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, terminal
+    ) == []
+    schema = json.loads(
+        (repo / "schemas/project_status.schema.json").read_text()
+    )
+    assert VALIDATOR._canonical_g0_merge_bridge(
+        status, repo, terminal, schema
+    ) == (close_record, [])
