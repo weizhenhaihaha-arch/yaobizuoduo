@@ -6353,3 +6353,77 @@ def test_package_a_g0_t05_g3_pr29_main_ci_recovery_requires_pr32_lineage(
     )
     assert governed == bypass
     assert "$: PR32 failed recovery attempt identity drifted" in errors
+
+
+def test_package_a_g0_t05_g3_current_implementation_route_is_exact(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "g0-t05-g3-current-implementation"
+    git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
+    git(repo, "config", "user.name", "Test")
+    git(repo, "config", "user.email", "test@example.invalid")
+    git(
+        repo,
+        "checkout",
+        "--quiet",
+        "--detach",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/heads/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "update-ref",
+        "refs/remotes/origin/main",
+        VALIDATOR.PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN,
+    )
+    git(
+        repo,
+        "remote",
+        "set-url",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    status = json.loads((repo / "PROJECT_STATUS.yaml").read_text())
+    status["active_tasks"][0].update(
+        state="in_progress",
+        transition={"from": "authorized", "to": "in_progress"},
+    )
+    write_status(repo / "PROJECT_STATUS.yaml", status)
+    for relative in (
+        "CURRENT_TASK.md",
+        "PROJECT_MEMORY.md",
+        "docs/NEXT_WORKFLOW.md",
+        "scripts/validate_project_status.py",
+        "tests/test_g0_project_status.py",
+    ):
+        source = ROOT / relative
+        target = repo / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+    implementation = commit(
+        repo, "start current G0-T05 generation 3 implementation"
+    )
+    assert VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, implementation
+    ) == []
+
+    wrong_root = git(
+        repo,
+        "commit-tree",
+        git(repo, "rev-parse", f"{implementation}^{{tree}}"),
+        "-p",
+        VALIDATOR.PACKAGE_A_REACTIVATION_BASE,
+        "-m",
+        "wrong-root current implementation",
+    )
+    assert (
+        "$: Package A generation-3 authorization forbids premature "
+        "implementation or lifecycle drift"
+    ) in VALIDATOR._package_a_g0_t05_g3_route_errors(
+        status, repo, wrong_root
+    )
