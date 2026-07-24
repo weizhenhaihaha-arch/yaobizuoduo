@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -81,3 +81,9 @@ transition. The three earlier security blockers remain closed. A next
 generation may repair only this exact transition invariant and its regression.
 Generation 4 is now the sole active repair; all generation-3 evidence was
 cleared atomically from current state and remains preserved in Git history.
+The exact generation-4 implementation
+`015945aa821913b1c66a9436ed244eeca7cbcfdf` preserves pending review and
+blocker identity through delivery and anchors its regression to the exact
+generation-3 candidate. Canonical validation, 113 non-governance Python
+tests, 13 focused adversarial governance tests, 10 frontend tests, and the
+frontend production build passed. The candidate is the implicit next commit.
