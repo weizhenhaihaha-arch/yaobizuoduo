@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `awaiting_review`
+- Status: `accepted_pending_merge`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -87,3 +87,7 @@ blocker identity through delivery and anchors its regression to the exact
 generation-3 candidate. Canonical validation, 113 non-governance Python
 tests, 13 focused adversarial governance tests, 10 frontend tests, and the
 frontend production build passed. The candidate is the implicit next commit.
+The exact candidate `cab654c8650ab80333ab0f417c01421d54928a33`
+passed PR CI run `30109149237`, independent code/security `APPROVE`, and
+independent architecture `CLEAR`. It is accepted pending the exact closure
+HEAD CI and final no-drift merge gate.
