@@ -3,7 +3,7 @@
 - Task ID: `G0-T06`
 - Gate: G0
 - Risk: `D0`
-- Status: `accepted_pending_merge`
+- Status: `merged_verified`
 - Baseline: `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`
 
 ## Implementation boundary
@@ -91,3 +91,10 @@ The exact candidate `cab654c8650ab80333ab0f417c01421d54928a33`
 passed PR CI run `30109149237`, independent code/security `APPROVE`, and
 independent architecture `CLEAR`. It is accepted pending the exact closure
 HEAD CI and final no-drift merge gate.
+Closure `5c6055bf8ff807d383d2c543016bad9560ee2e45` passed exact CI run
+`30126218254` and PR #36 merged as
+`a68662eb0d46514953f6e6888d3f3f7a4d9eeee3`, ordered parents
+`[af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32,
+5c6055bf8ff807d383d2c543016bad9560ee2e45]`, with a second-parent-equal
+tree. Authoritative-main push CI run `30126273246` succeeded. The card is
+merged-verified pending this implicit finalization HEAD and its D0 CI.
