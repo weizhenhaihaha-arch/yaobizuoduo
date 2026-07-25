@@ -1,5 +1,29 @@
 # Project Memory
 
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 2 implementation feasibility and
+  focused evidence are established without claiming hosted CI. The official
+  `actions/python-versions` manifest publishes exact Python `3.12.10` artifacts
+  for both Linux 24.04 x64 and Windows x64; Python 3.9.25 has no Windows
+  artifact and was not guessed as portable. PyPI wheel hashes for all 24
+  recursively pinned dependencies were verified by `pip download
+  --require-hashes --only-binary=:all:` for both CPython 3.12
+  manylinux2014-x86_64 and win_amd64, yielding 24 artifacts per platform.
+  The workflow now runs setup-python before every repository Python command,
+  admits no unhashed Python artifact, creates reversible Linux iptables/ip6tables
+  and Windows Firewall isolation only after dependency installation, and
+  requires raw Python, Node and curl-child denial probes before the verifier.
+  In-process trap/finally cleanup and separate `always()` cleanup restore the
+  network policy. The complete collection is assigned by stable node-id hash
+  to four disjoint shards per operating system; a mechanical collection proof
+  covered all 602 node IDs exactly once with shard sizes
+  `[144, 142, 154, 162]`. A representative 85-test Package A/G0-T06 focused
+  set passed across all four real shard executions as `[21, 20, 24, 20]`;
+  the two slowest shards completed in 113.87 and 133.55 seconds. The verifier
+  tests pass 19/19, the lock/scope/secret checks, Python compilation, YAML
+  parse, allowlist and diff checks pass. Exact hosted Ubuntu/Windows firewall
+  behavior and the 20-minute hard gate remain deliberately unclaimed until
+  exact PR CI; any failure there returns only this card.
+
 - 2026-07-25 Asia/Shanghai: G1-T01 generation 2 began through the exact
   `returned -> in_progress` transition. All implementation, candidate, local
   success, review, CI and blocker claims were cleared atomically. Candidate

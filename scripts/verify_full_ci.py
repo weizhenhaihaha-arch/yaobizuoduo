@@ -37,11 +37,36 @@ FIXTURE_DIGESTS = {
     "fixtures/m7/operational_health_cases.json": "12da0c5249b0fc8d7976831ae9f3b94c176175bea60dd5979b6880bf186a6de2",
 }
 SECRET_PATTERNS = (
-    re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    re.compile(rb"-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----"),
     re.compile(rb"\bAKIA[0-9A-Z]{16}\b"),
     re.compile(rb"\bgh[pousr]_[A-Za-z0-9]{30,}\b"),
     re.compile(rb"\bsk-[A-Za-z0-9]{32,}\b"),
+    re.compile(rb"\beyJ[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b"),
+    re.compile(
+        rb"(?i)\b(?:api[_-]?key|access[_-]?token|secret|password)\b"
+        rb"\s*[:=]\s*['\"][A-Za-z0-9_./+=-]{16,}['\"]"
+    ),
 )
+REQUIREMENT_RE = re.compile(
+    r"^(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^\s]+)"
+    r"(?P<hashes>(?:\s+--hash=sha256:[0-9a-f]{64})+)$"
+)
+SHARD_PLUGIN = """\
+import os
+from scripts.verify_full_ci import shard_index
+
+def pytest_collection_modifyitems(config, items):
+    count = int(os.environ["G1_CI_SHARD_COUNT"])
+    index = int(os.environ["G1_CI_SHARD_INDEX"])
+    selected = [
+        item for item in items
+        if shard_index(item.nodeid, count) == index
+    ]
+    deselected = [item for item in items if item not in selected]
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+    items[:] = selected
+"""
 
 
 class VerificationError(RuntimeError):
@@ -67,9 +92,12 @@ def exact_requirements(path: Path) -> dict[str, str]:
                 raise VerificationError(f"{path.name}: requirement include escapes the frozen locks")
             locked.update(exact_requirements(nested))
             continue
-        if line.count("==") != 1:
-            raise VerificationError(f"{path.name}: every dependency must use one exact == pin")
-        name, version = line.split("==")
+        match = REQUIREMENT_RE.fullmatch(line)
+        if match is None:
+            raise VerificationError(
+                f"{path.name}: every dependency needs one exact == pin and SHA-256 artifact hash"
+            )
+        name, version = match.group("name"), match.group("version")
         key = name.lower().replace("_", "-")
         if not name or not version or key in locked:
             raise VerificationError(f"{path.name}: invalid or duplicate dependency pin")
@@ -78,6 +106,13 @@ def exact_requirements(path: Path) -> dict[str, str]:
 
 
 def validate_runtime_and_dependencies() -> None:
+    if (
+        os.environ.get("CI", "").lower() == "true"
+        and os.environ.get("G1_OS_EGRESS_ISOLATED") != "1"
+    ):
+        raise VerificationError(
+            "CI full verification requires mechanically probed OS egress isolation"
+        )
     python_pin = PYTHON_PIN.read_text(encoding="utf-8").strip()
     actual_python = ".".join(str(part) for part in sys.version_info[:3])
     if actual_python != python_pin:
@@ -113,7 +148,7 @@ def validate_runtime_and_dependencies() -> None:
             raise VerificationError(f"frontend {section} contains a floating dependency")
 
     locked = exact_requirements(DEV_LOCK)
-    if not {"fastapi", "httpx", "pytest", "uvicorn"}.issubset(locked):
+    if not {"fastapi", "httpx", "pytest", "pytest-xdist", "uvicorn"}.issubset(locked):
         raise VerificationError("Python lock omits a mandatory API/test dependency")
     for name, expected in locked.items():
         try:
@@ -237,11 +272,43 @@ def run(command: list[str], env: dict[str, str]) -> str:
     return result.stdout
 
 
+def shard_index(nodeid: str, count: int) -> int:
+    return int(hashlib.sha256(nodeid.encode("utf-8")).hexdigest(), 16) % count
+
+
+def pytest_parallel_args() -> list[str]:
+    workers = os.environ.get("G1_CI_WORKERS", "4")
+    if not workers.isdigit() or not 2 <= int(workers) <= 8:
+        raise VerificationError("G1_CI_WORKERS must be an integer from 2 through 8")
+    count = os.environ.get("G1_CI_SHARD_COUNT", "1")
+    index = os.environ.get("G1_CI_SHARD_INDEX", "0")
+    if (
+        not count.isdigit()
+        or not index.isdigit()
+        or not 1 <= int(count) <= 8
+        or not 0 <= int(index) < int(count)
+    ):
+        raise VerificationError("CI shard identity must satisfy 1 <= count <= 8 and 0 <= index < count")
+    return [
+        "-n",
+        workers,
+        "--dist",
+        "worksteal",
+        "-p",
+        "g1_shard_plugin",
+    ]
+
+
 def run_complete_suite() -> None:
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
     assert npm is not None
     with tempfile.TemporaryDirectory(prefix="yaobizuoduo-offline-") as directory:
-        env = offline_environment(Path(directory))
+        directory_path = Path(directory)
+        (directory_path / "g1_shard_plugin.py").write_text(
+            SHARD_PLUGIN,
+            encoding="utf-8",
+        )
+        env = offline_environment(directory_path)
         run([sys.executable, "scripts/validate_project_status.py", "--repo-root", "."], env)
         collected = run(
             [sys.executable, "-m", "pytest", "--collect-only", "-q", TRANSPORT_TEST],
@@ -250,7 +317,10 @@ def run_complete_suite() -> None:
         if "6 tests collected" not in collected:
             raise VerificationError("transport suite was not completely collected")
         run([sys.executable, "-m", "pytest", "-q", TRANSPORT_TEST], env)
-        run([sys.executable, "-m", "pytest", "-q"], env)
+        run(
+            [sys.executable, "-m", "pytest", "-q", *pytest_parallel_args()],
+            env,
+        )
         run([sys.executable, "-m", "pip", "check"], env)
         run([npm, "--prefix", "frontend", "ls", "--all", "--offline"], env)
         run([npm, "--prefix", "frontend", "test", "--", "--run"], env)

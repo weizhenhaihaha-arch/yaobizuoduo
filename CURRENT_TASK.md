@@ -36,6 +36,22 @@ must stop at a clean local `awaiting_review` candidate for independent
 code/security and architecture/route review. No push, PR, merge or next-card
 start is part of the developer delivery.
 
+## Generation 2 repair boundary
+
+The returned candidate remains immutable. This repair only:
+
+- uses exact Python `3.12.10`, available from `actions/python-versions` for
+  Ubuntu 24.04 x64 and Windows x64, before any repository Python execution;
+- requires SHA-256 hashes for every Python artifact;
+- installs dependencies before reversible OS-level egress isolation and
+  mechanically denies Python, Node and curl child-process connections;
+- restores Linux and Windows network policy both in-process and through
+  `always()` cleanup;
+- partitions every platform's complete collection into four deterministic,
+  disjoint shards and uses bounded pytest workers under the 20-minute job cap;
+- keeps local verification pending until the new exact candidate is actually
+  green.
+
 Authorization was recorded at
 `af478f3557ee24bf41e7b06f4249a06c13780c08`; exact implementation
 `c07ab506026e660561127f09e65d757c80dfcdb9` produced exact generation-1
