@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `1`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -35,3 +35,7 @@ Run every exact `acceptance_commands` entry from the frozen manifest. Delivery
 must stop at a clean local `awaiting_review` candidate for independent
 code/security and architecture/route review. No push, PR, merge or next-card
 start is part of the developer delivery.
+
+Authorization was recorded at
+`af478f3557ee24bf41e7b06f4249a06c13780c08`; implementation is now active on
+its strict first-parent child.
