@@ -1,5 +1,14 @@
 # Project Memory
 
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 2 began through the exact
+  `returned -> in_progress` transition. All implementation, candidate, local
+  success, review, CI and blocker claims were cleared atomically. Candidate
+  `bcc9f6e13befeb49c009008bb2ca23d54ed589d4` and its failed local
+  ChatGPT-bundled-Node attempt remain immutable history. The repair is limited
+  to the five returned defects and the existing 18-path Package A allowlist;
+  no product, market, credential, trading, ruleset, deployment, release,
+  LOCAL-PREVIEW or G2 authority is created.
+
 - 2026-07-25 Asia/Shanghai: Independent review returned exact G1-T01
   generation-1 candidate `bcc9f6e13befeb49c009008bb2ca23d54ed589d4`.
   The verbatim review identities are: code/security=`REQUEST_CHANGES`, blockers

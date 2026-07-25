@@ -25,17 +25,17 @@
     {
       "task_id": "G1-T01",
       "risk": "D1",
-      "state": "returned",
-      "transition": {"from": "awaiting_review", "to": "returned"},
-      "candidate_generation": 1
+      "state": "in_progress",
+      "transition": {"from": "returned", "to": "in_progress"},
+      "candidate_generation": 2
     }
   ],
   "evidence": {
     "authorization_baseline_sha": "94c87f28436e2ea8899c9a407e1f1413de893603",
-    "implementation_sha": "c07ab506026e660561127f09e65d757c80dfcdb9",
+    "implementation_sha": null,
     "candidate": {
-      "commit_sha": "bcc9f6e13befeb49c009008bb2ca23d54ed589d4",
-      "local_verification": {"status": "success", "subject": "delivery_head"},
+      "commit_sha": null,
+      "local_verification": {"status": "pending", "subject": "delivery_head"},
       "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
     },
     "closure": {
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "request_changes",
-    "architecture": "block",
-    "reviewed_candidate_sha": "bcc9f6e13befeb49c009008bb2ca23d54ed589d4"
+    "code_security": "pending",
+    "architecture": "pending",
+    "reviewed_candidate_sha": null
   },
   "bootstrap_exception": null,
   "capability": {
@@ -62,13 +62,7 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [
-    "PYTHON_3_9_6_UNAVAILABLE_ON_UBUNTU_24_04",
-    "OFFLINE_PROCESS_TREE_EGRESS_NOT_ISOLATED",
-    "PR_FAST_EXCEEDS_20_MIN",
-    "PYTHON_ARTIFACT_HASHES_MISSING",
-    "LOCAL_VERIFICATION_RECORDED_BEFORE_EXACT_GREEN"
-  ],
+  "blockers": [],
   "next_authorization": {"gate": "G2", "task_id": "G2-T01", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

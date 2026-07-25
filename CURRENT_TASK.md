@@ -3,8 +3,8 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `returned`
-- Candidate generation: `1`
+- Status: `in_progress`
+- Candidate generation: `2`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
 ## Goal
@@ -47,5 +47,7 @@ pre-setup Python execution, missing Python artifact hashes and narrow secret
 patterns; architecture/route was `BLOCK` for `PR_FAST_EXCEEDS_20_MIN`,
 `OFFLINE_PROCESS_TREE_EGRESS_NOT_ISOLATED`,
 `PYTHON_ARTIFACT_HASHES_MISSING`, and
-`LOCAL_VERIFICATION_RECORDED_BEFORE_EXACT_GREEN`. Exact PR CI, push, merge and
-every later task remain unclaimed.
+`LOCAL_VERIFICATION_RECORDED_BEFORE_EXACT_GREEN`. Generation 2 is now the only
+active repair and clears all implementation, candidate, review, CI and blocker
+claims until a new exact candidate is genuinely verified. Exact PR CI, push,
+merge and every later task remain unclaimed.
