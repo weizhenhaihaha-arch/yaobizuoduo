@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `2`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -65,5 +65,13 @@ patterns; architecture/route was `BLOCK` for `PR_FAST_EXCEEDS_20_MIN`,
 `PYTHON_ARTIFACT_HASHES_MISSING`, and
 `LOCAL_VERIFICATION_RECORDED_BEFORE_EXACT_GREEN`. Generation 2 is now the only
 active repair and clears all implementation, candidate, review, CI and blocker
-claims until a new exact candidate is genuinely verified. Exact PR CI, push,
-merge and every later task remain unclaimed.
+claims until a new exact candidate is genuinely verified.
+
+Generation-2 implementation `3702d4c65e6ae5b1642ce8e09883390bebfb93e6`
+is now locally verified. Exact Python 3.12.10 installed the complete hashed
+dependency closure without an index; the one final raw suite passed 603/603,
+and the corrected unified entrypoint passed canonical status, transport 6/6,
+the complete suite 603/603 with four workers, dependency integrity, frontend
+10/10, production build, compilation and diff checks. Delivery is frozen at
+`awaiting_review`; both independent reviews, hosted exact PR CI, push, merge
+and every later task remain unclaimed.

@@ -1,5 +1,19 @@
 # Project Memory
 
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 2 implementation
+  `3702d4c65e6ae5b1642ce8e09883390bebfb93e6` completed the bounded same-card
+  repair and local acceptance. Exact Python 3.12.10 with the 24-artifact hashed
+  closure passed the one final raw suite as 603/603 in 3681.54 seconds. The
+  corrected unified entrypoint then passed canonical status, transport
+  collection and execution 6/6, the complete four-worker suite 603/603 in
+  1201.35 seconds, `pip check`, offline npm dependency integrity, frontend
+  10/10, the production build, Python compilation and `git diff --check`.
+  The unified entrypoint was not rerun after success, and the raw suite was not
+  repeated after its success. Delivery is now locally green and stops at
+  `awaiting_review`; exact hosted Ubuntu/Windows process-tree isolation,
+  per-shard 15-minute execution, PR CI, independent reviews, push, merge and
+  every later task remain unclaimed.
+
 - 2026-07-25 Asia/Shanghai: Generation-2 exact implementation head
   `52624927545de6288c378080907f48b2c5088ae2` passed the one final raw
   Python suite as 603/603 in 3681.54 seconds. Its first unified-entrypoint
