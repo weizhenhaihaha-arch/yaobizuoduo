@@ -1,5 +1,29 @@
 # Project Memory
 
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 1 implementation
+  `c07ab506026e660561127f09e65d757c80dfcdb9` remains strictly inside the
+  frozen Package A 18-path allowlist. It adds exact Python 3.9.6, Node 24.14.0
+  and npm 11.9.0 identities, recursively pinned Python/API and frontend locks,
+  and one mandatory fail-closed entrypoint:
+  `python3 scripts/verify_full_ci.py --offline --fail-closed
+  --require-transport`. The same entrypoint is used by Ubuntu and Windows
+  under the unchanged required-check aggregate `G0 / exact-head`; fixture
+  digests, transport collection/pass, complete Python and frontend suites,
+  production build, dependency integrity, secret-shaped values and forbidden
+  scope are all mandatory. The first complete implementation run measured
+  3736.34 seconds and returned 588 passed / 6 failed; all six failures were
+  historical G0-T06 tests that incorrectly borrowed moving current-HEAD
+  documents instead of their frozen historical commits. The bounded same-card
+  repair binds those fixtures to exact historical objects. Its direct focused
+  proof passed 6/6, the entrypoint/bridge tests passed 11/11, and the broader
+  Package A/G0-T06 focused regression passed 67/67 in 430.46 seconds. The CI
+  timeout is 120 minutes based on the measured 62-minute complete run. Product
+  behavior, Package A authority bytes, ruleset 19526291 and
+  OFFLINE_EVIDENCE_ACCEPTED remain unchanged. Delivery stops at
+  `awaiting_review`: no push, PR, merge, G2+, market network, credential,
+  account, order, trading, deployment, release or LOCAL-PREVIEW authority is
+  claimed.
+
 ## Historical record and latest delivered transition
 
 This file records durable history and is not the current machine-state authority.

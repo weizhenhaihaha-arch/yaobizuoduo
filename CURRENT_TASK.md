@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `1`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -37,5 +37,8 @@ code/security and architecture/route review. No push, PR, merge or next-card
 start is part of the developer delivery.
 
 Authorization was recorded at
-`af478f3557ee24bf41e7b06f4249a06c13780c08`; implementation is now active on
-its strict first-parent child.
+`af478f3557ee24bf41e7b06f4249a06c13780c08`; exact implementation
+`c07ab506026e660561127f09e65d757c80dfcdb9` now provides the pinned
+cross-platform entrypoint. The delivery candidate is stopped at
+`awaiting_review`; both independent reviews, exact PR CI, push, merge and every
+later task remain unclaimed.
