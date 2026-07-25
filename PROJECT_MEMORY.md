@@ -1,5 +1,15 @@
 # Project Memory
 
+- 2026-07-25 Asia/Shanghai: The first generation-2 full acceptance attempt
+  stopped fail-closed after the protected exact-head contract test found that
+  the workflow no longer named an explicit canonical status-validation step.
+  Only 14 tests had passed before the run was interrupted; no complete-suite
+  success is claimed. The same-card repair restores
+  `python scripts/validate_project_status.py --repo-root .` immediately after
+  exact subject verification and after exact Python setup. It does not weaken
+  or replace the fail-closed validation repeated inside the complete entrypoint,
+  and it changes no product or capability boundary.
+
 - 2026-07-25 Asia/Shanghai: G1-T01 generation 2 implementation feasibility and
   focused evidence are established without claiming hosted CI. The official
   `actions/python-versions` manifest publishes exact Python `3.12.10` artifacts

@@ -48,6 +48,9 @@ jobs:
           CI_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
         run: python scripts/verify_exact_head_ci.py
 
+      - name: Validate canonical project status
+        run: python scripts/validate_project_status.py --repo-root .
+
       - name: Install exact Node runtime
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444
         with:
