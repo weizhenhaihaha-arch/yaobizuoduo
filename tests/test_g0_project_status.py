@@ -3475,6 +3475,42 @@ def test_package_a_g1_freezes_complete_transport_backend_ci() -> None:
     assert all("test_api_transport.py" not in command for command in g0["acceptance_commands"])
 
 
+def test_package_a_g1_accepts_exact_g0_t06_terminal_recovery_baseline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    baseline = {
+        "active_tasks": [{"task_id": "G0-T06", "state": "closed"}]
+    }
+    monkeypatch.setattr(
+        VALIDATOR,
+        "_g0_t06_workflow_terminal_bridge",
+        lambda *_args, **_kwargs: ("governed-close", []),
+    )
+    assert VALIDATOR._package_a_valid_baseline(
+        "G1-T01",
+        "G0-T05",
+        baseline,
+        ROOT,
+        "94c87f28436e2ea8899c9a407e1f1413de893603",
+    )
+
+
+def test_later_task_does_not_reenter_legacy_g0_t04_anomaly_route() -> None:
+    status = load_valid()
+    status["active_tasks"][0]["task_id"] = "G1-T01"
+    assert (
+        VALIDATOR._g0_t04_anomaly_post_merge_repair_parent_errors(
+            status,
+            load_valid(),
+            "0" * 40,
+            ROOT,
+            VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+            require_current_main=False,
+        )
+        is None
+    )
+
+
 def make_package_a_activation(
     closed_sha: str, **overrides: object
 ) -> dict:
@@ -6874,7 +6910,7 @@ def test_g0_t06_lifecycle_is_not_reinterpreted_as_old_g0_t04_repair() -> None:
         ROOT,
         candidate,
         require_current_main=False,
-    ) == ["$: G0-T04 post-merge repair must preserve exact blocked status"]
+    ) is None
     assert VALIDATOR._parent_status_errors(
         status,
         parent_status,
@@ -6905,7 +6941,7 @@ def test_g0_t06_lifecycle_immutable_boundary_fails_closed() -> None:
 
 
 def test_g0_t06_lifecycle_exact_route_passes() -> None:
-    subject = git(ROOT, "rev-parse", "HEAD")
+    subject = "cab654c8650ab80333ab0f417c01421d54928a33"
     status = VALIDATOR._status_at(ROOT, subject)
     assert type(status) is dict
     assert (
@@ -6925,6 +6961,7 @@ def test_g0_t06_lifecycle_cumulative_allowlist_fails_closed(
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "switch", "--detach", "cab654c8650ab80333ab0f417c01421d54928a33")
     (repo / "product-scope.txt").write_text("forbidden\n", encoding="utf-8")
     hostile = commit(repo, "hostile product scope")
     status = VALIDATOR._status_at(repo, hostile)
@@ -6960,6 +6997,7 @@ def test_g0_t06_lifecycle_immutable_artifacts_fail_closed(
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "switch", "--detach", "cab654c8650ab80333ab0f417c01421d54928a33")
     artifact = repo / path
     artifact.write_text(
         artifact.read_text(encoding="utf-8") + "\nforged\n",
@@ -6977,7 +7015,7 @@ def test_g0_t06_lifecycle_immutable_artifacts_fail_closed(
 
 
 def test_g0_t06_lifecycle_next_authorization_fails_closed() -> None:
-    subject = git(ROOT, "rev-parse", "HEAD")
+    subject = "cab654c8650ab80333ab0f417c01421d54928a33"
     status = copy.deepcopy(VALIDATOR._status_at(ROOT, subject))
     assert type(status) is dict
     status["next_authorization"] = {
@@ -7206,7 +7244,7 @@ def test_g0_t06_terminal_recovery_requires_every_repair_path(
 
 
 def test_g0_t06_current_terminal_recovery_uses_production_bridge() -> None:
-    recovery = git(ROOT, "rev-parse", "HEAD")
+    recovery = VALIDATOR.G0_T06_WORKFLOW_MAIN_CI_RECOVERY
     assert git(ROOT, "rev-parse", f"{recovery}^") == (
         VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN
     )

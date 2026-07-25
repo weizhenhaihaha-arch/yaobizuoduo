@@ -239,6 +239,12 @@ G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+G0_T06_WORKFLOW_MAIN_CI_RECOVERY = (
+    "e742ddb42b15a56e65f863d89121117119bbf5e5"
+)
+G0_T06_WORKFLOW_RECOVERED_MAIN = (
+    "94c87f28436e2ea8899c9a407e1f1413de893603"
+)
 PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN = (
     "d3a617ab3081e03276a96142ae2b76349e7b2ef9"
 )
@@ -858,6 +864,37 @@ def _package_a_reactivation_receipt() -> dict[str, Any]:
     return receipt
 
 
+def _package_a_valid_baseline(
+    task_id: str,
+    expected_previous: str,
+    baseline_status: dict[str, Any] | None,
+    root: Path,
+    baseline: str,
+) -> bool:
+    try:
+        valid_previous_card_baseline = (
+            type(baseline_status) is dict
+            and baseline_status["active_tasks"][0].get("task_id") == expected_previous
+            and baseline_status["active_tasks"][0].get("state") == "closed"
+        )
+    except (KeyError, IndexError, TypeError):
+        valid_previous_card_baseline = False
+    workflow_governed: str | None = None
+    workflow_errors: list[str] = []
+    if task_id == "G1-T01" and type(baseline_status) is dict:
+        workflow_governed, workflow_errors = _g0_t06_workflow_terminal_bridge(
+            baseline_status,
+            root,
+            baseline,
+            require_canonical_main=False,
+        )
+    return valid_previous_card_baseline or (
+        task_id == "G1-T01"
+        and workflow_governed is not None
+        and not workflow_errors
+    )
+
+
 def _package_a_persistence_errors(
     status: dict[str, Any], root: Path, head: str
 ) -> list[str]:
@@ -887,14 +924,13 @@ def _package_a_persistence_errors(
     errors.extend(_package_a_manifest_errors(root, baseline))
     expected_previous = "G0-T04" if task_id == "G0-T05" else "G0-T05"
     baseline_status = _status_at(root, baseline)
-    try:
-        valid_baseline = (
-            type(baseline_status) is dict
-            and baseline_status["active_tasks"][0].get("task_id") == expected_previous
-            and baseline_status["active_tasks"][0].get("state") == "closed"
-        )
-    except (KeyError, IndexError, TypeError):
-        valid_baseline = False
+    valid_baseline = _package_a_valid_baseline(
+        task_id,
+        expected_previous,
+        baseline_status,
+        root,
+        baseline,
+    )
     if not valid_baseline:
         errors.append(
             f"$.package_a: {task_id} baseline must be the exact closed {expected_previous}"
@@ -8976,6 +9012,11 @@ def _g0_t04_anomaly_post_merge_repair_parent_errors(
     *,
     require_current_main: bool,
 ) -> list[str] | None:
+    try:
+        if status["active_tasks"][0].get("task_id") != "G0-T04":
+            return None
+    except (KeyError, IndexError, TypeError):
+        return None
     if _is_g0_t04_g4_status(status):
         return None
     if root is None or child_sha is None or child_sha == G0_T04_ANOMALY_MERGE:
