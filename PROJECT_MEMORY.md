@@ -1,5 +1,19 @@
 # Project Memory
 
+- 2026-07-25 Asia/Shanghai: Independent review returned exact G1-T01
+  generation-1 candidate `bcc9f6e13befeb49c009008bb2ca23d54ed589d4`.
+  The verbatim review identities are: code/security=`REQUEST_CHANGES`, blockers
+  `PYTHON_3_9_6_UNAVAILABLE_ON_UBUNTU_24_04` and
+  `OFFLINE_PROCESS_TREE_EGRESS_NOT_ISOLATED`, plus nonblocking pre-setup
+  Python, missing hashes and narrow secret patterns; architecture/route=`BLOCK`,
+  blockers `PR_FAST_EXCEEDS_20_MIN`,
+  `OFFLINE_PROCESS_TREE_EGRESS_NOT_ISOLATED`,
+  `PYTHON_ARTIFACT_HASHES_MISSING`, and
+  `LOCAL_VERIFICATION_RECORDED_BEFORE_EXACT_GREEN`. No remote GitHub review
+  object or CI success is inferred. Generation 2 may repair only those exact
+  runtime, artifact-integrity, process-tree isolation, time-bound and truthful
+  evidence defects within the frozen 18-path allowlist.
+
 - 2026-07-25 Asia/Shanghai: G1-T01 generation 1 implementation
   `c07ab506026e660561127f09e65d757c80dfcdb9` remains strictly inside the
   frozen Package A 18-path allowlist. It adds exact Python 3.9.6, Node 24.14.0
