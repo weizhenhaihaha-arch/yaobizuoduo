@@ -20,7 +20,11 @@
   set passed across all four real shard executions as `[21, 20, 24, 20]`;
   the two slowest shards completed in 113.87 and 133.55 seconds. The verifier
   tests pass 19/19, the lock/scope/secret checks, Python compilation, YAML
-  parse, allowlist and diff checks pass. Exact hosted Ubuntu/Windows firewall
+  parse, allowlist and diff checks pass. The official Python.org 3.12.10
+  macOS framework was also exercised from an isolated temporary extraction:
+  all 24 recursively hashed arm64 wheels installed without an index, including
+  the platform-specific `pydantic_core` artifact, and the verifier tests passed
+  19/19 under exact Python 3.12.10. Exact hosted Ubuntu/Windows firewall
   behavior and the 20-minute hard gate remain deliberately unclaimed until
   exact PR CI; any failure there returns only this card.
 
