@@ -237,6 +237,9 @@ def offline_environment(directory: Path) -> dict[str, str]:
     env.update(
         {
             "CI": "true",
+            "G1_CI_WORKERS": env.get("G1_CI_WORKERS", "4"),
+            "G1_CI_SHARD_COUNT": env.get("G1_CI_SHARD_COUNT", "1"),
+            "G1_CI_SHARD_INDEX": env.get("G1_CI_SHARD_INDEX", "0"),
             "NO_PROXY": "*",
             "no_proxy": "*",
             "PIP_NO_INDEX": "1",

@@ -93,6 +93,9 @@ def test_offline_guard_rejects_non_loopback_network(tmp_path: Path) -> None:
     env = VERIFY.offline_environment(tmp_path)
     guard = (tmp_path / "sitecustomize.py").read_text(encoding="utf-8")
     assert "offline verification forbids network access" in guard
+    assert env["G1_CI_WORKERS"] == "4"
+    assert env["G1_CI_SHARD_COUNT"] == "1"
+    assert env["G1_CI_SHARD_INDEX"] == "0"
     assert env["PIP_NO_INDEX"] == "1"
     assert env["npm_config_offline"] == "true"
 

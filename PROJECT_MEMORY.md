@@ -1,5 +1,17 @@
 # Project Memory
 
+- 2026-07-25 Asia/Shanghai: Generation-2 exact implementation head
+  `52624927545de6288c378080907f48b2c5088ae2` passed the one final raw
+  Python suite as 603/603 in 3681.54 seconds. Its first unified-entrypoint
+  attempt then stopped before the complete suite after canonical status and
+  transport 6/6 passed: the local default shard count and index were validated
+  in the parent but not copied into the xdist worker environment, so every
+  worker failed closed with `KeyError: G1_CI_SHARD_COUNT`. No product test ran
+  in that failed parallel phase and the raw suite will not be repeated. The
+  bounded same-card repair copies the validated worker/count/index defaults
+  into the offline subprocess environment and adds direct regression coverage;
+  no CI, review, merge or capability success is inferred.
+
 - 2026-07-25 Asia/Shanghai: The first generation-2 full acceptance attempt
   stopped fail-closed after the protected exact-head contract test found that
   the workflow no longer named an explicit canonical status-validation step.
