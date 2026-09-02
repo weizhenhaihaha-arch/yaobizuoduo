@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `2`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -73,5 +73,9 @@ dependency closure without an index; the one final raw suite passed 603/603,
 and the corrected unified entrypoint passed canonical status, transport 6/6,
 the complete suite 603/603 with four workers, dependency integrity, frontend
 10/10, production build, compilation and diff checks. Delivery is frozen at
-`awaiting_review`; both independent reviews, hosted exact PR CI, push, merge
-and every later task remain unclaimed.
+`d752b155fa578a8e017bb3d76483558c6260ae4a`. PR #39 exact-head run
+`33648740889` bound that exact subject but failed all four Linux shards, all
+four Windows shards and aggregate `G0 / exact-head`. Independent code/security
+returned `REQUEST_CHANGES` and architecture/route returned `BLOCK`, both bound
+to that candidate. The candidate is therefore returned without rewriting its
+commit or CI history. No merge or later task is authorized by this record.

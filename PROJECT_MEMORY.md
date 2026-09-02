@@ -213,6 +213,7 @@ CI, maturity, blockers, and next authorization.
 - If main AG commits workflow or memory changes while an execution task is active, it must immediately reset that task's baseline to avoid mistaking the main AG commit for executor completion.
 - UI/UX decisions are documented in the repository-root `DESIGN.md`, currently a Draft source of truth.
 - A future Telegram notification can mirror signal creation and invalidation, but notification timing and deduplication remain to be designed.
+- 2026-09-03 Asia/Shanghai: G1-T01 generation-2 delivery `d752b155fa578a8e017bb3d76483558c6260ae4a` was pushed unchanged to PR #39. Exact pull-request run `33648740889` bound that SHA and failed all four Linux shards, all four Windows shards, and aggregate `G0 / exact-head`. Independent code/security returned `REQUEST_CHANGES` and architecture/route returned `BLOCK`, both bound to the same candidate, for four reproducibility defects: Windows working-tree line-ending sensitivity in the schema digest, inherited outer shard identity in nested tests, fresh-clone dependence on accidental historical Git objects/refs, and ambient Git author/committer identity in generated fixture commits. The candidate is truthfully returned and remains immutable; no product, market, credential, trading, deployment, G2, or Signal V1 authority is created.
 
 ## Verification status
 
