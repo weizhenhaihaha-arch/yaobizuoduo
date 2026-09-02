@@ -3,8 +3,8 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `returned`
-- Candidate generation: `2`
+- Status: `in_progress`
+- Candidate generation: `3`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
 ## Goal
@@ -79,3 +79,16 @@ four Windows shards and aggregate `G0 / exact-head`. Independent code/security
 returned `REQUEST_CHANGES` and architecture/route returned `BLOCK`, both bound
 to that candidate. The candidate is therefore returned without rewriting its
 commit or CI history. No merge or later task is authorized by this record.
+
+## Generation 3 portability repair boundary
+
+Generation 3 starts through the legal `returned -> in_progress` transition and
+clears every generation-2 active implementation, candidate, phase-CI, review,
+and blocker identity while preserving the immutable history above. This repair
+is limited to four hosted-CI defects: platform-neutral governed-text digests
+that retain worktree tamper detection, nested-test isolation from outer shard
+variables without weakening egress guards, deterministic self-contained Git
+history fixtures without alternates or hidden refs, and fixed test-only author,
+committer and time identity for generated commits. It must use only the minimum
+necessary existing manifest allowlist paths, pass focused regressions and every
+frozen acceptance command, and stop at a new clean `awaiting_review` delivery.
