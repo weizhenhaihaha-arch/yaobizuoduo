@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `3`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -101,3 +101,14 @@ canonical validation, Transport 6/6, the complete four-worker suite 607/607 in
 1083.38 seconds, dependency integrity, frontend 10/10, production build,
 compilation and diff checks. Delivery stops at `awaiting_review`; hosted CI,
 independent reviews, merge, G2 and every product capability remain unclaimed.
+
+Hosted run `33715808959` bound exact generation-3 delivery
+`e31cb8b390e9ccbf1b3c127d3103a7accb1af347` and failed. All four Windows jobs
+failed because Git output containing UTF-8 governed text was decoded through
+the runner's cp1252 locale; all four Linux jobs failed the same CRLF portability
+fixture because the test itself made an awaiting-review checkout dirty. Remote
+logs also proved every nominal shard ran the complete 607-test collection
+because the nested verifier overwrote the outer shard identity. Independent
+review therefore returned this exact candidate with code/security
+`REQUEST_CHANGES` and architecture/route `BLOCK`. Generation 3 is returned;
+the failure is immutable evidence and grants no G2 or product authority.
