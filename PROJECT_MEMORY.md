@@ -1,11 +1,175 @@
 # Project Memory
 
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 4 candidate
+  `19b8e7250e7fc1032ab490f86721fa80c6574311` is returned after independent
+  review exposed false-green Windows evidence in hosted run `33740584116`.
+  Every Windows shard logged `FULL_CI_FAILED` for CRLF-sensitive fixture
+  digests, while the PowerShell step failed to preserve the verifier's native
+  nonzero exit status across firewall restoration and GitHub reported success.
+  Code/security returned `REQUEST_CHANGES`; architecture/route returned
+  `BLOCK`, both bound to the exact candidate. Linux four-shard execution,
+  candidate identity, allowlist and secret checks remain valid evidence, but
+  closure and merge are prohibited. The next repair may address only fixture
+  newline-neutral validation and Windows native exit-code propagation; no
+  product, strategy, market, credential, trading, deployment or G2 authority
+  is created.
+
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 5 starts as a minimal repair for
+  the two existing Windows fail-closed defects proven by candidate
+  `19b8e7250e7fc1032ab490f86721fa80c6574311` and run `33740584116`: native
+  verifier failures must survive firewall cleanup, and frozen text-fixture
+  digests must treat clean LF and CRLF checkouts equivalently while rejecting
+  real content mutation. Generation-4 activity evidence is cleared atomically;
+  no new root cause, product, market, credential, trading, deployment or G2
+  authority is admitted.
+
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 4 completed its final bounded
+  hosted-CI portability repair at implementation
+  `fcaa7874ac7177949aaf08b53ce18a58d2cd3701`. The change is limited to strict
+  UTF-8 Git-output decoding, a clean CRLF fixture and preservation of the real
+  outer four-shard identity. Exact Python 3.12.10 passed the one raw suite as
+  611/611 in 3095.51 seconds; Transport passed 6/6; the unified offline
+  entrypoint passed canonical validation, Transport 6/6, the complete
+  four-worker suite 611/611 in 986.47 seconds, `pip check`, offline npm
+  integrity, frontend 10/10, production build, compilation and diff checks.
+  No product, strategy, UI, market, credential, trading, deployment, ruleset or
+  G2 behavior changed. Delivery stops at `awaiting_review`; hosted CI and both
+  independent reviews remain pending.
+
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 3 final bounded fixture repair
+  implementation `7c0a1b2877b52a9445f59dd79f1864648915662b`
+  changed only `tests/test_g0_project_status.py`. The G0-T04 committed-seal
+  regression now tests the selected commit blob in a HEAD-reachable isolated
+  fixture without requiring an abandoned historical object, and the G0-T05
+  PR30-import regression constructs its stopped lineage deterministically in
+  the temporary repository. The two exact failures pass 2/2 under Python
+  3.12.10. The one final raw suite passed 607/607 in 3279.47 seconds; Transport
+  passed 6/6; the unified offline entrypoint passed canonical validation,
+  Transport 6/6, the four-worker suite 607/607 in 1083.38 seconds, `pip check`,
+  offline npm integrity, frontend 10/10, production build, compilation and
+  diff checks. No production validator, product, strategy, UI, market,
+  credential, trading, deployment, ruleset or G2 behavior changed. Delivery
+  stops at `awaiting_review`; hosted CI and independent reviews remain pending.
+
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 2 implementation
+  `3702d4c65e6ae5b1642ce8e09883390bebfb93e6` completed the bounded same-card
+  repair and local acceptance. Exact Python 3.12.10 with the 24-artifact hashed
+  closure passed the one final raw suite as 603/603 in 3681.54 seconds. The
+  corrected unified entrypoint then passed canonical status, transport
+  collection and execution 6/6, the complete four-worker suite 603/603 in
+  1201.35 seconds, `pip check`, offline npm dependency integrity, frontend
+  10/10, the production build, Python compilation and `git diff --check`.
+  The unified entrypoint was not rerun after success, and the raw suite was not
+  repeated after its success. Delivery is now locally green and stops at
+  `awaiting_review`; exact hosted Ubuntu/Windows process-tree isolation,
+  per-shard 15-minute execution, PR CI, independent reviews, push, merge and
+  every later task remain unclaimed.
+
+- 2026-07-25 Asia/Shanghai: Generation-2 exact implementation head
+  `52624927545de6288c378080907f48b2c5088ae2` passed the one final raw
+  Python suite as 603/603 in 3681.54 seconds. Its first unified-entrypoint
+  attempt then stopped before the complete suite after canonical status and
+  transport 6/6 passed: the local default shard count and index were validated
+  in the parent but not copied into the xdist worker environment, so every
+  worker failed closed with `KeyError: G1_CI_SHARD_COUNT`. No product test ran
+  in that failed parallel phase and the raw suite will not be repeated. The
+  bounded same-card repair copies the validated worker/count/index defaults
+  into the offline subprocess environment and adds direct regression coverage;
+  no CI, review, merge or capability success is inferred.
+
+- 2026-07-25 Asia/Shanghai: The first generation-2 full acceptance attempt
+  stopped fail-closed after the protected exact-head contract test found that
+  the workflow no longer named an explicit canonical status-validation step.
+  Only 14 tests had passed before the run was interrupted; no complete-suite
+  success is claimed. The same-card repair restores
+  `python scripts/validate_project_status.py --repo-root .` immediately after
+  exact subject verification and after exact Python setup. It does not weaken
+  or replace the fail-closed validation repeated inside the complete entrypoint,
+  and it changes no product or capability boundary.
+
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 2 implementation feasibility and
+  focused evidence are established without claiming hosted CI. The official
+  `actions/python-versions` manifest publishes exact Python `3.12.10` artifacts
+  for both Linux 24.04 x64 and Windows x64; Python 3.9.25 has no Windows
+  artifact and was not guessed as portable. PyPI wheel hashes for all 24
+  recursively pinned dependencies were verified by `pip download
+  --require-hashes --only-binary=:all:` for both CPython 3.12
+  manylinux2014-x86_64 and win_amd64, yielding 24 artifacts per platform.
+  The workflow now runs setup-python before every repository Python command,
+  admits no unhashed Python artifact, creates reversible Linux iptables/ip6tables
+  and Windows Firewall isolation only after dependency installation, and
+  requires raw Python, Node and curl-child denial probes before the verifier.
+  In-process trap/finally cleanup and separate `always()` cleanup restore the
+  network policy. The complete collection is assigned by stable node-id hash
+  to four disjoint shards per operating system; a mechanical collection proof
+  covered all 602 node IDs exactly once with shard sizes
+  `[144, 142, 154, 162]`. A representative 85-test Package A/G0-T06 focused
+  set passed across all four real shard executions as `[21, 20, 24, 20]`;
+  the two slowest shards completed in 113.87 and 133.55 seconds. The verifier
+  tests pass 19/19, the lock/scope/secret checks, Python compilation, YAML
+  parse, allowlist and diff checks pass. The official Python.org 3.12.10
+  macOS framework was also exercised from an isolated temporary extraction:
+  all 24 recursively hashed arm64 wheels installed without an index, including
+  the platform-specific `pydantic_core` artifact, and the verifier tests passed
+  19/19 under exact Python 3.12.10. Exact hosted Ubuntu/Windows firewall
+  behavior and the 20-minute hard gate remain deliberately unclaimed until
+  exact PR CI; any failure there returns only this card.
+
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 2 began through the exact
+  `returned -> in_progress` transition. All implementation, candidate, local
+  success, review, CI and blocker claims were cleared atomically. Candidate
+  `bcc9f6e13befeb49c009008bb2ca23d54ed589d4` and its failed local
+  ChatGPT-bundled-Node attempt remain immutable history. The repair is limited
+  to the five returned defects and the existing 18-path Package A allowlist;
+  no product, market, credential, trading, ruleset, deployment, release,
+  LOCAL-PREVIEW or G2 authority is created.
+
+- 2026-07-25 Asia/Shanghai: Independent review returned exact G1-T01
+  generation-1 candidate `bcc9f6e13befeb49c009008bb2ca23d54ed589d4`.
+  The verbatim review identities are: code/security=`REQUEST_CHANGES`, blockers
+  `PYTHON_3_9_6_UNAVAILABLE_ON_UBUNTU_24_04` and
+  `OFFLINE_PROCESS_TREE_EGRESS_NOT_ISOLATED`, plus nonblocking pre-setup
+  Python, missing hashes and narrow secret patterns; architecture/route=`BLOCK`,
+  blockers `PR_FAST_EXCEEDS_20_MIN`,
+  `OFFLINE_PROCESS_TREE_EGRESS_NOT_ISOLATED`,
+  `PYTHON_ARTIFACT_HASHES_MISSING`, and
+  `LOCAL_VERIFICATION_RECORDED_BEFORE_EXACT_GREEN`. No remote GitHub review
+  object or CI success is inferred. Generation 2 may repair only those exact
+  runtime, artifact-integrity, process-tree isolation, time-bound and truthful
+  evidence defects within the frozen 18-path allowlist.
+
+- 2026-07-25 Asia/Shanghai: G1-T01 generation 1 implementation
+  `c07ab506026e660561127f09e65d757c80dfcdb9` remains strictly inside the
+  frozen Package A 18-path allowlist. It adds exact Python 3.9.6, Node 24.14.0
+  and npm 11.9.0 identities, recursively pinned Python/API and frontend locks,
+  and one mandatory fail-closed entrypoint:
+  `python3 scripts/verify_full_ci.py --offline --fail-closed
+  --require-transport`. The same entrypoint is used by Ubuntu and Windows
+  under the unchanged required-check aggregate `G0 / exact-head`; fixture
+  digests, transport collection/pass, complete Python and frontend suites,
+  production build, dependency integrity, secret-shaped values and forbidden
+  scope are all mandatory. The first complete implementation run measured
+  3736.34 seconds and returned 588 passed / 6 failed; all six failures were
+  historical G0-T06 tests that incorrectly borrowed moving current-HEAD
+  documents instead of their frozen historical commits. The bounded same-card
+  repair binds those fixtures to exact historical objects. Its direct focused
+  proof passed 6/6, the entrypoint/bridge tests passed 11/11, and the broader
+  Package A/G0-T06 focused regression passed 67/67 in 430.46 seconds. The CI
+  timeout is 120 minutes based on the measured 62-minute complete run. Product
+  behavior, Package A authority bytes, ruleset 19526291 and
+  OFFLINE_EVIDENCE_ACCEPTED remain unchanged. Delivery stops at
+  `awaiting_review`: no push, PR, merge, G2+, market network, credential,
+  account, order, trading, deployment, release or LOCAL-PREVIEW authority is
+  claimed.
+
 ## Historical record and latest delivered transition
 
 This file records durable history and is not the current machine-state authority.
 Read `PROJECT_STATUS.yaml` for the validated current gate, task, evidence, review,
 CI, maturity, blockers, and next authorization.
 
+- On 2026-07-25, the product owner explicitly authorized only G1-T01 generation 1 and asked the owner loop to prevent route drift and over-development. The card starts from exact authoritative main `94c87f28436e2ea8899c9a407e1f1413de893603`, uses the immutable Package A G1-T01 D1 allowlist, and may establish only a reproducible complete backend/frontend CI entrypoint. Old local G1/G2 drafts, including `7d8c60899a643eff2ec69b5f8b0a9a69157c0210`, remain isolated history and are not implementation inputs. Market access, credentials, trading, ruleset/repository settings, deployment, release, LOCAL-PREVIEW expansion, G2+ and cross-package work remain unauthorized.
+- G1-T01 generation 1 authorization is exact commit `af478f3557ee24bf41e7b06f4249a06c13780c08`, whose sole parent is authoritative main `94c87f28436e2ea8899c9a407e1f1413de893603`. The ordinary `authorized -> in_progress` transition starts implementation without changing Package A blobs, activation evidence, ruleset, required-check identity, maturity or forbidden capability boundaries.
 - On 2026-07-24, the product owner explicitly approved PR #35's optimized product workflow standard and authorized only its governance activation and repository admission. G0-T06 generation 1 preserves PR #35 exact head `31c5cbdc89c940fa7c911f5ac1c5beb4fb2fb1e1` and failed exact-head run `30105873742` as immutable history, starts from authoritative main `af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32`, and remains D0 governance-only. Its exact two-parent authorization, eight-path allowlist, authorization receipt, approved document digest and adversarial validator regressions passed before the ordinary `authorized -> in_progress` start. P0/G1, market access, strategy/product implementation, credentials, orders, trading, ruleset changes, deployment and release remain unauthorized.
 - G0-T06 generation 1 reached `awaiting_review` after canonical status validation, exact authorization/topology regressions, Python compilation, whitespace and scope checks passed. Implementation is `36146c77e8c0f7e977d2003fa7ee12349375a945`; the delivery candidate is the implicit next committed HEAD. Candidate CI and both independent reviews remain pending, so the standard is not yet admitted to authoritative main.
 - G0-T06 generation 1 candidate `6277839f6b21b9ce6ee0becbe8bbf2074ae7fc92` was returned after exact-head CI run `30106788285` failed. The failure was not a product or scope defect: the complete GitHub history caused a legacy G0-T04 post-merge guard to reinterpret the later G0-T06 lifecycle. Architecture remained `CLEAR`; code/security is recorded as `REQUEST_CHANGES`. The failed candidate and run remain immutable evidence, and repair is limited to scoping the new G0-T06 lifecycle before legacy-route checks plus adversarial regression coverage.
@@ -100,6 +264,8 @@ CI, maturity, blockers, and next authorization.
 - If main AG commits workflow or memory changes while an execution task is active, it must immediately reset that task's baseline to avoid mistaking the main AG commit for executor completion.
 - UI/UX decisions are documented in the repository-root `DESIGN.md`, currently a Draft source of truth.
 - A future Telegram notification can mirror signal creation and invalidation, but notification timing and deduplication remain to be designed.
+- 2026-09-03 Asia/Shanghai: G1-T01 generation-2 delivery `d752b155fa578a8e017bb3d76483558c6260ae4a` was pushed unchanged to PR #39. Exact pull-request run `33648740889` bound that SHA and failed all four Linux shards, all four Windows shards, and aggregate `G0 / exact-head`. Independent code/security returned `REQUEST_CHANGES` and architecture/route returned `BLOCK`, both bound to the same candidate, for four reproducibility defects: Windows working-tree line-ending sensitivity in the schema digest, inherited outer shard identity in nested tests, fresh-clone dependence on accidental historical Git objects/refs, and ambient Git author/committer identity in generated fixture commits. The candidate is truthfully returned and remains immutable; no product, market, credential, trading, deployment, G2, or Signal V1 authority is created.
+- 2026-09-03 Asia/Shanghai: The product owner authorized only G1-T01 generation-3 portability repair on the existing PR #39 lineage. The legal `returned -> in_progress` start clears all generation-2 active evidence and reviewer identities. Scope is restricted to the four exact hosted-CI failure clusters, the frozen Package A allowlist, focused regressions, one complete local acceptance, and a new `awaiting_review` delivery. The repair must not weaken Windows coverage, four-way sharding, egress isolation, governance validation, secret/forbidden-scope checks, or the 20-minute job ceiling, and grants no Signal V1, market, credential, trading, deployment, G2, or release authority.
 
 ## Verification status
 
@@ -365,3 +531,8 @@ CI, maturity, blockers, and next authorization.
 - 2026-07-24 Asia/Shanghai: G0-T05 finalization `27ff7803629e7a9b92ac21ac30a0d5ed661cddca`, the strict direct child of merged main `c7ed7691…`, passed exact-head CI run `30087966580`. The next strict child records state `closed` while retaining all exact candidate, acceptance, merged-main, CI, review, Package A, and capability identities. It is only the close record: terminal merge `[c7ed7691…, exact close record]`, terminal main CI, and subsequent G1 activation remain pending.
 - 2026-07-24 Asia/Shanghai: The product owner confirmed the direction of the two-agent optimized product workflow and requested that the standards be preserved and uploaded for review before any new development begins. Product/architecture and engineering/security consensus both returned `APPROVE`. The frozen proposal is `docs/OPTIMIZED_PRODUCT_WORKFLOW.md`: it keeps one active card/one developer, compresses G2 into a machine-enforced P3 checkpoint, separates Foundation, Public Evidence, and Paper capability packages, moves ordinary historical governance replay out of the product PR critical path, and preserves exact candidate, independent dual review, no-drift, merged-main and capability-boundary gates. This record and proposal do not authorize P0, G1, public market access, Paper, credentials, trading, ruleset mutation, deployment, release, or LOCAL-PREVIEW expansion.
 - 2026-07-25 Asia/Shanghai: G0-T06 generation 4 candidate `cab654c8650ab80333ab0f417c01421d54928a33` passed exact-head CI `30109149237` and independent code/security `APPROVE` plus architecture `CLEAR`. Closure `5c6055bf8ff807d383d2c543016bad9560ee2e45` passed exact-head CI `30126218254`; PR #36 merged as `a68662eb0d46514953f6e6888d3f3f7a4d9eeee3` with ordered parents `[af25e573b6a1a8b38d8eaf9a60bcf4988be6ed32, 5c6055bf8ff807d383d2c543016bad9560ee2e45]`, tree equal to the second parent, and successful push/main CI `30126273246`. Finalization `e003790cb20de3fa2903f89ee94899ebbf08d0d4` passed exact D0 CI `30126525598`; the strict child now records `closed` pending only the terminal protected-main merge and its authoritative-main validation. The admitted loop remains one writer, owner review, independent code/security and architecture/product-route review, same-card repair or bounded root-cause diagnosis, exact CI, merged-main verification, and memory closeout. It may auto-dispatch only an already-authorized earliest legal next task; `G1-T01` remains `not_authorized`, and no market, credential, trading, ruleset, deployment, release, or LOCAL-PREVIEW capability is granted.
+- 2026-09-03 Asia/Shanghai: G1-T01 generation-3 delivery `e31cb8b390e9ccbf1b3c127d3103a7accb1af347` failed exact PR #39 run `33715808959`. Windows exposed locale-dependent cp1252 decoding of UTF-8 Git output; Linux exposed a CRLF fixture that made its own awaiting-review checkout dirty; all nominal shards also ran the complete 607-test collection because the nested verifier overwrote outer shard identity. Independent review returned exact `e31cb8b…` with code/security `REQUEST_CHANGES` and architecture/route `BLOCK`. Generation 3 is truthfully `returned`; G2 and Signal V1 product writes remain unstarted until the bounded same-card repair is locally and remotely accepted.
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 4 starts as the final bounded repair for only the three defects proven by run `33715808959`: Windows strict UTF-8 Git-output decoding, a clean CRLF checkout fixture, and real four-shard propagation. Active generation-3 evidence is cleared atomically. The repair retains dirty-worktree and egress protections, reuses PR #39, stops on any fourth independent root cause, and grants no Signal V1, market, credential, deployment, release or trading authority.
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 5 independently accepted the Windows native-exit repair `d21cbb5bfbef880c0ecf4a2d60034d14d751d13e` and newline-neutral strict-UTF-8 fixture repair `bbb60d4ad517e09cbf1ab3d6ab3a56df88ab5fe9`. Root verification bound both deliveries to base `0fc47b6bc1fb2624262677648c679a5c7def082c`, clean two-file scopes, clean worktrees, no secret finding, and focused results of `1 passed, 1 skipped` plus `27 passed`; the skip is the real PowerShell runtime test and remains a Windows hosted-CI obligation. The first isolated upload failed because GitHub port 443 was unreachable, so both exact deliveries are frozen for later upload rather than rewritten. They are combined locally as `0aa2018` and `a5c666c`, but no complete acceptance run, candidate, hosted CI, review, merge, closure, G2 or product authority is claimed.
+- 2026-09-03 Asia/Shanghai: The generation-5 upload backlog cleared through a bounded HTTP/1.1 Git retry without rewriting accepted history. Remote readback exactly matched Windows delivery `d21cbb5bfbef880c0ecf4a2d60034d14d751d13e`, fixture delivery `bbb60d4ad517e09cbf1ab3d6ab3a56df88ab5fe9`, and in-progress integration record `e6ab2a3214b76aed11fcb140d4462970dc2ff390` on PR #39. This is upload evidence only: the required one-time complete local acceptance, frozen candidate, candidate CI, dual review, merge, closure, G2 and product work remain unestablished.
+- 2026-09-03 Asia/Shanghai: PR #39 run `33746059061` bound exact in-progress subject `1d0cccbb667a872f2d52592be1a614c74cc3702c`, passed all four Linux shards, failed all four Windows shards, and correctly failed aggregate `G0 / exact-head`. Raw Windows logs show the offline socket guard directly accesses unavailable `socket.AF_UNIX`, breaking transport-test loopback socket creation; the repaired PowerShell path preserved the verifier's nonzero exit, so the result is genuinely red rather than false green. This is a new independent Windows portability root cause outside the two authorized generation-5 repairs. The explicit fourth-root rule therefore stops G1-T01 as blocked; no further repair, candidate, review, merge, G2 or product work is authorized without a new product-owner decision.
