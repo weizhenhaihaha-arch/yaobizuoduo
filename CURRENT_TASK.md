@@ -229,6 +229,24 @@ same exact change is integrated locally as `b658f4d`, pending the one complete
 Generation-6 candidate validation. This acceptance is not candidate CI, merge,
 closure, G2 authorization, or product completion.
 
+Generation 6 has now completed its local delivery acceptance. Under exact
+Python 3.12.10 and Node 24.14.0, the raw backend suite passed 620 tests with one
+platform-only PowerShell skip in 3452.90 seconds; the mandatory transport suite
+passed 6/6. The unified fail-closed offline entrypoint then collected and passed
+all six transport tests, passed the complete four-worker suite with 620 passed
+and one platform-only skip in 1120.68 seconds, reported no broken Python
+requirements, accepted the exact offline npm tree, passed frontend 10/10 and
+the production build, compiled scripts/tests, passed diff, fixture, secret and
+forbidden-scope checks, and returned `FULL_CI_OK`. The independently listed
+frontend 10/10 and production build also passed. A first preflight used the
+host Python without locked API dependencies, and the first unified invocation
+stopped after its already-green four-worker suite because the fresh worktree
+lacked ignored `node_modules`; neither was a code failure. The exact locked
+Python/Node runtimes and lock-identical local frontend dependencies were then
+used for the successful acceptance above. The task advances only to
+`awaiting_review`; exact remote CI, independent dual review, merge, closure,
+G2 authorization and product work remain pending.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
