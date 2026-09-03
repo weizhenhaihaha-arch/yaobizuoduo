@@ -505,6 +505,26 @@ that can launch real descendants. Real Win32 and hosted-runner nested-Job
 behavior remain mandatory hosted-Windows evidence; acceptance is not
 integration, candidate CI, merge, closure, G2 or product authority.
 
+### Generation 10 local-capacity repair acceptance
+
+The trend-signal and strategy engineer's bounded performance delivery
+`94c95c22aa9d484b7b873584be4414ae5eea6746`, directly based on accepted
+process-tree delivery `0ad96687386cc20676af4fca6446c9c6ca9e0671`, is independently
+accepted and frozen. Only `scripts/verify_full_ci.py` and
+`tests/test_verify_full_ci.py` changed. An unsharded local complete validation
+now defaults to the existing allowed maximum of eight workers, while explicit
+worker settings remain authoritative and hosted four-shard CI continues to use
+four workers per shard. The 14-minute deadline, test collection, shard count,
+offline guard and process-tree cleanup are unchanged.
+
+Owner verification passed 44 focused tests with one Windows-only Job Object
+test skipped on macOS, compilation, diff, exact scope, clean-worktree and
+secret checks. Independent review separately returned `APPROVE` after 11
+focused passes with 34 deselected. This acceptance does not prove that the new
+integrated SHA finishes the complete suite within the fixed deadline; exactly
+one complete validation on that new SHA remains required. It is not upload,
+hosted CI, merge, G1 closure, G2 or product authority.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
