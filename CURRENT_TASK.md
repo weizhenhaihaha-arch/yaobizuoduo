@@ -3,8 +3,8 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `returned`
-- Candidate generation: `6`
+- Status: `in_progress`
+- Candidate generation: `7`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
 ## Goal
@@ -260,6 +260,18 @@ The engineering repair, focused tests and full local acceptance remain valid.
 Only the owner-maintained status mirror may be repaired next; no engineering,
 strategy, API, UI, data, dependency, workflow or governance-rule change is
 allowed.
+
+## Generation 7 status-mirror-only repair
+
+Generation 7 starts through the ordinary `returned -> in_progress` transition
+from exact generation-6 return `358a8e195bcab9c4990630130acdf8fc7f33c0ec`.
+It may only make the canonical current-state mirror in this document agree with
+`PROJECT_STATUS.yaml` at delivery and record the resulting evidence. The
+accepted `AF_UNIX` implementation and every code/test/dependency/workflow file
+are frozen. Because no executable code changes, the already-green complete
+local acceptance remains applicable; only canonical status validation,
+document/diff scope, clean-worktree and secret checks are required before a new
+delivery. Any other failure stops and returns this card.
 
 ## Generation 4 final bounded repair
 
