@@ -95,7 +95,9 @@ def write_digest_json(path: Path, value: dict) -> None:
     value["payload_sha256"] = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     ).hexdigest()
-    path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_bytes(
+        (json.dumps(value, indent=2, ensure_ascii=False) + "\n").encode("utf-8")
+    )
 
 
 def migration_control(decision: str, authority: dict, **overrides: object) -> dict:
@@ -482,10 +484,79 @@ def _test_git_environment() -> dict[str, str]:
 
 
 def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["git", *args], cwd=repo, text=True, capture_output=True, check=True,
+    raw = subprocess.run(
+        ["git", *args], cwd=repo, capture_output=True, check=False,
         env=_test_git_environment(),
     )
+
+    def decode(payload: bytes, stream: str) -> str:
+        try:
+            return payload.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise AssertionError(
+                f"git {stream} is not valid UTF-8 at byte {exc.start}"
+            ) from exc
+
+    result = subprocess.CompletedProcess(
+        args=raw.args,
+        returncode=raw.returncode,
+        stdout=decode(raw.stdout, "stdout"),
+        stderr=decode(raw.stderr, "stderr"),
+    )
+    result.check_returncode()
+    return result
+
+
+def test_test_git_helper_preserves_valid_utf8_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="治理中文输出\n".encode("utf-8"),
+            stderr=b"",
+        ),
+    )
+
+    result = _run_git(tmp_path, "status")
+
+    assert result.stdout == "治理中文输出\n"
+    assert result.stderr == ""
+
+
+def test_test_git_helper_rejects_invalid_utf8_output(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=b"bad\x81",
+            stderr=b"",
+        ),
+    )
+
+    with pytest.raises(AssertionError, match="stdout is not valid UTF-8 at byte 3"):
+        _run_git(tmp_path, "status")
+
+
+def test_write_digest_json_uses_exact_utf8_lf_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "receipt.json"
+    value = {"label": "治理", "payload_sha256": "pending"}
+
+    write_digest_json(path, value)
+
+    payload = path.read_bytes()
+    assert payload.endswith(b"\n")
+    assert b"\r\n" not in payload
+    assert json.loads(payload.decode("utf-8"))["label"] == "治理"
 
 
 def _clone_reachable_root_fixture(
@@ -3208,7 +3279,7 @@ def test_unauthorized_schema_migration_is_rejected(tmp_path: Path) -> None:
     changed_schema = json.loads(schema_path.read_text(encoding="utf-8"))
     changed_schema["$comment"] = "backward-compatible test migration"
     write_status(schema_path, changed_schema)
-    new_digest = hashlib.sha256(schema_path.read_bytes()).hexdigest()
+    new_digest = VALIDATOR._canonical_text_digest(schema_path.read_bytes())
     old_authority = copy.deepcopy(status["schema_authority"])
     status["schema_authority"] = {
         "revision": 2,
@@ -3722,9 +3793,12 @@ def test_package_a_symlink_git_entries_are_rejected(
 
 def test_package_a_executable_git_entry_is_rejected(tmp_path: Path) -> None:
     root, _ = package_a_fixture(tmp_path)
-    path = root / VALIDATOR.PACKAGE_A_MANIFEST_PATH
-    path.chmod(0o755)
-    git(root, "add", VALIDATOR.PACKAGE_A_MANIFEST_PATH)
+    git(
+        root,
+        "update-index",
+        "--chmod=+x",
+        VALIDATOR.PACKAGE_A_MANIFEST_PATH,
+    )
     git(root, "commit", "-q", "-m", "make immutable manifest executable")
     errors = VALIDATOR._package_a_manifest_errors(root)
     assert "exact committed 100644 Git blobs" in "\n".join(errors)
