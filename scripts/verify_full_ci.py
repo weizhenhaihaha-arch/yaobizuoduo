@@ -235,8 +235,9 @@ def offline_environment(directory: Path) -> dict[str, str]:
     guard.write_text(
         "import socket\n"
         "_original_connect = socket.socket.connect\n"
+        "_af_unix = getattr(socket, 'AF_UNIX', None)\n"
         "def _offline_connect(self, address):\n"
-        "    if self.family == socket.AF_UNIX:\n"
+        "    if _af_unix is not None and self.family == _af_unix:\n"
         "        return _original_connect(self, address)\n"
         "    host = address[0] if isinstance(address, tuple) and address else ''\n"
         "    if host in {'127.0.0.1', '::1', 'localhost'}:\n"

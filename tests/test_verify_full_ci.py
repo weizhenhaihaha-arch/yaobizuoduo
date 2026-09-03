@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import subprocess
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -229,6 +230,71 @@ def test_offline_guard_defaults_to_one_complete_local_shard(
 
     assert env["G1_CI_SHARD_COUNT"] == "1"
     assert env["G1_CI_SHARD_INDEX"] == "0"
+
+
+def execute_offline_guard(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    socket_module: SimpleNamespace,
+) -> None:
+    VERIFY.offline_environment(tmp_path)
+    monkeypatch.setitem(sys.modules, "socket", socket_module)
+    guard = (tmp_path / "sitecustomize.py").read_text(encoding="utf-8")
+    exec(compile(guard, str(tmp_path / "sitecustomize.py"), "exec"), {})
+
+
+def test_offline_guard_without_af_unix_allows_loopback_and_denies_external(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSocket:
+        def __init__(self, family: str) -> None:
+            self.family = family
+            self.connected: list[object] = []
+
+        def connect(self, address: object) -> str:
+            self.connected.append(address)
+            return "connected"
+
+    socket_module = SimpleNamespace(socket=FakeSocket)
+    execute_offline_guard(tmp_path, monkeypatch, socket_module)
+    client = FakeSocket("AF_INET")
+
+    assert client.connect(("127.0.0.1", 8000)) == "connected"
+    assert client.connect(("::1", 8000)) == "connected"
+    assert client.connect(("localhost", 8000)) == "connected"
+    with pytest.raises(OSError, match="offline verification forbids network access"):
+        client.connect(("example.com", 443))
+    assert client.connected == [
+        ("127.0.0.1", 8000),
+        ("::1", 8000),
+        ("localhost", 8000),
+    ]
+
+
+def test_offline_guard_with_af_unix_allows_unix_and_denies_external(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeSocket:
+        def __init__(self, family: str) -> None:
+            self.family = family
+            self.connected: list[object] = []
+
+        def connect(self, address: object) -> str:
+            self.connected.append(address)
+            return "connected"
+
+    socket_module = SimpleNamespace(socket=FakeSocket, AF_UNIX="AF_UNIX")
+    execute_offline_guard(tmp_path, monkeypatch, socket_module)
+    unix_client = FakeSocket("AF_UNIX")
+    internet_client = FakeSocket("AF_INET")
+
+    assert unix_client.connect("/tmp/local.sock") == "connected"
+    with pytest.raises(OSError, match="offline verification forbids network access"):
+        internet_client.connect(("203.0.113.1", 443))
+    assert unix_client.connected == ["/tmp/local.sock"]
+    assert internet_client.connected == []
 
 
 def test_ci_requires_mechanically_probed_os_isolation(
