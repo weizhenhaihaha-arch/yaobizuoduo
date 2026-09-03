@@ -14,6 +14,15 @@
   product, strategy, market, credential, trading, deployment or G2 authority
   is created.
 
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 5 starts as a minimal repair for
+  the two existing Windows fail-closed defects proven by candidate
+  `19b8e7250e7fc1032ab490f86721fa80c6574311` and run `33740584116`: native
+  verifier failures must survive firewall cleanup, and frozen text-fixture
+  digests must treat clean LF and CRLF checkouts equivalently while rejecting
+  real content mutation. Generation-4 activity evidence is cleared atomically;
+  no new root cause, product, market, credential, trading, deployment or G2
+  authority is admitted.
+
 - 2026-09-03 Asia/Shanghai: G1-T01 generation 4 completed its final bounded
   hosted-CI portability repair at implementation
   `fcaa7874ac7177949aaf08b53ce18a58d2cd3701`. The change is limited to strict

@@ -3,8 +3,8 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `returned`
-- Candidate generation: `4`
+- Status: `in_progress`
+- Candidate generation: `5`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
 ## Goal
@@ -127,6 +127,26 @@ Independent review bound to the exact candidate returned code/security
 `REQUEST_CHANGES` and architecture/route `BLOCK`. Generation 4 is returned;
 closure and merge are prohibited. Any next repair remains limited to these two
 existing Windows fail-closed and clean-CRLF defects.
+
+## Generation 5 minimal false-green repair
+
+Generation 5 starts through the legal `returned -> in_progress` transition and
+atomically clears all generation-4 active implementation, candidate, CI and
+review identities while preserving the immutable candidate and raw-log failure
+above. This repair is limited to exactly two already-authorized defects:
+
+- preserve and explicitly propagate native Python and Node nonzero exit codes
+  through the Windows PowerShell firewall-restoration `finally` path; and
+- make frozen text-fixture digests newline-neutral under clean LF and CRLF
+  checkouts while strict UTF-8 decoding and real content-tamper rejection stay
+  fail closed.
+
+The two fixes may proceed in isolated paths and be reviewed independently.
+They may add only direct regression coverage proving a failing native verifier
+fails the Windows job, firewall restoration still runs, LF and CRLF are
+equivalent, and real fixture mutation is rejected. No additional root cause,
+test weakening, product behavior, G2 capability or governance mechanism is in
+scope.
 
 ## Generation 4 final bounded repair
 
