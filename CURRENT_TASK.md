@@ -394,6 +394,20 @@ architecture, product, strategy, market, API, UI, credential, trading,
 deployment, release or G2 change is authorized. Any fourth independent cause
 or failure outside these three categories stops immediately.
 
+### Conditional G2 product authorization
+
+The product owner has conditionally authorized `G2-T01-C` for the signal
+product and obsidian UI engineer. It activates only after G1 is legally closed
+and the owner-maintained P1 Public DTO, Signal/Event, and PostgreSQL read
+contracts are frozen. Its scope is Binance-only long-trend read-only Public
+API, first-version REST polling, duration and history presentation, S/A lists,
+load-more behavior, and responsive obsidian desktop/mobile UI. It may not
+change strategy logic, shared contracts, database migrations or dependency
+locks, and it may not add accounts, credentials, balances, leverage, orders or
+real trading. Until both prerequisites are satisfied,
+`PROJECT_STATUS.yaml.next_authorization` truthfully remains
+`not_authorized`, and C may perform preparation only without product writes.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
