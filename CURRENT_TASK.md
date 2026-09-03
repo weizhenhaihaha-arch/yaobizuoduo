@@ -213,6 +213,22 @@ The exact two-parent authorization record is
 all implementation, candidate, review and CI identities remain clear until a
 new delivery is actually verified.
 
+The fixed trend-signal and strategy engineer independently delivered the
+bounded compatibility repair from exact base
+`173a7ab33a0a1f0dac7612d633c3612ecfe72e5e` as
+`44a6303b872c5aa09c6d77f3139fecf82f007d13`. Owner review accepted that exact
+delivery: only `scripts/verify_full_ci.py` and
+`tests/test_verify_full_ci.py` changed, the complete focused test file passed
+29/29, status validation and Python compilation passed, the worktree and diff
+were clean, and the secret scan found nothing. The repair uses a guarded
+`getattr` for optional `AF_UNIX`, retains the existing loopback allowlist, and
+continues to reject external addresses. Its isolated branch upload timed out
+against GitHub port 443, so the delivery SHA is frozen as locally accepted and
+pending remote readback; no rewrite or duplicate candidate is allowed. The
+same exact change is integrated locally as `b658f4d`, pending the one complete
+Generation-6 candidate validation. This acceptance is not candidate CI, merge,
+closure, G2 authorization, or product completion.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
