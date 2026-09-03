@@ -3,8 +3,8 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `returned`
-- Candidate generation: `8`
+- Status: `in_progress`
+- Candidate generation: `9`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
 ## Goal
@@ -371,6 +371,28 @@ Both reviews classify the evidence within the already-authorized strict UTF-8,
 clean CRLF fixture, and real four-shard categories, not a fourth root cause.
 Only one minimal same-card repair may follow; product behavior and G2 remain
 unauthorized.
+
+## Generation 9 final same-card repair
+
+Generation 9 starts through the ordinary `returned -> in_progress` transition
+from exact generation-8 return
+`3ac81d070d38b28c655c8eaaa825c672eaec3865`. Both independent reviews found no
+fourth root cause. This final repair may only close the three remaining call
+sites and mechanisms already evidenced by run `33774046518`:
+
+- explicitly decode and write UTF-8/LF at the failing test-file boundary;
+- explicitly set temporary Git repositories to `core.autocrlf=false`, except
+  the dedicated clean-CRLF test that intentionally enables it;
+- deterministically spread the identified slow governance tests across four
+  complete, disjoint shards within the unchanged time budget.
+
+Only `tests/test_g0_project_status.py`, `scripts/verify_full_ci.py`, and
+`tests/test_verify_full_ci.py` may change. The workflow may change only if an
+existing shard parameter must be passed; timeout increases are forbidden.
+Tests may not be skipped, deleted, hidden or weakened. No dependency, validator
+architecture, product, strategy, market, API, UI, credential, trading,
+deployment, release or G2 change is authorized. Any fourth independent cause
+or failure outside these three categories stops immediately.
 
 ## Generation 4 final bounded repair
 
