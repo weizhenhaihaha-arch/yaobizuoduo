@@ -720,6 +720,91 @@ def test_windows_taskkill_nonzero_is_not_accepted_as_tree_cleanup(
         VERIFY.terminate_process_tree(process, platform="nt")
 
 
+def test_windows_job_binding_and_close_failures_are_fail_closed() -> None:
+    class BindingFailureKernel:
+        def AssignProcessToJobObject(self, handle: object, process: object) -> int:
+            return 0
+
+        def CloseHandle(self, handle: object) -> int:
+            return 1
+
+    class CloseFailureKernel:
+        def AssignProcessToJobObject(self, handle: object, process: object) -> int:
+            return 1
+
+        def CloseHandle(self, handle: object) -> int:
+            return 0
+
+    process = SimpleNamespace(_handle=99)
+
+    with pytest.raises(VERIFY.VerificationError, match="could not be bound"):
+        VERIFY.WindowsKillJob(BindingFailureKernel(), 1).assign(process)
+    with pytest.raises(VERIFY.VerificationError, match="could not be closed"):
+        VERIFY.WindowsKillJob(CloseFailureKernel(), 1).close()
+
+
+def test_windows_job_is_configured_kill_on_close() -> None:
+    observed_flags: list[int] = []
+
+    class FakeKernel:
+        def CreateJobObjectW(self, security: object, name: object) -> int:
+            return 7
+
+        def SetInformationJobObject(
+            self,
+            handle: object,
+            information_class: int,
+            information: object,
+            size: int,
+        ) -> int:
+            assert handle == 7
+            assert information_class == VERIFY.WINDOWS_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION
+            observed_flags.append(
+                information._obj.BasicLimitInformation.LimitFlags
+            )
+            return 1
+
+        def CloseHandle(self, handle: object) -> int:
+            assert handle == 7
+            return 1
+
+    job = VERIFY.create_windows_kill_job(FakeKernel())
+    job.close()
+
+    assert observed_flags == [VERIFY.WINDOWS_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE]
+
+
+@pytest.mark.skipif(os.name != "nt", reason="real Windows Job Object regression")
+def test_windows_job_closes_descendant_after_command_root_exits(
+    tmp_path: Path,
+) -> None:
+    pid_file = tmp_path / "independent-descendant.pid"
+    ready_file = tmp_path / "independent-ready"
+    child_code = "import time; time.sleep(60)"
+    parent_code = (
+        "from pathlib import Path; import subprocess, sys; "
+        f"child=subprocess.Popen([sys.executable, '-c', {child_code!r}], "
+        "stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL); "
+        f"Path({str(pid_file)!r}).write_text(str(child.pid), encoding='ascii'); "
+        f"Path({str(ready_file)!r}).write_text('ready', encoding='ascii')"
+    )
+
+    VERIFY.run(
+        [sys.executable, "-c", parent_code],
+        os.environ.copy(),
+        time.monotonic() + 10,
+    )
+
+    assert ready_file.read_text(encoding="ascii") == "ready"
+    descendant_pid = pid_file.read_text(encoding="ascii")
+    result = subprocess.run(
+        ["tasklist", "/FI", f"PID eq {descendant_pid}", "/FO", "CSV", "/NH"],
+        check=False,
+        capture_output=True,
+    )
+    assert descendant_pid.encode("ascii") not in result.stdout
+
+
 def test_keyboard_interrupt_cleans_process_tree_before_propagating(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -736,7 +821,7 @@ def test_keyboard_interrupt_cleans_process_tree_before_propagating(
     monkeypatch.setattr(
         VERIFY,
         "terminate_process_tree",
-        lambda target: cleaned.append(target),
+        lambda target, **kwargs: cleaned.append(target),
     )
 
     with pytest.raises(KeyboardInterrupt):

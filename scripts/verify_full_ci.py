@@ -31,6 +31,24 @@ TRANSPORT_TEST = "tests/test_m5_transport.py"
 FULL_CI_TIMEOUT_SECONDS = 14 * 60
 PROCESS_TERM_GRACE_SECONDS = 1
 PROCESS_CLEANUP_TIMEOUT_SECONDS = 5
+WINDOWS_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
+WINDOWS_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x00002000
+WINDOWS_JOB_LAUNCHER = """\
+import json
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+gate = Path(sys.argv[1])
+deadline = time.monotonic() + 30
+while not gate.exists():
+    if time.monotonic() >= deadline:
+        raise SystemExit(125)
+    time.sleep(0.01)
+command = json.loads(sys.argv[2])
+raise SystemExit(subprocess.run(command, check=False).returncode)
+"""
 FIXTURE_DIGESTS = {
     "fixtures/g0/adversarial_mutations.json": "936890388414d8a2acfb839e33147c96a2cdc97c4b874f07aecc235e5f5c51e9",
     "fixtures/g0/valid_awaiting_review.json": "56623d63602464b66a439827f22e6f0a98f718671dc531b934164a9671786684",
@@ -336,9 +354,101 @@ def offline_environment(directory: Path) -> dict[str, str]:
     return env
 
 
+class WindowsKillJob:
+    def __init__(self, kernel32: object, handle: object) -> None:
+        self.kernel32 = kernel32
+        self.handle = handle
+        self.closed = False
+
+    def assign(self, process: subprocess.Popen[bytes]) -> None:
+        if not self.kernel32.AssignProcessToJobObject(
+            self.handle,
+            process._handle,
+        ):
+            raise VerificationError("Windows process could not be bound to kill-on-close job")
+
+    def close(self) -> None:
+        if self.closed:
+            return
+        if not self.kernel32.CloseHandle(self.handle):
+            raise VerificationError("Windows kill-on-close job handle could not be closed")
+        self.closed = True
+
+
+def create_windows_kill_job(kernel32: object | None = None) -> WindowsKillJob:
+    import ctypes
+    from ctypes import wintypes
+
+    class BasicLimitInformation(ctypes.Structure):
+        _fields_ = [
+            ("PerProcessUserTimeLimit", ctypes.c_longlong),
+            ("PerJobUserTimeLimit", ctypes.c_longlong),
+            ("LimitFlags", wintypes.DWORD),
+            ("MinimumWorkingSetSize", ctypes.c_size_t),
+            ("MaximumWorkingSetSize", ctypes.c_size_t),
+            ("ActiveProcessLimit", wintypes.DWORD),
+            ("Affinity", ctypes.c_size_t),
+            ("PriorityClass", wintypes.DWORD),
+            ("SchedulingClass", wintypes.DWORD),
+        ]
+
+    class IoCounters(ctypes.Structure):
+        _fields_ = [
+            ("ReadOperationCount", ctypes.c_ulonglong),
+            ("WriteOperationCount", ctypes.c_ulonglong),
+            ("OtherOperationCount", ctypes.c_ulonglong),
+            ("ReadTransferCount", ctypes.c_ulonglong),
+            ("WriteTransferCount", ctypes.c_ulonglong),
+            ("OtherTransferCount", ctypes.c_ulonglong),
+        ]
+
+    class ExtendedLimitInformation(ctypes.Structure):
+        _fields_ = [
+            ("BasicLimitInformation", BasicLimitInformation),
+            ("IoInfo", IoCounters),
+            ("ProcessMemoryLimit", ctypes.c_size_t),
+            ("JobMemoryLimit", ctypes.c_size_t),
+            ("PeakProcessMemoryUsed", ctypes.c_size_t),
+            ("PeakJobMemoryUsed", ctypes.c_size_t),
+        ]
+
+    if kernel32 is None:
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateJobObjectW.argtypes = [wintypes.LPVOID, wintypes.LPCWSTR]
+        kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+        kernel32.SetInformationJobObject.argtypes = [
+            wintypes.HANDLE,
+            ctypes.c_int,
+            wintypes.LPVOID,
+            wintypes.DWORD,
+        ]
+        kernel32.SetInformationJobObject.restype = wintypes.BOOL
+        kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
+        kernel32.AssignProcessToJobObject.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel32.CloseHandle.restype = wintypes.BOOL
+    handle = kernel32.CreateJobObjectW(None, None)
+    if not handle:
+        raise VerificationError("Windows kill-on-close job could not be created")
+    information = ExtendedLimitInformation()
+    information.BasicLimitInformation.LimitFlags = (
+        WINDOWS_JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+    )
+    if not kernel32.SetInformationJobObject(
+        handle,
+        WINDOWS_JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
+        ctypes.byref(information),
+        ctypes.sizeof(information),
+    ):
+        kernel32.CloseHandle(handle)
+        raise VerificationError("Windows kill-on-close job could not be configured")
+    return WindowsKillJob(kernel32, handle)
+
+
 def terminate_process_tree(
     process: subprocess.Popen[bytes],
     platform: str | None = None,
+    windows_job: WindowsKillJob | None = None,
 ) -> None:
     platform = os.name if platform is None else platform
     cleanup_deadline = time.monotonic() + PROCESS_CLEANUP_TIMEOUT_SECONDS
@@ -358,6 +468,18 @@ def terminate_process_tree(
             ) from exc
 
     if platform == "nt":
+        if windows_job is not None:
+            try:
+                windows_job.close()
+            except VerificationError:
+                if process.poll() is None:
+                    process.kill()
+                bounded_communicate()
+                raise
+            bounded_communicate()
+            if process.poll() is None:
+                raise VerificationError("Windows process-tree cleanup did not reap the root")
+            return
         try:
             result = subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
@@ -422,28 +544,66 @@ def run(command: list[str], env: dict[str, str], deadline: float | None = None) 
     deadline = new_deadline() if deadline is None else deadline
     print("+", " ".join(command), flush=True)
     popen_options: dict[str, object] = {}
+    windows_job: WindowsKillJob | None = None
+    windows_job_assigned = False
+    gate_directory: tempfile.TemporaryDirectory[str] | None = None
     if os.name == "nt":
         popen_options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+        windows_job = create_windows_kill_job()
+        gate_directory = tempfile.TemporaryDirectory(prefix="yaobizuoduo-job-gate-")
+        gate = Path(gate_directory.name) / "assigned"
+        child_command = command
+        command = [
+            sys.executable,
+            "-c",
+            WINDOWS_JOB_LAUNCHER,
+            str(gate),
+            json.dumps(child_command),
+        ]
     else:
         popen_options["start_new_session"] = True
-    process = subprocess.Popen(
-        command,
-        cwd=ROOT,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        **popen_options,
-    )
+    try:
+        process = subprocess.Popen(
+            command,
+            cwd=ROOT,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            **popen_options,
+        )
+        if windows_job is not None:
+            windows_job.assign(process)
+            windows_job_assigned = True
+            gate.write_text("assigned", encoding="ascii")
+    except BaseException:
+        try:
+            if "process" in locals():
+                terminate_process_tree(
+                    process,
+                    platform=os.name,
+                    windows_job=windows_job if windows_job_assigned else None,
+                )
+        finally:
+            if windows_job is not None and not windows_job.closed:
+                windows_job.close()
+            if gate_directory is not None:
+                gate_directory.cleanup()
+        raise
     try:
         stdout, _ = process.communicate(timeout=remaining_seconds(deadline))
     except subprocess.TimeoutExpired as exc:
-        terminate_process_tree(process)
+        terminate_process_tree(process, windows_job=windows_job)
         raise VerificationError(
             f"command exceeded full verification deadline: {' '.join(command)}"
         ) from exc
     except BaseException:
-        terminate_process_tree(process)
+        terminate_process_tree(process, windows_job=windows_job)
         raise
+    finally:
+        if gate_directory is not None:
+            gate_directory.cleanup()
+    if windows_job is not None:
+        windows_job.close()
     try:
         output = stdout.decode("utf-8", errors="strict")
     except UnicodeDecodeError as exc:
