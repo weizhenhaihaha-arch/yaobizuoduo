@@ -318,6 +318,18 @@ PowerShell exit propagation and four-shard completeness must remain fail
 closed. No validator architecture, dependency, product, strategy, market, API,
 UI, credential, order, deployment, release or G2 change is authorized.
 
+### Generation 8 independent lane status
+
+- `G1-G8-A` is independently accepted at exact delivery
+  `250e09351d7d65a7640813dfd34b078f146f08e2`, based on exact start
+  `53916bc751ff17e9d17ab4f2a43a9a24621809cb`. Only
+  `tests/test_g0_project_status.py` changed. Owner verification passed six
+  focused regressions, Python compilation, diff, scope, clean-worktree and
+  secret checks. The first normal upload and a separate HTTP/1.1 remote
+  readback both remained unresponsive and were stopped without rewriting the
+  commit. This lane is frozen as locally accepted and pending upload; it does
+  not block the independent sharding lane or local integration.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
