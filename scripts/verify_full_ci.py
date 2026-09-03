@@ -29,7 +29,8 @@ MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 STATUS = ROOT / "PROJECT_STATUS.yaml"
 TRANSPORT_TEST = "tests/test_m5_transport.py"
 FULL_CI_TIMEOUT_SECONDS = 14 * 60
-PROCESS_CLEANUP_GRACE_SECONDS = 5
+PROCESS_TERM_GRACE_SECONDS = 1
+PROCESS_CLEANUP_TIMEOUT_SECONDS = 5
 FIXTURE_DIGESTS = {
     "fixtures/g0/adversarial_mutations.json": "936890388414d8a2acfb839e33147c96a2cdc97c4b874f07aecc235e5f5c51e9",
     "fixtures/g0/valid_awaiting_review.json": "56623d63602464b66a439827f22e6f0a98f718671dc531b934164a9671786684",
@@ -340,37 +341,81 @@ def terminate_process_tree(
     platform: str | None = None,
 ) -> None:
     platform = os.name if platform is None else platform
-    if process.poll() is not None:
-        process.communicate()
-        return
+    cleanup_deadline = time.monotonic() + PROCESS_CLEANUP_TIMEOUT_SECONDS
+
+    def cleanup_remaining() -> float:
+        remaining = cleanup_deadline - time.monotonic()
+        if remaining <= 0:
+            raise VerificationError("process-tree cleanup exceeded its deadline")
+        return remaining
+
+    def bounded_communicate() -> None:
+        try:
+            process.communicate(timeout=cleanup_remaining())
+        except subprocess.TimeoutExpired as exc:
+            raise VerificationError(
+                "process-tree cleanup could not reap every inherited pipe"
+            ) from exc
+
     if platform == "nt":
         try:
-            subprocess.run(
+            result = subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
                 check=False,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                timeout=PROCESS_CLEANUP_GRACE_SECONDS,
+                timeout=cleanup_remaining(),
             )
-        except (OSError, subprocess.TimeoutExpired):
-            process.kill()
-    else:
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            if process.poll() is None:
+                process.kill()
+            bounded_communicate()
+            raise VerificationError("Windows recursive process-tree cleanup failed") from exc
+        if result.returncode != 0:
+            if process.poll() is None:
+                process.kill()
+            bounded_communicate()
+            raise VerificationError(
+                f"Windows recursive process-tree cleanup exited {result.returncode}"
+            )
+        bounded_communicate()
+        if process.poll() is None:
+            raise VerificationError("Windows process-tree cleanup did not reap the root")
+        return
+
+    process_group = process.pid
+
+    def group_exists() -> bool:
         try:
-            os.killpg(process.pid, signal.SIGTERM)
+            os.killpg(process_group, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True
+        return True
+
+    try:
+        os.killpg(process_group, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    term_deadline = min(
+        cleanup_deadline,
+        time.monotonic() + PROCESS_TERM_GRACE_SECONDS,
+    )
+    while group_exists() and time.monotonic() < term_deadline:
+        process.poll()
+        time.sleep(0.01)
+    if group_exists():
+        try:
+            os.killpg(process_group, signal.SIGKILL)
         except ProcessLookupError:
             pass
-    try:
-        process.wait(timeout=PROCESS_CLEANUP_GRACE_SECONDS)
-    except subprocess.TimeoutExpired:
-        if platform == "nt":
-            process.kill()
-        else:
-            try:
-                os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-        process.wait(timeout=PROCESS_CLEANUP_GRACE_SECONDS)
-    process.communicate()
+    bounded_communicate()
+    while group_exists() and time.monotonic() < cleanup_deadline:
+        process.poll()
+        time.sleep(0.01)
+    if group_exists():
+        raise VerificationError("POSIX process group survived SIGKILL cleanup")
 
 
 def run(command: list[str], env: dict[str, str], deadline: float | None = None) -> str:

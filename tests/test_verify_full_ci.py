@@ -558,21 +558,42 @@ def test_run_rejects_non_utf8_output() -> None:
         )
 
 
-def test_timeout_terminates_and_reaps_descendant_process_tree(tmp_path: Path) -> None:
+@pytest.mark.parametrize("resists_term", [False, True])
+def test_timeout_terminates_and_reaps_ready_descendant_process_tree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    resists_term: bool,
+) -> None:
     pid_file = tmp_path / "descendant.pid"
-    child_code = "import time; time.sleep(60)"
+    ready_file = tmp_path / "ready"
+    child_code = (
+        "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); "
+        "time.sleep(60)"
+        if resists_term
+        else "import time; time.sleep(60)"
+    )
     parent_code = (
         "from pathlib import Path; import subprocess, sys, time; "
         f"child=subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
         f"Path({str(pid_file)!r}).write_text(str(child.pid), encoding='ascii'); "
+        f"Path({str(ready_file)!r}).write_text('ready', encoding='ascii'); "
         "time.sleep(60)"
     )
+
+    def timeout_only_after_ready(deadline: float) -> float:
+        ready_deadline = time.monotonic() + 5
+        while not ready_file.exists() and time.monotonic() < ready_deadline:
+            time.sleep(0.01)
+        assert ready_file.read_text(encoding="ascii") == "ready"
+        return 0.05
+
+    monkeypatch.setattr(VERIFY, "remaining_seconds", timeout_only_after_ready)
 
     with pytest.raises(VERIFY.VerificationError, match="verification deadline"):
         VERIFY.run(
             [sys.executable, "-c", parent_code],
             os.environ.copy(),
-            time.monotonic() + 0.5,
+            1.0,
         )
 
     descendant_pid = int(pid_file.read_text(encoding="ascii"))
@@ -607,6 +628,39 @@ def test_timeout_terminates_and_reaps_descendant_process_tree(tmp_path: Path) ->
         pytest.fail("descendant survived process-tree cleanup")
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX process-group regression")
+def test_posix_cleanup_handles_exited_root_with_descendant_holding_pipe(
+    tmp_path: Path,
+) -> None:
+    pid_file = tmp_path / "descendant.pid"
+    ready_file = tmp_path / "ready"
+    child_code = "import time; time.sleep(60)"
+    parent_code = (
+        "from pathlib import Path; import subprocess, sys; "
+        f"child=subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
+        f"Path({str(pid_file)!r}).write_text(str(child.pid), encoding='ascii'); "
+        f"Path({str(ready_file)!r}).write_text('ready', encoding='ascii')"
+    )
+    process = subprocess.Popen(
+        [sys.executable, "-c", parent_code],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        start_new_session=True,
+    )
+    ready_deadline = time.monotonic() + 5
+    while not ready_file.exists() and time.monotonic() < ready_deadline:
+        time.sleep(0.01)
+    assert ready_file.read_text(encoding="ascii") == "ready"
+    process.wait(timeout=5)
+    assert process.poll() == 0
+
+    VERIFY.terminate_process_tree(process, platform="posix")
+
+    descendant_pid = int(pid_file.read_text(encoding="ascii"))
+    with pytest.raises(ProcessLookupError):
+        os.kill(descendant_pid, 0)
+
+
 def test_windows_cleanup_requests_recursive_tree_kill(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -614,15 +668,14 @@ def test_windows_cleanup_requests_recursive_tree_kill(
 
     class FakeProcess:
         pid = 4242
+        reaped = False
 
-        def poll(self) -> None:
-            return None
+        def poll(self) -> int | None:
+            return 0 if self.reaped else None
 
-        def wait(self, timeout: int) -> int:
-            assert timeout == VERIFY.PROCESS_CLEANUP_GRACE_SECONDS
-            return 0
-
-        def communicate(self) -> tuple[bytes, None]:
+        def communicate(self, timeout: float) -> tuple[bytes, None]:
+            assert 0 < timeout <= VERIFY.PROCESS_CLEANUP_TIMEOUT_SECONDS
+            self.reaped = True
             return b"", None
 
         def kill(self) -> None:
@@ -636,6 +689,59 @@ def test_windows_cleanup_requests_recursive_tree_kill(
     VERIFY.terminate_process_tree(FakeProcess(), platform="nt")
 
     assert calls == [["taskkill", "/PID", "4242", "/T", "/F"]]
+
+
+def test_windows_taskkill_nonzero_is_not_accepted_as_tree_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeProcess:
+        pid = 4242
+        killed = False
+
+        def poll(self) -> None:
+            return None
+
+        def kill(self) -> None:
+            self.killed = True
+
+        def communicate(self, timeout: float) -> tuple[bytes, None]:
+            assert self.killed
+            assert 0 < timeout <= VERIFY.PROCESS_CLEANUP_TIMEOUT_SECONDS
+            return b"", None
+
+    monkeypatch.setattr(
+        VERIFY.subprocess,
+        "run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=1),
+    )
+    process = FakeProcess()
+
+    with pytest.raises(VERIFY.VerificationError, match="cleanup exited 1"):
+        VERIFY.terminate_process_tree(process, platform="nt")
+
+
+def test_keyboard_interrupt_cleans_process_tree_before_propagating(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cleaned: list[object] = []
+
+    class FakeProcess:
+        returncode = None
+
+        def communicate(self, timeout: float) -> tuple[bytes, None]:
+            raise KeyboardInterrupt
+
+    process = FakeProcess()
+    monkeypatch.setattr(VERIFY.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(
+        VERIFY,
+        "terminate_process_tree",
+        lambda target: cleaned.append(target),
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        VERIFY.run(["command"], {}, time.monotonic() + 1)
+    assert cleaned == [process]
 
 
 def test_all_fail_closed_flags_are_mandatory(monkeypatch: pytest.MonkeyPatch) -> None:
