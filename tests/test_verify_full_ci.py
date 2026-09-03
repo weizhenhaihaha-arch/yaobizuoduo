@@ -395,7 +395,10 @@ def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
         )
 
     selected, deselected = select(1, 0)
-    assert selected == nodeids
+    assert selected == sorted(
+        nodeids,
+        key=lambda nodeid: (-VERIFY.shard_cost(nodeid), nodeid),
+    )
     assert deselected == []
 
     shards: list[list[str]] = []
@@ -405,6 +408,9 @@ def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
         shards.append(selected)
         assert selected
         assert all(assignments[nodeid] == index for nodeid in selected)
+        assert selected == [
+            nodeid for nodeid in nodeids if assignments[nodeid] == index
+        ]
         assert len(selected) + len(deselected) == len(nodeids)
 
     selected_counts = Counter(nodeid for shard in shards for nodeid in shard)
@@ -445,7 +451,9 @@ def test_balanced_shards_reject_duplicate_nodeids() -> None:
         VERIFY.balanced_shard_assignments([nodeid, nodeid], 4)
 
 
-def test_actual_collection_spreads_every_slow_governance_cost_hint() -> None:
+def test_actual_collection_spreads_every_slow_governance_cost_hint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     result = subprocess.run(
         [
             sys.executable,
@@ -474,6 +482,24 @@ def test_actual_collection_spreads_every_slow_governance_cost_hint() -> None:
         any(nodeid.startswith(prefix) for nodeid in nodeids)
         for prefix, _ in VERIFY.SHARD_COST_HINTS
     )
+
+    plugin: dict[str, object] = {}
+    exec(VERIFY.SHARD_PLUGIN, plugin)
+    monkeypatch.setenv("G1_CI_SHARD_COUNT", "1")
+    monkeypatch.setenv("G1_CI_SHARD_INDEX", "0")
+    local_items = [SimpleNamespace(nodeid=nodeid) for nodeid in nodeids]
+    plugin["pytest_collection_modifyitems"](
+        SimpleNamespace(
+            hook=SimpleNamespace(pytest_deselected=lambda items: None)
+        ),
+        local_items,
+    )
+    local_nodeids = [item.nodeid for item in local_items]
+    assert local_nodeids == sorted(
+        nodeids,
+        key=lambda nodeid: (-VERIFY.shard_cost(nodeid), nodeid),
+    )
+    assert {item.nodeid for item in local_items} == set(nodeids)
 
     assignments = VERIFY.balanced_shard_assignments(nodeids, 4)
     shards = [

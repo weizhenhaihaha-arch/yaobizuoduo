@@ -126,7 +126,7 @@ SHARD_COST_HINTS = (
 )
 SHARD_PLUGIN = """\
 import os
-from scripts.verify_full_ci import balanced_shard_assignments
+from scripts.verify_full_ci import balanced_shard_assignments, shard_cost
 
 def pytest_collection_modifyitems(config, items):
     count = int(os.environ["G1_CI_SHARD_COUNT"])
@@ -139,6 +139,8 @@ def pytest_collection_modifyitems(config, items):
         item for item in items
         if assignments[item.nodeid] == index
     ]
+    if count == 1:
+        selected.sort(key=lambda item: (-shard_cost(item.nodeid), item.nodeid))
     deselected = [item for item in items if item not in selected]
     if deselected:
         config.hook.pytest_deselected(items=deselected)
