@@ -62,6 +62,7 @@ G0_T04_G4_ROUTE_PAYLOAD = (
 G0_T04_G4_PREMATURE_RECEIPT = (
     ROOT / "evidence/g0-t04/generation-4-premature-merge-recovery.json"
 )
+G1_T01_GENERATION3_DELIVERY = "e31cb8b390e9ccbf1b3c127d3103a7accb1af347"
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -363,6 +364,48 @@ def test_invalid_utf8_governed_document_is_sanitized(tmp_path: Path) -> None:
     assert "Traceback" not in result.stdout + result.stderr
 
 
+def test_git_output_preserves_valid_utf8_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        VALIDATOR.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="治理中文输出\n".encode("utf-8"),
+            stderr=b"",
+        ),
+    )
+
+    ok, output = VALIDATOR._git(tmp_path, "status")
+
+    assert ok is True
+    assert output == "治理中文输出"
+
+
+def test_git_output_with_invalid_utf8_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        VALIDATOR.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=b"bad\x81",
+            stderr=b"",
+        ),
+    )
+
+    ok, output = VALIDATOR._git(tmp_path, "status")
+
+    assert ok is False
+    assert output == "git output is not valid UTF-8 at byte 3"
+
+
 def _test_git_environment() -> dict[str, str]:
     env = os.environ.copy()
     env.update(
@@ -385,10 +428,17 @@ def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _clone_reachable_root_fixture(destination: Path) -> None:
-    """Clone only HEAD-reachable history and install explicit contract refs."""
+def _clone_reachable_root_fixture(
+    destination: Path,
+    *,
+    autocrlf: bool = False,
+    source_revision: str = "HEAD",
+) -> None:
+    """Clone only revision-reachable history and install explicit contract refs."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     _run_git(destination.parent, "init", "--quiet", str(destination))
+    if autocrlf:
+        _run_git(destination, "config", "core.autocrlf", "true")
     _run_git(destination, "remote", "add", "fixture-source", str(ROOT))
     _run_git(
         destination,
@@ -396,7 +446,7 @@ def _clone_reachable_root_fixture(destination: Path) -> None:
         "--quiet",
         "--no-tags",
         "fixture-source",
-        "HEAD:refs/fixture/source-head",
+        f"{source_revision}:refs/fixture/source-head",
     )
     fetched = _run_git(
         destination, "rev-parse", "refs/fixture/source-head"
@@ -2966,16 +3016,34 @@ def test_governed_text_digest_is_newline_neutral_but_content_sensitive() -> None
 def test_crlf_checkout_is_portable_but_content_tampering_still_fails(
     tmp_path: Path,
 ) -> None:
-    repo = tmp_path / "crlf-dirty"
-    _clone_reachable_root_fixture(repo)
+    repo = tmp_path / "crlf-clean"
+    _clone_reachable_root_fixture(
+        repo,
+        autocrlf=True,
+        source_revision=G1_T01_GENERATION3_DELIVERY,
+    )
     schema_path = repo / "schemas/project_status.schema.json"
-    schema_path.write_bytes(schema_path.read_bytes().replace(b"\n", b"\r\n"))
+    working_schema = schema_path.read_bytes()
+    committed_schema = subprocess.run(
+        ["git", "show", "HEAD:schemas/project_status.schema.json"],
+        cwd=repo,
+        capture_output=True,
+        check=True,
+        env=_test_git_environment(),
+    ).stdout
+    assert b"\r\n" in working_schema
+    assert b"\n" not in working_schema.replace(b"\r\n", b"")
+    assert git(repo, "status", "--porcelain", "--untracked-files=all") == ""
+    assert VALIDATOR._canonical_text_digest(working_schema) == (
+        VALIDATOR._canonical_text_digest(committed_schema)
+    )
     result = run_validator(
         repo / "PROJECT_STATUS.yaml", repo, schema_path=schema_path
     )
     assert result.returncode == 0, result.stdout
     assert "canonical schema content digest mismatch" not in result.stdout
     schema_path.write_bytes(schema_path.read_bytes() + b" ")
+    assert git(repo, "status", "--porcelain", "--untracked-files=all")
     result = run_validator(
         repo / "PROJECT_STATUS.yaml", repo, schema_path=schema_path
     )

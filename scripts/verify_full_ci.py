@@ -234,16 +234,12 @@ def offline_environment(directory: Path) -> dict[str, str]:
         encoding="utf-8",
     )
     env = os.environ.copy()
+    env.setdefault("G1_CI_SHARD_COUNT", "1")
+    env.setdefault("G1_CI_SHARD_INDEX", "0")
     env.update(
         {
             "CI": "true",
             "G1_CI_WORKERS": env.get("G1_CI_WORKERS", "4"),
-            # The verifier launches a complete nested test run.  It must not
-            # inherit the outer workflow's shard identity or it would shard a
-            # shard and make its own regression expectations platform/job
-            # dependent.
-            "G1_CI_SHARD_COUNT": "1",
-            "G1_CI_SHARD_INDEX": "0",
             "NO_PROXY": "*",
             "no_proxy": "*",
             "PIP_NO_INDEX": "1",

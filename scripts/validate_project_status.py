@@ -1349,10 +1349,14 @@ def _document_errors(status: dict[str, Any], repo_root: Path) -> list[str]:
 
 def _git(root: Path, *args: str) -> tuple[bool, str]:
     try:
-        result = subprocess.run(["git", *args], cwd=root, text=True, capture_output=True, check=False)
-    except (OSError, UnicodeError):
-        return False, ""
-    return result.returncode == 0, result.stdout.strip()
+        result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
+    except OSError:
+        return False, "git command could not be started"
+    try:
+        stdout = result.stdout.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+        return False, f"git output is not valid UTF-8 at byte {exc.start}"
+    return result.returncode == 0, stdout
 
 
 def _git_bytes(root: Path, *args: str) -> tuple[bool, bytes]:

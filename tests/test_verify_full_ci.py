@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections import Counter
 import importlib.util
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -89,7 +91,7 @@ def test_secret_patterns_cover_private_keys_assignments_and_jwts(
     assert any(pattern.search(secret) for pattern in VERIFY.SECRET_PATTERNS)
 
 
-def test_offline_guard_rejects_non_loopback_network(
+def test_offline_guard_preserves_outer_shard_identity(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -99,10 +101,23 @@ def test_offline_guard_rejects_non_loopback_network(
     guard = (tmp_path / "sitecustomize.py").read_text(encoding="utf-8")
     assert "offline verification forbids network access" in guard
     assert env["G1_CI_WORKERS"] == "4"
-    assert env["G1_CI_SHARD_COUNT"] == "1"
-    assert env["G1_CI_SHARD_INDEX"] == "0"
+    assert env["G1_CI_SHARD_COUNT"] == "4"
+    assert env["G1_CI_SHARD_INDEX"] == "3"
     assert env["PIP_NO_INDEX"] == "1"
     assert env["npm_config_offline"] == "true"
+
+
+def test_offline_guard_defaults_to_one_complete_local_shard(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("G1_CI_SHARD_COUNT", raising=False)
+    monkeypatch.delenv("G1_CI_SHARD_INDEX", raising=False)
+
+    env = VERIFY.offline_environment(tmp_path)
+
+    assert env["G1_CI_SHARD_COUNT"] == "1"
+    assert env["G1_CI_SHARD_INDEX"] == "0"
 
 
 def test_ci_requires_mechanically_probed_os_isolation(
@@ -136,15 +151,91 @@ def test_parallel_full_suite_is_bounded_and_complete(
         VERIFY.pytest_parallel_args()
 
 
-def test_four_deterministic_shards_are_disjoint_and_complete() -> None:
+def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     nodeids = [f"tests/test_example.py::test_case_{number}" for number in range(100)]
-    shards = [
-        {nodeid for nodeid in nodeids if VERIFY.shard_index(nodeid, 4) == index}
-        for index in range(4)
+    plugin: dict[str, object] = {}
+    exec(VERIFY.SHARD_PLUGIN, plugin)
+    partition = plugin["pytest_collection_modifyitems"]
+
+    def select(count: int, index: int) -> tuple[list[str], list[str]]:
+        monkeypatch.setenv("G1_CI_SHARD_COUNT", str(count))
+        monkeypatch.setenv("G1_CI_SHARD_INDEX", str(index))
+        items = [SimpleNamespace(nodeid=nodeid) for nodeid in nodeids]
+        deselected: list[SimpleNamespace] = []
+
+        partition(
+            SimpleNamespace(
+                hook=SimpleNamespace(
+                    pytest_deselected=lambda items: deselected.extend(items)
+                )
+            ),
+            items,
+        )
+        return (
+            [item.nodeid for item in items],
+            [item.nodeid for item in deselected],
+        )
+
+    selected, deselected = select(1, 0)
+    assert selected == nodeids
+    assert deselected == []
+
+    shards: list[list[str]] = []
+    for index in range(4):
+        selected, deselected = select(4, index)
+        shards.append(selected)
+        assert selected
+        assert all(VERIFY.shard_index(nodeid, 4) == index for nodeid in selected)
+        assert len(selected) + len(deselected) == len(nodeids)
+
+    selected_counts = Counter(nodeid for shard in shards for nodeid in shard)
+    assert set(selected_counts) == set(nodeids)
+    assert set(selected_counts.values()) == {1}
+    assert all(
+        set(left).isdisjoint(right)
+        for index, left in enumerate(shards)
+        for right in shards[index + 1 :]
+    )
+
+
+def test_complete_suite_passes_outer_shard_identity_to_every_child(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[list[str], dict[str, str]]] = []
+    monkeypatch.setenv("G1_CI_SHARD_COUNT", "4")
+    monkeypatch.setenv("G1_CI_SHARD_INDEX", "2")
+    monkeypatch.setenv("G1_CI_WORKERS", "3")
+    monkeypatch.setattr(VERIFY.shutil, "which", lambda executable: executable)
+
+    def fake_run(command: list[str], env: dict[str, str]) -> str:
+        calls.append((command, env))
+        if "--collect-only" in command:
+            return "6 tests collected"
+        return ""
+
+    monkeypatch.setattr(VERIFY, "run", fake_run)
+
+    VERIFY.run_complete_suite()
+
+    assert calls
+    assert all(env["G1_CI_SHARD_COUNT"] == "4" for _, env in calls)
+    assert all(env["G1_CI_SHARD_INDEX"] == "2" for _, env in calls)
+    full_pytest = next(
+        command
+        for command, _ in calls
+        if command[:3] == [VERIFY.sys.executable, "-m", "pytest"]
+        and "g1_shard_plugin" in command
+    )
+    assert full_pytest[-6:] == [
+        "-n",
+        "3",
+        "--dist",
+        "worksteal",
+        "-p",
+        "g1_shard_plugin",
     ]
-    assert set().union(*shards) == set(nodeids)
-    assert sum(len(shard) for shard in shards) == len(nodeids)
-    assert all(shards)
 
 
 def test_all_fail_closed_flags_are_mandatory(monkeypatch: pytest.MonkeyPatch) -> None:
