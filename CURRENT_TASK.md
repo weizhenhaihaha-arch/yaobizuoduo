@@ -3,8 +3,8 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `returned`
-- Candidate generation: `7`
+- Status: `in_progress`
+- Candidate generation: `8`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
 ## Goal
@@ -294,6 +294,29 @@ returned `BLOCK`. The user has explicitly authorized a bounded continuation
 that must not affect product behavior or expand governance. The failed
 candidate, run, reviews, local acceptance, and successful Linux evidence remain
 immutable; G2 and Signal V1 stay unauthorized.
+
+## Generation 8 bounded Windows portability repair
+
+Generation 8 starts through the ordinary `returned -> in_progress` transition
+from exact return `74e685d15224f926f3cc04569618a55e16861af7`.
+The product owner explicitly authorized continuation provided it remains
+product-neutral and avoids governance expansion. This repair is therefore
+limited to the remote evidence already bound by run `33760692448`:
+
+- strict UTF-8 decoding at the remaining test Git subprocess boundary;
+- deterministic UTF-8/LF schema and receipt fixtures, plus Git-index executable
+  mode construction on Windows;
+- deterministic redistribution or bounded parallelism for the existing four
+  disjoint shards so each Windows job stays within the frozen time budget.
+
+The first lane may change only `tests/test_g0_project_status.py`. The sharding
+lane may change only `scripts/verify_full_ci.py`,
+`tests/test_verify_full_ci.py`, and, only if a runner parameter is necessary,
+`.github/workflows/g0-exact-head.yml`. No test may be deleted, skipped, weakened
+or hidden; the total suite, strict UTF-8 failure, offline egress guard,
+PowerShell exit propagation and four-shard completeness must remain fail
+closed. No validator architecture, dependency, product, strategy, market, API,
+UI, credential, order, deployment, release or G2 change is authorized.
 
 ## Generation 4 final bounded repair
 
