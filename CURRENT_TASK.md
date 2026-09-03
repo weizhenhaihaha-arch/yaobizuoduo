@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `blocked`
 - Candidate generation: `5`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -174,6 +174,23 @@ scope.
   in-progress integration record `e6ab2a3214b76aed11fcb140d4462970dc2ff390`.
   This clears only the upload backlog; it does not establish a Generation-5
   candidate or count any resulting workflow run as candidate CI.
+
+### Generation 5 terminal stop
+
+PR #39 run `33746059061` bound exact in-progress subject
+`1d0cccbb667a872f2d52592be1a614c74cc3702c`. All four Linux shards passed and
+all four Windows shards failed; aggregate `G0 / exact-head` failed. Windows
+logs show that the offline socket guard directly accesses `socket.AF_UNIX`,
+which is unavailable on that runner, and therefore breaks loopback socket
+creation used by the transport tests. The repaired PowerShell path correctly
+propagated the verifier's nonzero status, so this is a real red result rather
+than another false green.
+
+This Windows socket-guard portability defect is independent of the only two
+Generation-5 repairs and is outside their authorized boundary. Under the
+explicit fourth-root stop rule, G1-T01 is now `blocked`; no additional repair,
+candidate, review, merge, G2 implementation, product code or trading capability
+is authorized without a new user decision.
 
 ## Generation 4 final bounded repair
 

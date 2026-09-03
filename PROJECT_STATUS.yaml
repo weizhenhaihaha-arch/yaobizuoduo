@@ -25,8 +25,8 @@
     {
       "task_id": "G1-T01",
       "risk": "D1",
-      "state": "in_progress",
-      "transition": {"from": "returned", "to": "in_progress"},
+      "state": "blocked",
+      "transition": {"from": "in_progress", "to": "blocked"},
       "candidate_generation": 5
     }
   ],
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "G1-T01 generation-5 stopped on a fourth independent root cause: PR #39 run 33746059061 at subject 1d0cccbb667a872f2d52592be1a614c74cc3702c passed all four Linux shards but failed all four Windows shards because the offline socket guard directly references unavailable socket.AF_UNIX; aggregate G0 / exact-head failed and no further repair is authorized"
+  ],
   "next_authorization": {"gate": "G2", "task_id": "G2-T01", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",
