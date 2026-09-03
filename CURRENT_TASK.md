@@ -329,6 +329,19 @@ UI, credential, order, deployment, release or G2 change is authorized.
   readback both remained unresponsive and were stopped without rewriting the
   commit. This lane is frozen as locally accepted and pending upload; it does
   not block the independent sharding lane or local integration.
+- `G1-G8-B` is independently accepted at exact delivery
+  `50467f25e33c067e51fdda16007b9fff29dcd3f9`, also based on exact start
+  `53916bc751ff17e9d17ab4f2a43a9a24621809cb`. Only
+  `scripts/verify_full_ci.py` and `tests/test_verify_full_ci.py` changed. The
+  four-way selection now sorts the complete node-ID collection and assigns it
+  round-robin, producing actual counts `154/154/154/153` instead of
+  `153/140/159/163` while remaining deterministic, disjoint and complete.
+  Owner verification passed the full verifier test file 32/32, seven focused
+  sharding tests, compilation, diff, scope, clean-worktree and secret checks.
+  It did not modify the workflow or time limits. Because the GitHub upload
+  channel is already known unavailable, this delivery is frozen in its own
+  pending-upload record without a redundant attempt; Windows wall-clock proof
+  remains a hosted-CI obligation.
 
 ## Generation 4 final bounded repair
 
