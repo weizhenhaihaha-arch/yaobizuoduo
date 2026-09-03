@@ -11,9 +11,11 @@ import os
 from pathlib import Path
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +28,8 @@ PACKAGE_LOCK = ROOT / "frontend" / "package-lock.json"
 MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 STATUS = ROOT / "PROJECT_STATUS.yaml"
 TRANSPORT_TEST = "tests/test_m5_transport.py"
+FULL_CI_TIMEOUT_SECONDS = 14 * 60
+PROCESS_CLEANUP_GRACE_SECONDS = 5
 FIXTURE_DIGESTS = {
     "fixtures/g0/adversarial_mutations.json": "936890388414d8a2acfb839e33147c96a2cdc97c4b874f07aecc235e5f5c51e9",
     "fixtures/g0/valid_awaiting_review.json": "56623d63602464b66a439827f22e6f0a98f718671dc531b934164a9671786684",
@@ -159,7 +163,21 @@ def exact_requirements(path: Path) -> dict[str, str]:
     return locked
 
 
-def validate_runtime_and_dependencies() -> None:
+def new_deadline() -> float:
+    return time.monotonic() + FULL_CI_TIMEOUT_SECONDS
+
+
+def remaining_seconds(deadline: float) -> float:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        raise VerificationError(
+            f"full verification exceeded {FULL_CI_TIMEOUT_SECONDS}s limit"
+        )
+    return remaining
+
+
+def validate_runtime_and_dependencies(deadline: float | None = None) -> None:
+    deadline = new_deadline() if deadline is None else deadline
     if (
         os.environ.get("CI", "").lower() == "true"
         and os.environ.get("G1_OS_EGRESS_ISOLATED") != "1"
@@ -176,18 +194,14 @@ def validate_runtime_and_dependencies() -> None:
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
     if node is None or npm is None:
         raise VerificationError("pinned Node/npm runtime is unavailable")
-    node_version = subprocess.run(
-        [node, "--version"], check=True, text=True, capture_output=True
-    ).stdout.strip().removeprefix("v")
+    node_version = run([node, "--version"], os.environ.copy(), deadline).strip().removeprefix("v")
     node_pin = NODE_PIN.read_text(encoding="utf-8").strip()
     if node_version != node_pin:
         raise VerificationError(f"Node runtime drift: expected {node_pin}, got {node_version}")
 
     package = read_json(PACKAGE_JSON)
     npm_pin = package.get("packageManager")
-    npm_version = subprocess.run(
-        [npm, "--version"], check=True, text=True, capture_output=True
-    ).stdout.strip()
+    npm_version = run([npm, "--version"], os.environ.copy(), deadline).strip()
     if npm_pin != f"npm@{npm_version}":
         raise VerificationError("npm runtime does not match packageManager identity")
     if package.get("engines") != {"node": node_pin, "npm": npm_version}:
@@ -253,7 +267,8 @@ def validate_fixture_digests() -> None:
             raise VerificationError(f"fixture digest drifted: {relative}")
 
 
-def validate_fixtures_scope_and_secrets() -> None:
+def validate_fixtures_scope_and_secrets(deadline: float | None = None) -> None:
+    deadline = new_deadline() if deadline is None else deadline
     validate_fixture_digests()
     status = read_json(STATUS)
     manifest = read_json(MANIFEST)
@@ -264,22 +279,19 @@ def validate_fixtures_scope_and_secrets() -> None:
         item for item in manifest["cards"] if item.get("task_id") == "G1-T01"
     )
     baseline = status["evidence"]["authorization_baseline_sha"]
-    diff = subprocess.run(
+    diff = run(
         ["git", "diff", "--name-only", baseline, "--"],
-        cwd=ROOT,
-        check=True,
-        text=True,
-        capture_output=True,
-    ).stdout.splitlines()
+        os.environ.copy(),
+        deadline,
+    ).splitlines()
     outside = sorted(set(diff) - set(card["allowed_paths"]))
     if outside:
         raise VerificationError("forbidden-scope paths changed: " + ", ".join(outside))
-    patch = subprocess.run(
+    patch = run(
         ["git", "diff", "--binary", baseline, "--"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-    ).stdout
+        os.environ.copy(),
+        deadline,
+    ).encode("utf-8")
     if any(pattern.search(patch) for pattern in SECRET_PATTERNS):
         raise VerificationError("candidate diff contains a secret-shaped value")
 
@@ -323,23 +335,82 @@ def offline_environment(directory: Path) -> dict[str, str]:
     return env
 
 
-def run(command: list[str], env: dict[str, str]) -> str:
+def terminate_process_tree(
+    process: subprocess.Popen[bytes],
+    platform: str | None = None,
+) -> None:
+    platform = os.name if platform is None else platform
+    if process.poll() is not None:
+        process.communicate()
+        return
+    if platform == "nt":
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=PROCESS_CLEANUP_GRACE_SECONDS,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            process.kill()
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+    try:
+        process.wait(timeout=PROCESS_CLEANUP_GRACE_SECONDS)
+    except subprocess.TimeoutExpired:
+        if platform == "nt":
+            process.kill()
+        else:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.wait(timeout=PROCESS_CLEANUP_GRACE_SECONDS)
+    process.communicate()
+
+
+def run(command: list[str], env: dict[str, str], deadline: float | None = None) -> str:
+    deadline = new_deadline() if deadline is None else deadline
     print("+", " ".join(command), flush=True)
-    result = subprocess.run(
+    popen_options: dict[str, object] = {}
+    if os.name == "nt":
+        popen_options["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+    else:
+        popen_options["start_new_session"] = True
+    process = subprocess.Popen(
         command,
         cwd=ROOT,
         env=env,
-        check=False,
-        text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        **popen_options,
     )
-    print(result.stdout, end="")
-    if result.returncode:
+    try:
+        stdout, _ = process.communicate(timeout=remaining_seconds(deadline))
+    except subprocess.TimeoutExpired as exc:
+        terminate_process_tree(process)
         raise VerificationError(
-            f"command failed with exit {result.returncode}: {' '.join(command)}"
+            f"command exceeded full verification deadline: {' '.join(command)}"
+        ) from exc
+    except BaseException:
+        terminate_process_tree(process)
+        raise
+    try:
+        output = stdout.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise VerificationError(
+            f"command output is not valid UTF-8: {' '.join(command)}"
+        ) from exc
+    print(output, end="")
+    if process.returncode:
+        raise VerificationError(
+            f"command failed with exit {process.returncode}: {' '.join(command)}"
         )
-    return result.stdout
+    return output
 
 
 def shard_cost(nodeid: str) -> int:
@@ -389,7 +460,8 @@ def pytest_parallel_args() -> list[str]:
     ]
 
 
-def run_complete_suite() -> None:
+def run_complete_suite(deadline: float | None = None) -> None:
+    deadline = new_deadline() if deadline is None else deadline
     npm = shutil.which("npm.cmd" if os.name == "nt" else "npm")
     assert npm is not None
     with tempfile.TemporaryDirectory(prefix="yaobizuoduo-offline-") as directory:
@@ -399,24 +471,26 @@ def run_complete_suite() -> None:
             encoding="utf-8",
         )
         env = offline_environment(directory_path)
-        run([sys.executable, "scripts/validate_project_status.py", "--repo-root", "."], env)
+        run([sys.executable, "scripts/validate_project_status.py", "--repo-root", "."], env, deadline)
         collected = run(
             [sys.executable, "-m", "pytest", "--collect-only", "-q", TRANSPORT_TEST],
             env,
+            deadline,
         )
         if "6 tests collected" not in collected:
             raise VerificationError("transport suite was not completely collected")
-        run([sys.executable, "-m", "pytest", "-q", TRANSPORT_TEST], env)
+        run([sys.executable, "-m", "pytest", "-q", TRANSPORT_TEST], env, deadline)
         run(
             [sys.executable, "-m", "pytest", "-q", *pytest_parallel_args()],
             env,
+            deadline,
         )
-        run([sys.executable, "-m", "pip", "check"], env)
-        run([npm, "--prefix", "frontend", "ls", "--all", "--offline"], env)
-        run([npm, "--prefix", "frontend", "test", "--", "--run"], env)
-        run([npm, "--prefix", "frontend", "run", "build"], env)
-        run([sys.executable, "-m", "compileall", "-q", "scripts", "tests"], env)
-        run(["git", "diff", "--check"], env)
+        run([sys.executable, "-m", "pip", "check"], env, deadline)
+        run([npm, "--prefix", "frontend", "ls", "--all", "--offline"], env, deadline)
+        run([npm, "--prefix", "frontend", "test", "--", "--run"], env, deadline)
+        run([npm, "--prefix", "frontend", "run", "build"], env, deadline)
+        run([sys.executable, "-m", "compileall", "-q", "scripts", "tests"], env, deadline)
+        run(["git", "diff", "--check"], env, deadline)
 
 
 def parse_args() -> argparse.Namespace:
@@ -432,10 +506,11 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     parse_args()
+    deadline = new_deadline()
     try:
-        validate_runtime_and_dependencies()
-        validate_fixtures_scope_and_secrets()
-        run_complete_suite()
+        validate_runtime_and_dependencies(deadline)
+        validate_fixtures_scope_and_secrets(deadline)
+        run_complete_suite(deadline)
     except (OSError, subprocess.SubprocessError, VerificationError, ValueError) as exc:
         print(f"FULL_CI_FAILED: {exc}", file=sys.stderr)
         return 1

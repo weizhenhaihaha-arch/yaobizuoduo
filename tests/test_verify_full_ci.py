@@ -3,9 +3,12 @@ from __future__ import annotations
 from collections import Counter
 import importlib.util
 import json
+import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -479,14 +482,18 @@ def test_actual_collection_spreads_every_slow_governance_cost_hint() -> None:
 def test_complete_suite_passes_outer_shard_identity_to_every_child(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls: list[tuple[list[str], dict[str, str]]] = []
+    calls: list[tuple[list[str], dict[str, str], float | None]] = []
     monkeypatch.setenv("G1_CI_SHARD_COUNT", "4")
     monkeypatch.setenv("G1_CI_SHARD_INDEX", "2")
     monkeypatch.setenv("G1_CI_WORKERS", "3")
     monkeypatch.setattr(VERIFY.shutil, "which", lambda executable: executable)
 
-    def fake_run(command: list[str], env: dict[str, str]) -> str:
-        calls.append((command, env))
+    def fake_run(
+        command: list[str],
+        env: dict[str, str],
+        deadline: float | None = None,
+    ) -> str:
+        calls.append((command, env, deadline))
         if "--collect-only" in command:
             return "6 tests collected"
         return ""
@@ -496,11 +503,14 @@ def test_complete_suite_passes_outer_shard_identity_to_every_child(
     VERIFY.run_complete_suite()
 
     assert calls
-    assert all(env["G1_CI_SHARD_COUNT"] == "4" for _, env in calls)
-    assert all(env["G1_CI_SHARD_INDEX"] == "2" for _, env in calls)
+    assert all(env["G1_CI_SHARD_COUNT"] == "4" for _, env, _ in calls)
+    assert all(env["G1_CI_SHARD_INDEX"] == "2" for _, env, _ in calls)
+    deadlines = {deadline for _, _, deadline in calls}
+    assert len(deadlines) == 1
+    assert None not in deadlines
     full_pytest = next(
         command
-        for command, _ in calls
+        for command, _, _ in calls
         if command[:3] == [VERIFY.sys.executable, "-m", "pytest"]
         and "g1_shard_plugin" in command
     )
@@ -512,6 +522,120 @@ def test_complete_suite_passes_outer_shard_identity_to_every_child(
         "-p",
         "g1_shard_plugin",
     ]
+
+
+def test_main_uses_one_deadline_for_the_entire_verifier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: list[float] = []
+    monkeypatch.setattr(VERIFY, "parse_args", lambda: None)
+    monkeypatch.setattr(VERIFY, "new_deadline", lambda: 123.0)
+    monkeypatch.setattr(
+        VERIFY,
+        "validate_runtime_and_dependencies",
+        lambda deadline: observed.append(deadline),
+    )
+    monkeypatch.setattr(
+        VERIFY,
+        "validate_fixtures_scope_and_secrets",
+        lambda deadline: observed.append(deadline),
+    )
+    monkeypatch.setattr(
+        VERIFY,
+        "run_complete_suite",
+        lambda deadline: observed.append(deadline),
+    )
+
+    assert VERIFY.main() == 0
+    assert observed == [123.0, 123.0, 123.0]
+
+
+def test_run_rejects_non_utf8_output() -> None:
+    with pytest.raises(VERIFY.VerificationError, match="not valid UTF-8"):
+        VERIFY.run(
+            [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff')"],
+            os.environ.copy(),
+        )
+
+
+def test_timeout_terminates_and_reaps_descendant_process_tree(tmp_path: Path) -> None:
+    pid_file = tmp_path / "descendant.pid"
+    child_code = "import time; time.sleep(60)"
+    parent_code = (
+        "from pathlib import Path; import subprocess, sys, time; "
+        f"child=subprocess.Popen([sys.executable, '-c', {child_code!r}]); "
+        f"Path({str(pid_file)!r}).write_text(str(child.pid), encoding='ascii'); "
+        "time.sleep(60)"
+    )
+
+    with pytest.raises(VERIFY.VerificationError, match="verification deadline"):
+        VERIFY.run(
+            [sys.executable, "-c", parent_code],
+            os.environ.copy(),
+            time.monotonic() + 0.5,
+        )
+
+    descendant_pid = int(pid_file.read_text(encoding="ascii"))
+
+    def descendant_is_running() -> bool:
+        if os.name == "nt":
+            result = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {descendant_pid}", "/FO", "CSV", "/NH"],
+                check=False,
+                capture_output=True,
+            )
+            return str(descendant_pid).encode("ascii") in result.stdout
+        try:
+            os.kill(descendant_pid, 0)
+        except ProcessLookupError:
+            return False
+        return True
+
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline and descendant_is_running():
+        time.sleep(0.05)
+    if descendant_is_running():
+        if os.name == "nt":
+            subprocess.run(
+                ["taskkill", "/PID", str(descendant_pid), "/T", "/F"],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            os.kill(descendant_pid, signal.SIGKILL)
+        pytest.fail("descendant survived process-tree cleanup")
+
+
+def test_windows_cleanup_requests_recursive_tree_kill(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[list[str]] = []
+
+    class FakeProcess:
+        pid = 4242
+
+        def poll(self) -> None:
+            return None
+
+        def wait(self, timeout: int) -> int:
+            assert timeout == VERIFY.PROCESS_CLEANUP_GRACE_SECONDS
+            return 0
+
+        def communicate(self) -> tuple[bytes, None]:
+            return b"", None
+
+        def kill(self) -> None:
+            pytest.fail("taskkill success must not need root-only fallback")
+
+    def fake_taskkill(command: list[str], **kwargs: object) -> SimpleNamespace:
+        calls.append(command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(VERIFY.subprocess, "run", fake_taskkill)
+    VERIFY.terminate_process_tree(FakeProcess(), platform="nt")
+
+    assert calls == [["taskkill", "/PID", "4242", "/T", "/F"]]
 
 
 def test_all_fail_closed_flags_are_mandatory(monkeypatch: pytest.MonkeyPatch) -> None:
