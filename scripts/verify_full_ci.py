@@ -176,7 +176,16 @@ def validate_runtime_and_dependencies() -> None:
             raise VerificationError(f"npm lock record lacks integrity: {identity}")
 
 
-def validate_fixtures_scope_and_secrets() -> None:
+def canonical_text_digest(payload: bytes) -> str:
+    try:
+        text = payload.decode("utf-8", errors="strict")
+    except UnicodeDecodeError as exc:
+        raise VerificationError("fixture must contain valid UTF-8 text") from exc
+    canonical = text.replace("\r\n", "\n").replace("\r", "\n")
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def validate_fixture_digests() -> None:
     actual_fixtures = {
         path.relative_to(ROOT).as_posix()
         for path in (ROOT / "fixtures").rglob("*")
@@ -185,10 +194,13 @@ def validate_fixtures_scope_and_secrets() -> None:
     if actual_fixtures != set(FIXTURE_DIGESTS):
         raise VerificationError("fixture inventory drifted")
     for relative, expected in FIXTURE_DIGESTS.items():
-        actual = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+        actual = canonical_text_digest((ROOT / relative).read_bytes())
         if actual != expected:
             raise VerificationError(f"fixture digest drifted: {relative}")
 
+
+def validate_fixtures_scope_and_secrets() -> None:
+    validate_fixture_digests()
     status = read_json(STATUS)
     manifest = read_json(MANIFEST)
     task = status["active_tasks"][0]

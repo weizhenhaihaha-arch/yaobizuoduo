@@ -4,6 +4,7 @@ from collections import Counter
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 from types import SimpleNamespace
 
 import pytest
@@ -73,6 +74,116 @@ def test_frontend_lock_uses_only_official_registry_and_integrity() -> None:
 
 def test_fixture_inventory_and_digests_are_frozen() -> None:
     VERIFY.validate_fixtures_scope_and_secrets()
+
+
+def freeze_fixture_repository(root: Path, relative: str) -> None:
+    for command in (
+        ["git", "init", "--quiet"],
+        ["git", "config", "core.autocrlf", "false"],
+        ["git", "config", "user.name", "Fixture Test"],
+        ["git", "config", "user.email", "fixture@example.invalid"],
+        ["git", "add", relative],
+        ["git", "commit", "--quiet", "-m", "freeze fixture"],
+    ):
+        subprocess.run(command, cwd=root, check=True, capture_output=True)
+    assert not subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=root,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+
+
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n"])
+def test_text_fixture_digest_accepts_clean_lf_and_crlf(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    newline: bytes,
+) -> None:
+    relative = "fixtures/example.json"
+    fixture = tmp_path / relative
+    fixture.parent.mkdir(parents=True)
+    fixture.write_bytes('{"value": "中文"}'.encode("utf-8") + newline)
+    freeze_fixture_repository(tmp_path, relative)
+    monkeypatch.setattr(VERIFY, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        VERIFY,
+        "FIXTURE_DIGESTS",
+        {relative: "dda00999e6a5c839ac6eed03f75c9e9b93c9eb1a9c5514a3eaddb9ee4ba36746"},
+    )
+
+    VERIFY.validate_fixture_digests()
+
+
+def test_dirty_text_fixture_content_tampering_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    relative = "fixtures/example.json"
+    fixture = tmp_path / relative
+    fixture.parent.mkdir(parents=True)
+    fixture.write_bytes(b'{"value": 1}\n')
+    freeze_fixture_repository(tmp_path, relative)
+    monkeypatch.setattr(VERIFY, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        VERIFY,
+        "FIXTURE_DIGESTS",
+        {relative: "dbbd9c92f0a9fc8ec5968c1d825d1f3779567052b3286c91ed34f060ebe2f466"},
+    )
+    VERIFY.validate_fixture_digests()
+
+    fixture.write_bytes(b'{"value": 2}\n')
+
+    assert subprocess.run(
+        ["git", "status", "--porcelain", "--", relative],
+        cwd=tmp_path,
+        check=True,
+        text=True,
+        capture_output=True,
+    ).stdout.strip()
+    with pytest.raises(VERIFY.VerificationError, match="fixture digest drifted"):
+        VERIFY.validate_fixture_digests()
+
+
+def test_invalid_utf8_fixture_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    relative = "fixtures/example.json"
+    fixture = tmp_path / relative
+    fixture.parent.mkdir(parents=True)
+    fixture.write_bytes(b"\xff\xfe")
+    monkeypatch.setattr(VERIFY, "ROOT", tmp_path)
+    monkeypatch.setattr(VERIFY, "FIXTURE_DIGESTS", {relative: "0" * 64})
+
+    with pytest.raises(VERIFY.VerificationError, match="valid UTF-8"):
+        VERIFY.validate_fixture_digests()
+
+
+@pytest.mark.parametrize("mutation", ["added", "deleted"])
+def test_fixture_inventory_addition_or_deletion_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutation: str,
+) -> None:
+    relative = "fixtures/example.json"
+    fixture = tmp_path / relative
+    fixture.parent.mkdir(parents=True)
+    fixture.write_bytes(b'{"value": 1}\n')
+    monkeypatch.setattr(VERIFY, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        VERIFY,
+        "FIXTURE_DIGESTS",
+        {relative: "dbbd9c92f0a9fc8ec5968c1d825d1f3779567052b3286c91ed34f060ebe2f466"},
+    )
+    if mutation == "added":
+        (fixture.parent / "extra.json").write_text("{}\n", encoding="utf-8")
+    else:
+        fixture.unlink()
+
+    with pytest.raises(VERIFY.VerificationError, match="fixture inventory drifted"):
+        VERIFY.validate_fixture_digests()
 
 
 @pytest.mark.parametrize(
