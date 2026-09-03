@@ -408,6 +408,20 @@ real trading. Until both prerequisites are satisfied,
 `PROJECT_STATUS.yaml.next_authorization` truthfully remains
 `not_authorized`, and C may perform preparation only without product writes.
 
+### Generation 9 independent lane acceptance
+
+- `G1-G9-A` is independently accepted and frozen at delivery
+  `cbab5695300ae7304bd55d45f65f376214334d3b`, based on
+  `84142b88280ef76470981df6fcfb8796e67505b3`. Its only changed path is
+  `tests/test_g0_project_status.py`. Owner review verified the exact parent and
+  commit identity, clean worktree, strict UTF-8/LF repair, explicit temporary
+  repository `core.autocrlf` behavior, intentional clean-CRLF exception,
+  receipt-byte regression, scope, compilation and secret scan. The owner
+  rerun passed 24 focused tests with 459 deselected. This acceptance does not
+  establish integration, upload, hosted Windows CI, candidate acceptance or G1
+  closure; the delivery remains frozen pending the independent cost-balanced
+  four-shard lane.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
