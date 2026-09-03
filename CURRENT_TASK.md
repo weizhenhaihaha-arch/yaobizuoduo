@@ -484,6 +484,27 @@ diff checks, secret scan and a clean worktree, then report for independent
 review. Any further independent root cause outside this exact boundary stops
 for owner reclassification under the same autonomous-authorization rule.
 
+### Generation 10 independent repair acceptance
+
+The trend-signal and strategy engineer's final second-repair delivery
+`0ad96687386cc20676af4fca6446c9c6ca9e0671` is independently accepted and
+frozen. It is based on exact Generation-10 start
+`dae5d5f115560967ff2314af1462acfe117f2500` through preserved, non-rewritten
+repair commits `95089106c44c6f2413263b9a1318fa6cbd18b59c` and
+`0710d66c7ef1e35a1701768aa6404af8b4d1693b`. Only
+`scripts/verify_full_ci.py` and `tests/test_verify_full_ci.py` changed.
+
+Owner verification passed 43 focused tests with one Windows-only Job Object
+test skipped on macOS, compilation, canonical status, exact scope, diff,
+clean-worktree and secret checks. Independent code/security review returned
+`APPROVE` after separately passing 10 focused tests with that same platform-only
+skip. The accepted implementation gives the whole verifier one 14-minute
+deadline, uses strict UTF-8 command output, keeps POSIX process-group cleanup,
+and binds Windows commands to a kill-on-close Job Object before opening a gate
+that can launch real descendants. Real Win32 and hosted-runner nested-Job
+behavior remain mandatory hosted-Windows evidence; acceptance is not
+integration, candidate CI, merge, closure, G2 or product authority.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
