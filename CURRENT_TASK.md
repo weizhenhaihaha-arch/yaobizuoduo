@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `8`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -357,6 +357,20 @@ checks all passed, and the verifier returned `FULL_CI_OK`. The task advances
 only to a clean local `awaiting_review` delivery. Exact hosted Windows CI,
 independent candidate reviews, merge, G1 closure, G2 authorization and Signal
 V1 product work remain unestablished.
+
+Generation-8 candidate `549c7c51b5f1f27f261e053e49e9d39f0130a41f`
+is returned without rewrite. PR #40 run `33774046518` passed Ubuntu 4/4,
+failed Windows shard 0 with 7 failures and 150 passes, shard 2 with 8 failures
+and 149 passes, shard 3 with 7 failures and 149 passes, cancelled Windows shard
+1 after the fixed time envelope, and failed aggregate `G0 / exact-head`.
+Remote logs bind the failures to a remaining default-locale `Path.read_text()`
+call, inherited Windows `core.autocrlf` in temporary repositories, and
+node-count rather than execution-cost shard balancing. Independent
+code/security returned `REQUEST_CHANGES`; architecture/route returned `BLOCK`.
+Both reviews classify the evidence within the already-authorized strict UTF-8,
+clean CRLF fixture, and real four-shard categories, not a fourth root cause.
+Only one minimal same-card repair may follow; product behavior and G2 remain
+unauthorized.
 
 ## Generation 4 final bounded repair
 
