@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `7`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -272,6 +272,14 @@ are frozen. Because no executable code changes, the already-green complete
 local acceptance remains applicable; only canonical status validation,
 document/diff scope, clean-worktree and secret checks are required before a new
 delivery. Any other failure stops and returns this card.
+
+Generation 7 delivery keeps every executable blob unchanged from the locally
+accepted generation-6 implementation. The canonical status and this
+document's top-level mirror now both declare `awaiting_review`. Targeted
+validation is limited to the canonical validator, the exact changed-path set,
+diff cleanliness, clean worktree and secret scan; the complete 620-test local
+evidence remains bound to the unchanged executable tree. Remote exact-head CI
+and both independent reviews must bind the new delivery before acceptance.
 
 ## Generation 4 final bounded repair
 
