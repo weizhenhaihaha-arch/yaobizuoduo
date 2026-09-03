@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `6`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -207,6 +207,11 @@ network connections. It must not weaken egress isolation, change product
 behavior, modify strategy/API/UI/data code, or introduce any further governance
 mechanism. Stop after focused regression and clean delivery; any additional
 root cause returns to the product owner.
+
+The exact two-parent authorization record is
+`eedbf129e4b69720bae95905114cdc56be87e7f2`. Generation 6 is now in progress;
+all implementation, candidate, review and CI identities remain clear until a
+new delivery is actually verified.
 
 ## Generation 4 final bounded repair
 
