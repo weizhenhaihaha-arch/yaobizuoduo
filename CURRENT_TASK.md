@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `blocked`
 - Candidate generation: `10`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -566,6 +566,23 @@ review returned `APPROVE` after 12 focused passes with 33 deselected. This is
 accepted implementation evidence only; the next exact integrated SHA gets one
 complete validation. If it fails for the same timing root, automatic repair is
 exhausted and no further scheduling or timeout expansion is authorized.
+
+### Generation 10 terminal timing result
+
+The sole complete validation of exact integrated head
+`743c8e4f2b8d422060784104c827af435f6fc4c5` passed canonical status,
+Transport 6/6, the complete backend suite with 639 passed and two
+platform-only skips in 677.74 seconds, Python dependency integrity, the exact
+offline npm tree and frontend tests 10/10. The shared 14-minute deadline then
+expired during the frontend production build and failed closed. The process
+tree was reaped and the worktree remained clean; compilation and final diff
+checks were not reached.
+
+This is the second failed repair of the same local complete-validation timing
+root, so automatic repair is exhausted. G1-T01 is `blocked`; no third timing
+repair, timeout increase, candidate, upload, CI, G2 or Signal V1 product write
+is authorized without a product-owner decision. All independently accepted
+sub-deliveries and the successful portions of this run remain valid evidence.
 
 ## Generation 4 final bounded repair
 
