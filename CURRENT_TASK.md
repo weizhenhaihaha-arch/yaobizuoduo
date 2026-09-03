@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `4`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -112,6 +112,21 @@ because the nested verifier overwrote the outer shard identity. Independent
 review therefore returned this exact candidate with code/security
 `REQUEST_CHANGES` and architecture/route `BLOCK`. Generation 3 is returned;
 the failure is immutable evidence and grants no G2 or product authority.
+
+## Generation 4 returned evidence
+
+Generation-4 delivery `19b8e7250e7fc1032ab490f86721fa80c6574311`
+passed its complete local acceptance and was pushed to PR #39. Hosted run
+`33740584116` was reported green by GitHub, but the raw logs from all four
+Windows shards contain `FULL_CI_FAILED: fixture digest drifted:
+fixtures/g0/adversarial_mutations.json`. The PowerShell step did not preserve
+the native verifier's nonzero exit status across firewall restoration, so the
+job and aggregate result were false green. The fixture verifier also hashes
+raw checkout bytes and therefore rejects a clean Windows CRLF checkout.
+Independent review bound to the exact candidate returned code/security
+`REQUEST_CHANGES` and architecture/route `BLOCK`. Generation 4 is returned;
+closure and merge are prohibited. Any next repair remains limited to these two
+existing Windows fail-closed and clean-CRLF defects.
 
 ## Generation 4 final bounded repair
 

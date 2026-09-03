@@ -1,5 +1,19 @@
 # Project Memory
 
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 4 candidate
+  `19b8e7250e7fc1032ab490f86721fa80c6574311` is returned after independent
+  review exposed false-green Windows evidence in hosted run `33740584116`.
+  Every Windows shard logged `FULL_CI_FAILED` for CRLF-sensitive fixture
+  digests, while the PowerShell step failed to preserve the verifier's native
+  nonzero exit status across firewall restoration and GitHub reported success.
+  Code/security returned `REQUEST_CHANGES`; architecture/route returned
+  `BLOCK`, both bound to the exact candidate. Linux four-shard execution,
+  candidate identity, allowlist and secret checks remain valid evidence, but
+  closure and merge are prohibited. The next repair may address only fixture
+  newline-neutral validation and Windows native exit-code propagation; no
+  product, strategy, market, credential, trading, deployment or G2 authority
+  is created.
+
 - 2026-09-03 Asia/Shanghai: G1-T01 generation 4 completed its final bounded
   hosted-CI portability repair at implementation
   `fcaa7874ac7177949aaf08b53ce18a58d2cd3701`. The change is limited to strict
