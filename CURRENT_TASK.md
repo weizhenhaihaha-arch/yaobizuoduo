@@ -3,8 +3,8 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `returned`
-- Candidate generation: `3`
+- Status: `in_progress`
+- Candidate generation: `4`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
 ## Goal
@@ -112,3 +112,15 @@ because the nested verifier overwrote the outer shard identity. Independent
 review therefore returned this exact candidate with code/security
 `REQUEST_CHANGES` and architecture/route `BLOCK`. Generation 3 is returned;
 the failure is immutable evidence and grants no G2 or product authority.
+
+## Generation 4 final bounded repair
+
+Generation 4 starts through the legal `returned -> in_progress` transition and
+clears every active generation-3 implementation, candidate, phase-CI and review
+identity. The repair is capped at exactly three hosted-CI defects already proven
+by run `33715808959`: strict UTF-8 Git-output decoding on Windows, a genuinely
+clean CRLF checkout fixture, and preservation of the outer four-shard identity.
+It may change only the minimum existing Package A allowlist files, must retain
+strict dirty-worktree and egress protection, and must stop if a fourth
+independent root cause appears. No strategy, market, API, UI, credential,
+deployment, release, order or G2 capability is authorized.
