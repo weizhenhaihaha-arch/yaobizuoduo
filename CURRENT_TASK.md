@@ -148,6 +148,26 @@ equivalent, and real fixture mutation is rejected. No additional root cause,
 test weakening, product behavior, G2 capability or governance mechanism is in
 scope.
 
+### Generation 5 independent-lane acceptance
+
+- The Windows native-exit repair was independently accepted at delivery
+  `d21cbb5bfbef880c0ecf4a2d60034d14d751d13e` after commit identity, two-file
+  scope, clean worktree, diff, secret scan, static workflow contract, and the
+  local `1 passed, 1 skipped` PowerShell regression result were verified. The
+  skip is the real PowerShell runtime check and remains a Windows hosted-CI
+  obligation. Its isolated branch upload failed because GitHub port 443 was
+  unreachable, so the exact delivery is frozen in the pending-upload queue.
+- The newline-neutral strict-UTF-8 fixture repair was independently accepted at
+  delivery `bbb60d4ad517e09cbf1ab3d6ab3a56df88ab5fe9` after commit identity,
+  two-file scope, clean worktree, diff, project-status validation, secret scan,
+  and `27 passed` focused regressions were verified. It is waiting for the same
+  upload channel; no duplicate upload was attempted after the channel failure.
+- Both accepted repairs are now combined locally, without conflict, as
+  integration commits `0aa2018` and `a5c666c`. This is an in-progress local
+  integration checkpoint only: the one complete acceptance run, a new frozen
+  candidate SHA, hosted Windows CI, independent candidate reviews, merge, G1
+  closure and G2 authorization are all still pending.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
