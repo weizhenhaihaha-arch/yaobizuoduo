@@ -51,6 +51,56 @@ REQUIREMENT_RE = re.compile(
     r"^(?P<name>[A-Za-z0-9_.-]+)==(?P<version>[^\s]+)"
     r"(?P<hashes>(?:\s+--hash=sha256:[0-9a-f]{64})+)$"
 )
+# Coarse relative costs from the exact Generation 9 collection sampled with the
+# pinned pytest/xdist stack.  Prefixes intentionally cover parametrized cases;
+# unlisted and newly added tests retain cost 1 and can never be omitted.
+SHARD_COST_HINTS = (
+    ("tests/test_g0_project_status.py::test_canonical_status_and_documents_are_valid", 8),
+    ("tests/test_g0_project_status.py::test_package_a_g0_t05_g3_full_lifecycle_is_reachable", 8),
+    ("tests/test_g0_project_status.py::test_fresh_clone_of_exact_head_remains_valid", 8),
+    ("tests/test_g0_project_status.py::test_g0_t03_recovery_closure_can_reach_merged_verified_and_closed_without_third_recovery", 8),
+    ("tests/test_g0_project_status.py::test_package_a_g0_t05_g3_pr29_main_ci_recovery_and_future_merge_are_canonical", 8),
+    ("tests/test_g0_project_status.py::test_g0_t04_post_merge_repair_merge_rejects_substitutions", 8),
+    ("tests/test_g0_project_status.py::test_g0_t04_post_merge_repair_merge_is_canonical", 8),
+    ("tests/test_g0_project_status.py::test_g0_t03_status_reconciliation_candidate_and_future_merge_validate", 8),
+    ("tests/test_g0_project_status.py::test_g0_t04_post_merge_repair_rejects_scope_and_authority_drift", 8),
+    ("tests/test_g0_project_status.py::test_g0_t04_generation4_terminal_main_hostiles_fail_full_validator", 8),
+    ("tests/test_g0_project_status.py::test_transition_ledger_rejects_tamper_truncate_rollback_and_wrong_anchor", 8),
+    ("tests/test_g0_project_status.py::test_crlf_checkout_is_portable_but_content_tampering_still_fails", 8),
+    ("tests/test_g0_project_status.py::test_g0_t04_generation4_terminal_main_passes_full_canonical_validator", 8),
+    ("tests/test_g0_project_status.py::test_package_a_g0_t05_g3_future_merge_passes_full_validator", 8),
+    ("tests/test_g0_project_status.py::test_malformed_two_parent_status_is_rejected_without_traceback", 8),
+    ("tests/test_g0_project_status.py::test_package_a_g0_t05_g3_exact_authorization_passes_route", 8),
+    ("tests/test_g0_project_status.py::test_committed_schema_weakening_cannot_be_hidden_by_restore", 8),
+    ("tests/test_g0_project_status.py::test_g0_t04_recovery_rejects_topology_and_evidence_substitution", 8),
+    ("tests/test_g0_project_status.py::test_post_anchor_weakened_schema_float_generation_is_fatal_after_restore", 8),
+    ("tests/test_g0_project_status.py::test_g0_t04_recovery_descendant_rejects_out_of_scope_path", 4),
+    ("tests/test_g0_project_status.py::test_post_ledger_forged_intermediate_generation_cannot_be_laundered", 4),
+    ("tests/test_g0_project_status.py::test_future_g0_t03_planning_handoff_two_parent_recovery_is_accepted", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t04_failed_main_and_recovery_record_are_accepted", 4),
+    ("tests/test_g0_project_status.py::test_g0_t04_exact_merge_post_merge_repair_is_canonical", 4),
+    ("tests/test_g0_project_status.py::test_g0_t03_status_reconciliation_rejects_ordinary_descendant_and_merge_drift", 4),
+    ("tests/test_g0_project_status.py::test_g0_t04_pr15_pr22_stage2_seal_and_future_bridge_are_canonical", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t03_final_close_failure_record_is_accepted", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t03_recovery_merge_failure_record_is_accepted", 4),
+    ("tests/test_g0_project_status.py::test_invalid_post_anchor_maturity_shape_is_terminal_after_restore", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t03_recovery_merge_bridge_is_accepted_before_generic_paths", 4),
+    ("tests/test_g0_project_status.py::test_g0_t03_recovery_merge_recovery_rejects_inexact_evidence", 4),
+    ("tests/test_g0_project_status.py::test_package_a_g0_t05_g3_pr29_recovery_and_future_merge_are_canonical", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t03_merge_bridge_and_detached_checkout_history_are_accepted", 4),
+    ("tests/test_g0_project_status.py::test_g0_t03_failed_main_recovery_rejects_inexact_trigger", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t03_failed_main_recovery_record_is_accepted", 4),
+    ("tests/test_g0_project_status.py::test_exact_failed_main_recovery_record_and_recovery_merge_are_accepted", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t04_recovery_merge_is_accepted", 4),
+    ("tests/test_g0_project_status.py::test_every_intermediate_parent_status_uses_exact_current_schema_types", 4),
+    ("tests/test_g0_project_status.py::test_future_g0_t03_final_close_recovery_merge_and_main_validation_succeed", 4),
+    ("tests/test_g0_project_status.py::test_g0_t04_pr15_pr22_anomaly_two_stage_is_canonical", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t03_planning_handoff_merge_is_accepted_before_r_b_a_paths", 4),
+    ("tests/test_g0_project_status.py::test_exact_g0_t03_recovery_closure_bridge_is_accepted_before_generic_paths", 2),
+    ("tests/test_g0_project_status.py::test_g0_t02_final_close_accepts_only_strict_repair_merge", 2),
+    ("tests/test_g0_project_status.py::test_exact_g0_t02_final_close_bridge_is_accepted", 2),
+    ("tests/test_g0_project_status.py::test_failed_main_recovery_rejects_inexact_trigger", 2),
+)
 SHARD_PLUGIN = """\
 import os
 from scripts.verify_full_ci import balanced_shard_assignments
@@ -292,16 +342,28 @@ def run(command: list[str], env: dict[str, str]) -> str:
     return result.stdout
 
 
+def shard_cost(nodeid: str) -> int:
+    return next(
+        (cost for prefix, cost in SHARD_COST_HINTS if nodeid.startswith(prefix)),
+        1,
+    )
+
+
 def balanced_shard_assignments(nodeids: list[str], count: int) -> dict[str, int]:
-    """Partition a collection evenly without platform-specific timing data."""
+    """Deterministically spread collected tests by coarse execution cost."""
     if not 1 <= count <= 8:
         raise VerificationError("CI shard count must be an integer from 1 through 8")
     if len(nodeids) != len(set(nodeids)):
         raise VerificationError("pytest collection contains duplicate node IDs")
-    return {
-        nodeid: position % count
-        for position, nodeid in enumerate(sorted(nodeids))
-    }
+    assignments: dict[str, int] = {}
+    loads = [0] * count
+    item_counts = [0] * count
+    for nodeid in sorted(nodeids, key=lambda value: (-shard_cost(value), value)):
+        index = min(range(count), key=lambda value: (loads[value], item_counts[value], value))
+        assignments[nodeid] = index
+        loads[index] += shard_cost(nodeid)
+        item_counts[index] += 1
+    return assignments
 
 
 def pytest_parallel_args() -> list[str]:

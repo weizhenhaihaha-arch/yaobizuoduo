@@ -333,12 +333,12 @@ def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
 ) -> None:
     nodeids = [
         *[
-            f"tests/test_slow_governance.py::test_case_{number:03}"
-            for number in range(479)
+            f"{prefix}[sample]"
+            for prefix, _ in VERIFY.SHARD_COST_HINTS
         ],
         *[
             f"tests/test_other_{number % 11}.py::test_case_{number:03}"
-            for number in range(136)
+            for number in range(576)
         ],
     ]
     plugin: dict[str, object] = {}
@@ -385,12 +385,16 @@ def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
         for index, left in enumerate(shards)
         for right in shards[index + 1 :]
     )
-    assert max(map(len, shards)) - min(map(len, shards)) <= 1
-    slow_counts = [
-        sum(nodeid.startswith("tests/test_slow_governance.py::") for nodeid in shard)
+    weighted_loads = [
+        sum(VERIFY.shard_cost(nodeid) for nodeid in shard)
         for shard in shards
     ]
-    assert max(slow_counts) - min(slow_counts) <= 1
+    assert max(weighted_loads) - min(weighted_loads) <= 1
+    slow_counts = [
+        sum(VERIFY.shard_cost(nodeid) > 1 for nodeid in shard)
+        for shard in shards
+    ]
+    assert max(slow_counts) - min(slow_counts) <= 2
 
     reversed_assignments = VERIFY.balanced_shard_assignments(
         list(reversed(nodeids)),
@@ -409,6 +413,67 @@ def test_balanced_shards_reject_duplicate_nodeids() -> None:
     nodeid = "tests/test_example.py::test_one"
     with pytest.raises(VERIFY.VerificationError, match="duplicate node IDs"):
         VERIFY.balanced_shard_assignments([nodeid, nodeid], 4)
+
+
+def test_actual_collection_spreads_every_slow_governance_cost_hint() -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--collect-only",
+            "-q",
+            "tests/test_g0_project_status.py",
+        ],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    nodeids = [
+        line.replace("\\", "/")
+        for line in result.stdout.splitlines()
+        if line.replace("\\", "/").startswith("tests/") and "::" in line
+    ]
+    assert len(nodeids) >= 480
+    assert len({prefix for prefix, _ in VERIFY.SHARD_COST_HINTS}) == len(
+        VERIFY.SHARD_COST_HINTS
+    )
+    assert {cost for _, cost in VERIFY.SHARD_COST_HINTS} == {2, 4, 8}
+    assert all(
+        any(nodeid.startswith(prefix) for nodeid in nodeids)
+        for prefix, _ in VERIFY.SHARD_COST_HINTS
+    )
+
+    assignments = VERIFY.balanced_shard_assignments(nodeids, 4)
+    shards = [
+        {nodeid for nodeid in nodeids if assignments[nodeid] == index}
+        for index in range(4)
+    ]
+    selected_counts = Counter(nodeid for shard in shards for nodeid in shard)
+    assert set(selected_counts) == set(nodeids)
+    assert set(selected_counts.values()) == {1}
+    assert all(shards)
+    assert all(
+        left.isdisjoint(right)
+        for index, left in enumerate(shards)
+        for right in shards[index + 1 :]
+    )
+
+    weighted_loads = [
+        sum(VERIFY.shard_cost(nodeid) for nodeid in shard)
+        for shard in shards
+    ]
+    slow_loads = [
+        sum(
+            VERIFY.shard_cost(nodeid)
+            for nodeid in shard
+            if VERIFY.shard_cost(nodeid) > 1
+        )
+        for shard in shards
+    ]
+    assert max(weighted_loads) - min(weighted_loads) <= 1
+    assert max(slow_loads) - min(slow_loads) <= 2
 
 
 def test_complete_suite_passes_outer_shard_identity_to_every_child(
