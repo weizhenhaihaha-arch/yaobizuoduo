@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `blocked`
 - Candidate generation: `9`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -431,6 +431,28 @@ real trading. Until both prerequisites are satisfied,
   rerun passed the verifier tests 33/33 and eight focused shard tests. This
   acceptance does not establish integration, upload, hosted Windows CI,
   candidate acceptance or G1 closure.
+
+### Generation 9 terminal stop
+
+The first integrated complete-validation attempt at exact head
+`d3ed5fe5b1184b2b97762732bad3d084dcafc2cc` passed canonical status, the raw
+backend suite with 628 passed and one platform-only skip, and Transport 6/6,
+but the real four-worker suite had not finished after the fixed 15-minute
+boundary and was stopped without a duplicate full-suite run. The original
+four-shard lane then reported bounded repair
+`557bc97598cedfa417b7df21e59171c9cef749ba`, based directly on that integrated
+head. Owner review passed its 35 focused tests, exact two-file scope,
+compilation, diff, clean-worktree and secret checks; architecture returned
+`WATCH` because its internal 900-second budget lacks outer-step cleanup margin.
+
+Independent code/security returned `REQUEST_CHANGES`: the timeout kills only
+the direct subprocess and does not establish termination and reaping of
+pytest-xdist or npm descendant process trees before the workflow restores its
+OS egress policy. That is a new independent security root cause outside the
+three final Generation-9 categories. The fourth-root rule therefore stops
+G1-T01 as `blocked`. The delivery is not accepted or integrated, no formal
+candidate was formed, no upload was attempted, and no further repair, G2 or
+Signal V1 product write is authorized without a new product-owner decision.
 
 ## Generation 4 final bounded repair
 
