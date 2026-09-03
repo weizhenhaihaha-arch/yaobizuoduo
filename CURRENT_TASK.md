@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `8`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -342,6 +342,21 @@ UI, credential, order, deployment, release or G2 change is authorized.
   channel is already known unavailable, this delivery is frozen in its own
   pending-upload record without a redundant attempt; Windows wall-clock proof
   remains a hosted-CI obligation.
+
+### Generation 8 integrated delivery
+
+The two independently accepted lanes are integrated without conflict at exact
+implementation head `57595ef185e93e5c886144f17281f722b070f9dc`.
+The one complete local acceptance under exact Python 3.12.10 and Node 24.14.0
+passed the raw backend suite with 626 passed and one platform-only PowerShell
+skip in 3321.73 seconds, mandatory transport 6/6, and the unified offline
+entrypoint with the real four-worker suite at 626 passed and one platform-only
+skip in 1037.64 seconds. Dependency integrity, frontend 10/10, production
+build, compilation, canonical status, diff, fixture, secret and forbidden-scope
+checks all passed, and the verifier returned `FULL_CI_OK`. The task advances
+only to a clean local `awaiting_review` delivery. Exact hosted Windows CI,
+independent candidate reviews, merge, G1 closure, G2 authorization and Signal
+V1 product work remain unestablished.
 
 ## Generation 4 final bounded repair
 
