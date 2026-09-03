@@ -170,12 +170,25 @@ jobs:
           finally:
               sock.close()
           '@ | python -
+            $pythonProbeExitCode = $LASTEXITCODE
+            if ($pythonProbeExitCode -ne 0) {
+              throw "Python egress probe failed with exit code $pythonProbeExitCode"
+            }
             node -e 'const net=require("net"); const s=net.connect({host:"1.1.1.1",port:443}); s.setTimeout(3000); s.on("connect",()=>process.exit(1)); s.on("error",()=>process.exit(0)); s.on("timeout",()=>process.exit(0));'
+            $nodeProbeExitCode = $LASTEXITCODE
+            if ($nodeProbeExitCode -ne 0) {
+              throw "Node egress probe failed with exit code $nodeProbeExitCode"
+            }
             curl.exe --noproxy "*" --silent --show-error --connect-timeout 3 http://1.1.1.1/ *> $null
-            if ($LASTEXITCODE -eq 0) {
+            $curlProbeExitCode = $LASTEXITCODE
+            if ($curlProbeExitCode -eq 0) {
               throw "curl child-process egress probe unexpectedly connected"
             }
             python scripts/verify_full_ci.py --offline --fail-closed --require-transport
+            $verificationExitCode = $LASTEXITCODE
+            if ($verificationExitCode -ne 0) {
+              throw "complete verification failed with exit code $verificationExitCode"
+            }
           }
           finally {
             if (Test-Path $snapshot) {
