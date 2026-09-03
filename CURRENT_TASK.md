@@ -548,6 +548,25 @@ after focused tests, scope/diff/secret/clean checks and must not run the full
 suite. A second failure of this same root exhausts automatic repair and is
 reported to the product owner rather than expanded again.
 
+### Generation 10 local-capacity repair 2 acceptance
+
+The trend-signal and strategy engineer's final same-root delivery
+`7cf86242b6517ba0a8c2a7290e6f00a7e1de0e37`, directly based on
+`94c95c22aa9d484b7b873584be4414ae5eea6746`, is independently accepted and
+frozen. Only `scripts/verify_full_ci.py` and `tests/test_verify_full_ci.py`
+changed. For the local unsharded complete run only, the plugin deterministically
+orders the unchanged complete node set by descending historical cost and
+nodeid so high-cost governance cases start first. Hosted multi-shard selection,
+per-shard source order, cost hints, worker bounds, 14-minute deadline, command
+set and cleanup/security gates remain unchanged.
+
+Owner verification passed 44 focused tests with one Windows-only skip,
+compilation, exact scope, diff, clean-worktree and secret checks. Independent
+review returned `APPROVE` after 12 focused passes with 33 deselected. This is
+accepted implementation evidence only; the next exact integrated SHA gets one
+complete validation. If it fails for the same timing root, automatic repair is
+exhausted and no further scheduling or timeout expansion is authorized.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
