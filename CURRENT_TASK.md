@@ -525,6 +525,29 @@ integrated SHA finishes the complete suite within the fixed deadline; exactly
 one complete validation on that new SHA remains required. It is not upload,
 hosted CI, merge, G1 closure, G2 or product authority.
 
+### Generation 10 local-capacity repair 1 result and repair 2 authorization
+
+The one complete validation of exact integrated head
+`cf070357034000b0f46081e39af268c60471c4c4` passed canonical status and
+Transport collection/execution 6/6, then failed closed because the unchanged
+complete backend suite still exceeded the shared 14-minute deadline with eight
+local workers. The verifier reaped its process tree, the worktree is clean,
+and the same SHA will not be rerun. Dependency integrity, frontend tests/build,
+compilation and final diff checks were not reached.
+
+This is the first failed repair of the already-classified local-capacity/timing
+root. Under the owner-autonomous authorization rule, a second and final
+minimum-scope repair is authorized to the original trend-signal and strategy
+engineer. It may change only `scripts/verify_full_ci.py` and
+`tests/test_verify_full_ci.py`, must first bind the exact timing/resource cause,
+and may improve only local complete-suite scheduling within the existing
+2..8-worker, unchanged-test and 14-minute limits. Timeout increases, test
+selection/skip/weakening, workflow/dependency changes, product/strategy work,
+credentials, trading and governance expansion are forbidden. Delivery stops
+after focused tests, scope/diff/secret/clean checks and must not run the full
+suite. A second failure of this same root exhausts automatic repair and is
+reported to the product owner rather than expanded again.
+
 ## Generation 4 final bounded repair
 
 Generation 4 starts through the legal `returned -> in_progress` transition and
