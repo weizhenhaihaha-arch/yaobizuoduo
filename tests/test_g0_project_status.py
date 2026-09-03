@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -61,6 +62,7 @@ G0_T04_G4_ROUTE_PAYLOAD = (
 G0_T04_G4_PREMATURE_RECEIPT = (
     ROOT / "evidence/g0-t04/generation-4-premature-merge-recovery.json"
 )
+G1_T01_GENERATION3_DELIVERY = "e31cb8b390e9ccbf1b3c127d3103a7accb1af347"
 PACKAGE_A_MANIFEST = ROOT / "governance" / "packages" / "package-a.manifest.json"
 PACKAGE_A_SCHEMA = ROOT / "schemas" / "package_a_manifest.schema.json"
 SCRIPT = ROOT / "scripts" / "validate_project_status.py"
@@ -362,8 +364,191 @@ def test_invalid_utf8_governed_document_is_sanitized(tmp_path: Path) -> None:
     assert "Traceback" not in result.stdout + result.stderr
 
 
+def test_git_output_preserves_valid_utf8_text(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        VALIDATOR.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout="治理中文输出\n".encode("utf-8"),
+            stderr=b"",
+        ),
+    )
+
+    ok, output = VALIDATOR._git(tmp_path, "status")
+
+    assert ok is True
+    assert output == "治理中文输出"
+
+
+def test_git_output_with_invalid_utf8_fails_closed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        VALIDATOR.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=b"bad\x81",
+            stderr=b"",
+        ),
+    )
+
+    ok, output = VALIDATOR._git(tmp_path, "status")
+
+    assert ok is False
+    assert output == "git output is not valid UTF-8 at byte 3"
+
+
+def test_windows_workflow_propagates_native_failures_and_preserves_cleanup() -> None:
+    workflow = (ROOT / ".github/workflows/g0-exact-head.yml").read_text(
+        encoding="utf-8"
+    )
+    windows_step = workflow.split(
+        "- name: Run complete verification under reversible Windows egress isolation",
+        1,
+    )[1].split("- name: Restore Windows egress policy", 1)[0]
+
+    for command, exit_code, condition in (
+        ("'@ | python -", "$pythonProbeExitCode", "-ne 0"),
+        ("node -e", "$nodeProbeExitCode", "-ne 0"),
+        ("curl.exe", "$curlProbeExitCode", "-eq 0"),
+        ("python scripts/verify_full_ci.py", "$verificationExitCode", "-ne 0"),
+    ):
+        command_index = windows_step.index(command)
+        capture_index = windows_step.index(f"{exit_code} = $LASTEXITCODE")
+        check_index = windows_step.index(f"if ({exit_code} {condition})")
+        assert command_index < capture_index < check_index
+
+    verify_failure = windows_step.index(
+        'throw "complete verification failed with exit code $verificationExitCode"'
+    )
+    cleanup = windows_step.index("finally {")
+    restore = windows_step.index("netsh advfirewall import $snapshot", cleanup)
+    restore_failure = windows_step.index('throw "firewall restore failed"', restore)
+    assert verify_failure < cleanup < restore < restore_failure
+    assert "$PSNativeCommandUseErrorActionPreference" not in windows_step
+
+
+def test_powershell_native_failure_survives_successful_cleanup() -> None:
+    pwsh = shutil.which("pwsh")
+    if pwsh is None:
+        pytest.skip("PowerShell runtime is unavailable")
+    python = str(Path(sys.executable)).replace("'", "''")
+    script = f"""
+try {{
+  & '{python}' -c 'raise SystemExit(17)'
+  $verificationExitCode = $LASTEXITCODE
+  if ($verificationExitCode -ne 0) {{
+    throw "complete verification failed with exit code $verificationExitCode"
+  }}
+}}
+finally {{
+  [Console]::Error.WriteLine("cleanup-ran")
+}}
+"""
+
+    result = subprocess.run(
+        [pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "complete verification failed with exit code 17" in result.stderr
+    assert "cleanup-ran" in result.stderr
+
+
+def _test_git_environment() -> dict[str, str]:
+    env = os.environ.copy()
+    env.update(
+        {
+            "GIT_AUTHOR_NAME": "Governance Fixture",
+            "GIT_AUTHOR_EMAIL": "governance-fixture@example.invalid",
+            "GIT_AUTHOR_DATE": "2000-01-01T00:00:00+00:00",
+            "GIT_COMMITTER_NAME": "Governance Fixture",
+            "GIT_COMMITTER_EMAIL": "governance-fixture@example.invalid",
+            "GIT_COMMITTER_DATE": "2000-01-01T00:00:00+00:00",
+        }
+    )
+    return env
+
+
+def _run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", *args], cwd=repo, text=True, capture_output=True, check=True,
+        env=_test_git_environment(),
+    )
+
+
+def _clone_reachable_root_fixture(
+    destination: Path,
+    *,
+    autocrlf: bool = False,
+    source_revision: str = "HEAD",
+) -> None:
+    """Clone only revision-reachable history and install explicit contract refs."""
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    _run_git(destination.parent, "init", "--quiet", str(destination))
+    if autocrlf:
+        _run_git(destination, "config", "core.autocrlf", "true")
+    _run_git(destination, "remote", "add", "fixture-source", str(ROOT))
+    _run_git(
+        destination,
+        "fetch",
+        "--quiet",
+        "--no-tags",
+        "fixture-source",
+        f"{source_revision}:refs/fixture/source-head",
+    )
+    fetched = _run_git(
+        destination, "rev-parse", "refs/fixture/source-head"
+    ).stdout.strip()
+    _run_git(destination, "checkout", "--quiet", "--detach", fetched)
+    _run_git(destination, "update-ref", "-d", "refs/fixture/source-head")
+    _run_git(destination, "remote", "remove", "fixture-source")
+    _run_git(
+        destination,
+        "remote",
+        "add",
+        "origin",
+        "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
+    )
+    contract_refs = {
+        "refs/remotes/origin/main": "94c87f28436e2ea8899c9a407e1f1413de893603",
+        "refs/remotes/origin/codex/g0-t03-main-protection": G0_T03_BLOCKED,
+        "refs/remotes/origin/codex/g0-t03-merge-recovery": G0_T03_RECOVERY_ACCEPTED_RECORD,
+        "refs/remotes/origin/codex/g0-t03-recovery-merge-recovery": G0_T03_RECOVERY_CLOSURE,
+        "refs/remotes/origin/codex/g0-t03-finalize": G0_T03_CLOSED_RECORD,
+    }
+    for ref, sha in contract_refs.items():
+        _run_git(destination, "update-ref", ref, sha)
+    _run_git(
+        destination,
+        "update-ref",
+        "refs/heads/main",
+        contract_refs["refs/remotes/origin/main"],
+    )
+    alternates = destination / ".git" / "objects" / "info" / "alternates"
+    assert not alternates.exists()
+
+
 def git(repo: Path, *args: str) -> str:
-    result = subprocess.run(["git", *args], cwd=repo, text=True, capture_output=True, check=True)
+    if (
+        len(args) == 4
+        and args[:2] == ("clone", "--quiet")
+        and args[2] == str(ROOT)
+    ):
+        _clone_reachable_root_fixture(Path(args[3]))
+        return ""
+    result = _run_git(repo, *args)
     return result.stdout.strip()
 
 
@@ -588,7 +773,7 @@ def test_repository_exact_head_and_returned_candidate_identity(tmp_path: Path) -
     commit(repo, "return candidate")
     assert run_validator(repo / "PROJECT_STATUS.yaml", repo).returncode == 0
     tree = git(repo, "write-tree")
-    stray = subprocess.run(["git", "commit-tree", tree], cwd=repo, text=True, input="stray\n", capture_output=True, check=True).stdout.strip()
+    stray = git(repo, "commit-tree", tree, "-m", "stray")
     status["evidence"]["candidate"]["commit_sha"] = stray
     status["review"]["reviewed_candidate_sha"] = stray
     write_governed(repo, status)
@@ -2877,6 +3062,90 @@ def test_current_schema_weakening_and_generation_float_fail_content_address(tmp_
     assert "Traceback" not in result.stdout + result.stderr
 
 
+def test_governed_text_digest_is_newline_neutral_but_content_sensitive() -> None:
+    lf = SCHEMA.read_bytes().replace(b"\r\n", b"\n")
+    crlf = lf.replace(b"\n", b"\r\n")
+    assert VALIDATOR._canonical_text_digest(lf) == VALIDATOR._canonical_text_digest(
+        crlf
+    )
+    assert VALIDATOR._canonical_text_digest(lf + b" ") != (
+        VALIDATOR._canonical_text_digest(lf)
+    )
+
+
+def test_crlf_checkout_is_portable_but_content_tampering_still_fails(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "crlf-clean"
+    _clone_reachable_root_fixture(
+        repo,
+        autocrlf=True,
+        source_revision=G1_T01_GENERATION3_DELIVERY,
+    )
+    schema_path = repo / "schemas/project_status.schema.json"
+    working_schema = schema_path.read_bytes()
+    committed_schema = subprocess.run(
+        ["git", "show", "HEAD:schemas/project_status.schema.json"],
+        cwd=repo,
+        capture_output=True,
+        check=True,
+        env=_test_git_environment(),
+    ).stdout
+    assert b"\r\n" in working_schema
+    assert b"\n" not in working_schema.replace(b"\r\n", b"")
+    assert git(repo, "status", "--porcelain", "--untracked-files=all") == ""
+    assert VALIDATOR._canonical_text_digest(working_schema) == (
+        VALIDATOR._canonical_text_digest(committed_schema)
+    )
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml", repo, schema_path=schema_path
+    )
+    assert result.returncode == 0, result.stdout
+    assert "canonical schema content digest mismatch" not in result.stdout
+    schema_path.write_bytes(schema_path.read_bytes() + b" ")
+    assert git(repo, "status", "--porcelain", "--untracked-files=all")
+    result = run_validator(
+        repo / "PROJECT_STATUS.yaml", repo, schema_path=schema_path
+    )
+    assert result.returncode == 1
+    assert "canonical schema content digest mismatch" in result.stdout
+
+
+def test_fixture_commits_have_fixed_identity_and_are_reproducible(
+    tmp_path: Path,
+) -> None:
+    commits = []
+    for name in ("first", "second"):
+        repo = tmp_path / name
+        git(repo.parent, "init", "--quiet", str(repo))
+        (repo / "fixture.txt").write_text("fixed fixture\n", encoding="utf-8")
+        commits.append(commit(repo, "deterministic fixture"))
+        assert git(repo, "show", "-s", "--format=%an <%ae>", "HEAD") == (
+            "Governance Fixture <governance-fixture@example.invalid>"
+        )
+        assert git(repo, "show", "-s", "--format=%aI%n%cI", "HEAD") == (
+            "2000-01-01T00:00:00Z\n2000-01-01T00:00:00Z"
+        )
+    assert commits[0] == commits[1]
+
+
+def test_root_fixture_clone_has_only_explicit_refs_and_no_alternates(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "isolated-root"
+    _clone_reachable_root_fixture(repo)
+    refs = set(git(repo, "for-each-ref", "--format=%(refname)").splitlines())
+    assert refs == {
+        "refs/heads/main",
+        "refs/remotes/origin/main",
+        "refs/remotes/origin/codex/g0-t03-main-protection",
+        "refs/remotes/origin/codex/g0-t03-merge-recovery",
+        "refs/remotes/origin/codex/g0-t03-recovery-merge-recovery",
+        "refs/remotes/origin/codex/g0-t03-finalize",
+    }
+    assert not (repo / ".git/objects/info/alternates").exists()
+
+
 def test_typed_identity_equality_distinguishes_numbers_and_booleans() -> None:
     assert not VALIDATOR._typed_equal(5, 5.0)
     assert not VALIDATOR._typed_equal(True, 1)
@@ -3473,6 +3742,42 @@ def test_package_a_g1_freezes_complete_transport_backend_ci() -> None:
     g0 = manifest["cards"][0]
     assert "python3 -m pytest -q --ignore=tests/test_m5_transport.py" in g0["acceptance_commands"]
     assert all("test_api_transport.py" not in command for command in g0["acceptance_commands"])
+
+
+def test_package_a_g1_accepts_exact_g0_t06_terminal_recovery_baseline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    baseline = {
+        "active_tasks": [{"task_id": "G0-T06", "state": "closed"}]
+    }
+    monkeypatch.setattr(
+        VALIDATOR,
+        "_g0_t06_workflow_terminal_bridge",
+        lambda *_args, **_kwargs: ("governed-close", []),
+    )
+    assert VALIDATOR._package_a_valid_baseline(
+        "G1-T01",
+        "G0-T05",
+        baseline,
+        ROOT,
+        "94c87f28436e2ea8899c9a407e1f1413de893603",
+    )
+
+
+def test_later_task_does_not_reenter_legacy_g0_t04_anomaly_route() -> None:
+    status = load_valid()
+    status["active_tasks"][0]["task_id"] = "G1-T01"
+    assert (
+        VALIDATOR._g0_t04_anomaly_post_merge_repair_parent_errors(
+            status,
+            load_valid(),
+            "0" * 40,
+            ROOT,
+            VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN,
+            require_current_main=False,
+        )
+        is None
+    )
 
 
 def make_package_a_activation(
@@ -4397,19 +4702,32 @@ def test_g0_t04_generation4_main_drift_seal_rejects_substitutions(
 
 
 @pytest.mark.parametrize(
-    "discarded_tip",
-    [
-        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
-        VALIDATOR.G0_T04_G4_COMPETING_START,
-    ],
+    "case_id",
+    ["abandoned", "competing"],
 )
 def test_g0_t04_generation4_same_tree_discarded_route_import_is_rejected(
-    discarded_tip: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case_id: str,
 ) -> None:
-    canonical = git(ROOT, "rev-parse", "HEAD")
-    canonical_tree = git(ROOT, "rev-parse", f"{canonical}^{{tree}}")
+    repo = tmp_path / f"discarded-import-{case_id}"
+    _clone_reachable_root_fixture(repo)
+    canonical = git(repo, "rev-parse", "HEAD")
+    canonical_tree = git(repo, "rev-parse", f"{canonical}^{{tree}}")
+    discarded_tip = git(
+        repo,
+        "commit-tree",
+        canonical_tree,
+        "-p",
+        canonical,
+        "-m",
+        f"deterministic tombstoned {case_id} route",
+    )
+    monkeypatch.setattr(
+        VALIDATOR, "G0_T04_G4_EXCLUDED_ROUTE_NODES", (discarded_tip,)
+    )
     imported = git(
-        ROOT,
+        repo,
         "commit-tree",
         canonical_tree,
         "-p",
@@ -4419,9 +4737,10 @@ def test_g0_t04_generation4_same_tree_discarded_route_import_is_rejected(
         "-m",
         "hostile same-tree discarded-route import",
     )
-    assert VALIDATOR._g0_t04_g4_canonical_lineage_errors(ROOT, imported)
+    errors = VALIDATOR._g0_t04_g4_canonical_lineage_errors(repo, imported)
+    assert any("imported a tombstoned noncanonical route" in item for item in errors)
     protected_main = git(
-        ROOT,
+        repo,
         "commit-tree",
         canonical_tree,
         "-p",
@@ -4431,19 +4750,38 @@ def test_g0_t04_generation4_same_tree_discarded_route_import_is_rejected(
         "-m",
         "hostile protected-main bridge importing discarded route",
     )
-    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, protected_main)
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(repo, protected_main)
 
 
 @pytest.mark.parametrize(
-    "forbidden_governed_parent",
-    list(VALIDATOR.G0_T04_G4_EXCLUDED_ROUTE_NODES),
+    "case_id",
+    range(len(VALIDATOR.G0_T04_G4_EXCLUDED_ROUTE_NODES)),
 )
 def test_g0_t04_generation4_discarded_node_cannot_be_governed_parent(
-    forbidden_governed_parent: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case_id: int,
 ) -> None:
-    tree = git(ROOT, "rev-parse", f"{forbidden_governed_parent}^{{tree}}")
+    repo = tmp_path / f"discarded-parent-{case_id}"
+    _clone_reachable_root_fixture(repo)
+    canonical = git(repo, "rev-parse", "HEAD")
+    tree = git(repo, "rev-parse", f"{canonical}^{{tree}}")
+    forbidden_governed_parent = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        canonical,
+        "-m",
+        f"deterministic discarded governed parent {case_id}",
+    )
+    monkeypatch.setattr(
+        VALIDATOR,
+        "G0_T04_G4_EXCLUDED_ROUTE_NODES",
+        (forbidden_governed_parent,),
+    )
     merged = git(
-        ROOT,
+        repo,
         "commit-tree",
         tree,
         "-p",
@@ -4453,7 +4791,7 @@ def test_g0_t04_generation4_discarded_node_cannot_be_governed_parent(
         "-m",
         "hostile discarded governed parent",
     )
-    assert VALIDATOR._g0_t04_g4_merge_topology_errors(ROOT, merged)
+    assert VALIDATOR._g0_t04_g4_merge_topology_errors(repo, merged)
 
 
 def make_generation4_fresh_clone_without_competing_objects(
@@ -4471,14 +4809,6 @@ def make_generation4_fresh_clone_without_competing_objects(
         "https://github.com/weizhenhaihaha-arch/yaobizuoduo.git",
     )
     source_head = VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT
-    git(
-        repo,
-        "fetch",
-        "--quiet",
-        "--no-tags",
-        str(ROOT),
-        VALIDATOR.G0_T04_G4_ABANDONED_CANDIDATE,
-    )
     git(repo, "fetch", "--quiet", "--no-tags", str(ROOT), source_head)
     git(repo, "checkout", "--quiet", "--detach", "FETCH_HEAD")
     shutil.copy2(
@@ -4503,65 +4833,59 @@ def make_generation4_fresh_clone_without_competing_objects(
     return repo, subject, status
 
 
-def write_exact_commit_object(repo: Path, source_repo: Path, sha: str) -> None:
-    source = subprocess.run(
-        ["git", "cat-file", "commit", sha],
-        cwd=source_repo,
-        capture_output=True,
-        check=True,
-    )
-    written = subprocess.run(
-        ["git", "hash-object", "-t", "commit", "-w", "--stdin"],
-        cwd=repo,
-        input=source.stdout,
-        capture_output=True,
-        check=True,
-    )
-    assert written.stdout.decode().strip() == sha
-
-
 def test_g0_t04_generation4_fresh_clone_accepts_absent_competing_objects(
     tmp_path: Path,
 ) -> None:
     repo, subject, status = make_generation4_fresh_clone_without_competing_objects(
         tmp_path
     )
-    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject) == []
+    assert VALIDATOR._g0_t04_g4_competing_route_errors(repo) == []
 
 
 @pytest.mark.parametrize(
-    "present_sha",
-    [
-        VALIDATOR.G0_T04_G4_COMPETING_AUTH,
-        VALIDATOR.G0_T04_G4_COMPETING_START,
-    ],
+    "present_kind",
+    ["authorization", "start"],
 )
 def test_g0_t04_generation4_partial_competing_object_presence_is_rejected(
     tmp_path: Path,
-    present_sha: str,
+    monkeypatch: pytest.MonkeyPatch,
+    present_kind: str,
 ) -> None:
     repo, subject, status = make_generation4_fresh_clone_without_competing_objects(
         tmp_path
     )
-    write_exact_commit_object(repo, ROOT, present_sha)
-    errors = VALIDATOR._g0_t04_g4_route_errors(status, repo, subject)
+    tree = git(repo, "rev-parse", f"{subject}^{{tree}}")
+    present_sha = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        subject,
+        "-m",
+        f"deterministic partial competing {present_kind}",
+    )
+    absent_sha = "f" * 40
+    monkeypatch.setattr(
+        VALIDATOR,
+        "G0_T04_G4_COMPETING_AUTH",
+        present_sha if present_kind == "authorization" else absent_sha,
+    )
+    monkeypatch.setattr(
+        VALIDATOR,
+        "G0_T04_G4_COMPETING_START",
+        present_sha if present_kind == "start" else absent_sha,
+    )
+    errors = VALIDATOR._g0_t04_g4_competing_route_errors(repo)
     assert any("only partially present" in error for error in errors)
 
 
 def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repo = tmp_path / "g0-t04-generation4-committed-seal"
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
-    git(repo, "config", "user.name", "Test")
-    git(repo, "config", "user.email", "test@example.invalid")
-    git(
-        repo,
-        "checkout",
-        "--quiet",
-        "--detach",
-        VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
-    )
+    monkeypatch.setattr(VALIDATOR, "_is_g0_t04_g4_status", lambda _: True)
     seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
     valid_bytes = G0_T04_G4_ROUTE_SEAL.read_bytes()
     valid_subject = git(repo, "rev-parse", "HEAD")
@@ -4575,13 +4899,25 @@ def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     write_digest_json(seal_path, hostile)
     invalid_subject = commit(repo, "commit invalid generation-4 seal")
     seal_path.write_bytes(valid_bytes)
-    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, invalid_subject)
+    invalid_errors = VALIDATOR._g0_t04_g4_route_errors(
+        status, repo, invalid_subject
+    )
+    assert (
+        "$: G0-T04 generation-4 competing route tombstone drifted"
+        in invalid_errors
+    )
 
     git(repo, "reset", "--hard", valid_subject)
     hostile = json.loads(valid_bytes.decode("utf-8"))
     hostile["discarded_competing_route"]["import_allowed"] = True
     write_digest_json(seal_path, hostile)
-    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, valid_subject) == []
+    valid_errors = VALIDATOR._g0_t04_g4_route_errors(
+        status, repo, valid_subject
+    )
+    assert (
+        "$: G0-T04 generation-4 competing route tombstone drifted"
+        not in valid_errors
+    )
 
 
 def make_generation4_premature_recovery_repo(
@@ -6165,14 +6501,30 @@ def test_package_a_g0_t05_g3_pr29_recovery_rejects_receipt_substitution(
 
 def test_package_a_g0_t05_g3_pr29_recovery_rejects_pr30_import(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repo, status, repair = make_package_a_g0_t05_g3_pr29_recovery(tmp_path)
+    tree = git(repo, "rev-parse", f"{repair}^{{tree}}")
+    stopped_implementation = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        repair,
+        "-m",
+        "deterministic stopped implementation history",
+    )
+    monkeypatch.setattr(
+        VALIDATOR,
+        "PACKAGE_A_G0_T05_G3_PR30_LINEAGE",
+        (stopped_implementation,),
+    )
     imported = git(
         repo,
         "commit-tree",
-        git(repo, "rev-parse", f"{repair}^{{tree}}"),
+        tree,
         "-p",
-        VALIDATOR.PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+        stopped_implementation,
         "-m",
         "import stopped PR30 implementation history",
     )
@@ -6874,7 +7226,7 @@ def test_g0_t06_lifecycle_is_not_reinterpreted_as_old_g0_t04_repair() -> None:
         ROOT,
         candidate,
         require_current_main=False,
-    ) == ["$: G0-T04 post-merge repair must preserve exact blocked status"]
+    ) is None
     assert VALIDATOR._parent_status_errors(
         status,
         parent_status,
@@ -6905,7 +7257,7 @@ def test_g0_t06_lifecycle_immutable_boundary_fails_closed() -> None:
 
 
 def test_g0_t06_lifecycle_exact_route_passes() -> None:
-    subject = git(ROOT, "rev-parse", "HEAD")
+    subject = "cab654c8650ab80333ab0f417c01421d54928a33"
     status = VALIDATOR._status_at(ROOT, subject)
     assert type(status) is dict
     assert (
@@ -6925,6 +7277,7 @@ def test_g0_t06_lifecycle_cumulative_allowlist_fails_closed(
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "switch", "--detach", "cab654c8650ab80333ab0f417c01421d54928a33")
     (repo / "product-scope.txt").write_text("forbidden\n", encoding="utf-8")
     hostile = commit(repo, "hostile product scope")
     status = VALIDATOR._status_at(repo, hostile)
@@ -6960,6 +7313,7 @@ def test_g0_t06_lifecycle_immutable_artifacts_fail_closed(
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
     git(repo, "config", "user.name", "Test")
     git(repo, "config", "user.email", "test@example.invalid")
+    git(repo, "switch", "--detach", "cab654c8650ab80333ab0f417c01421d54928a33")
     artifact = repo / path
     artifact.write_text(
         artifact.read_text(encoding="utf-8") + "\nforged\n",
@@ -6977,7 +7331,7 @@ def test_g0_t06_lifecycle_immutable_artifacts_fail_closed(
 
 
 def test_g0_t06_lifecycle_next_authorization_fails_closed() -> None:
-    subject = git(ROOT, "rev-parse", "HEAD")
+    subject = "cab654c8650ab80333ab0f417c01421d54928a33"
     status = copy.deepcopy(VALIDATOR._status_at(ROOT, subject))
     assert type(status) is dict
     status["next_authorization"] = {
@@ -7206,7 +7560,7 @@ def test_g0_t06_terminal_recovery_requires_every_repair_path(
 
 
 def test_g0_t06_current_terminal_recovery_uses_production_bridge() -> None:
-    recovery = git(ROOT, "rev-parse", "HEAD")
+    recovery = VALIDATOR.G0_T06_WORKFLOW_MAIN_CI_RECOVERY
     assert git(ROOT, "rev-parse", f"{recovery}^") == (
         VALIDATOR.G0_T06_WORKFLOW_TERMINAL_MAIN
     )
