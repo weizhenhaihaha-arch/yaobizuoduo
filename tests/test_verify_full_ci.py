@@ -89,7 +89,12 @@ def test_secret_patterns_cover_private_keys_assignments_and_jwts(
     assert any(pattern.search(secret) for pattern in VERIFY.SECRET_PATTERNS)
 
 
-def test_offline_guard_rejects_non_loopback_network(tmp_path: Path) -> None:
+def test_offline_guard_rejects_non_loopback_network(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("G1_CI_SHARD_COUNT", "4")
+    monkeypatch.setenv("G1_CI_SHARD_INDEX", "3")
     env = VERIFY.offline_environment(tmp_path)
     guard = (tmp_path / "sitecustomize.py").read_text(encoding="utf-8")
     assert "offline verification forbids network access" in guard
