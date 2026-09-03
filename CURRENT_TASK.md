@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `returned`
 - Candidate generation: `6`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -246,6 +246,20 @@ Python/Node runtimes and lock-identical local frontend dependencies were then
 used for the successful acceptance above. The task advances only to
 `awaiting_review`; exact remote CI, independent dual review, merge, closure,
 G2 authorization and product work remain pending.
+
+Generation-6 candidate `1cafee1bbbac41f4e69e9d90b38b6ec5891525cb`
+is returned without rewrite. PR #40 run `33759026032` failed all eight platform
+shards and aggregate `G0 / exact-head` at canonical-status validation before
+installing dependencies or running product tests. The exact diagnostic is
+`CURRENT_TASK state conflicts with canonical status`: this file's top-level
+mirror remained `in_progress` while `PROJECT_STATUS.yaml` correctly declared
+`awaiting_review`. Independent code/security returned `REQUEST_CHANGES`; the
+technical architecture review remained clear on the `AF_UNIX` change, but the
+candidate is route-blocked because its governed-document mirror is invalid.
+The engineering repair, focused tests and full local acceptance remain valid.
+Only the owner-maintained status mirror may be repaired next; no engineering,
+strategy, API, UI, data, dependency, workflow or governance-rule change is
+allowed.
 
 ## Generation 4 final bounded repair
 
