@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `4`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -124,3 +124,12 @@ It may change only the minimum existing Package A allowlist files, must retain
 strict dirty-worktree and egress protection, and must stop if a fourth
 independent root cause appears. No strategy, market, API, UI, credential,
 deployment, release, order or G2 capability is authorized.
+
+Generation-4 implementation `fcaa7874ac7177949aaf08b53ce18a58d2cd3701`
+closes only those three hosted-CI defects. The exact Python 3.12.10 raw suite
+passed 611/611 in 3095.51 seconds; Transport passed 6/6; the unified offline
+entrypoint passed canonical validation, Transport 6/6, the complete four-worker
+suite 611/611 in 986.47 seconds, dependency integrity, frontend 10/10,
+production build, compilation and diff checks. Delivery stops at
+`awaiting_review`; hosted CI, independent reviews, merge, G2 and every product
+capability remain unclaimed.

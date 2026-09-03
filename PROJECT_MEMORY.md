@@ -1,5 +1,18 @@
 # Project Memory
 
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 4 completed its final bounded
+  hosted-CI portability repair at implementation
+  `fcaa7874ac7177949aaf08b53ce18a58d2cd3701`. The change is limited to strict
+  UTF-8 Git-output decoding, a clean CRLF fixture and preservation of the real
+  outer four-shard identity. Exact Python 3.12.10 passed the one raw suite as
+  611/611 in 3095.51 seconds; Transport passed 6/6; the unified offline
+  entrypoint passed canonical validation, Transport 6/6, the complete
+  four-worker suite 611/611 in 986.47 seconds, `pip check`, offline npm
+  integrity, frontend 10/10, production build, compilation and diff checks.
+  No product, strategy, UI, market, credential, trading, deployment, ruleset or
+  G2 behavior changed. Delivery stops at `awaiting_review`; hosted CI and both
+  independent reviews remain pending.
+
 - 2026-09-03 Asia/Shanghai: G1-T01 generation 3 final bounded fixture repair
   implementation `7c0a1b2877b52a9445f59dd79f1864648915662b`
   changed only `tests/test_g0_project_status.py`. The G0-T04 committed-seal
