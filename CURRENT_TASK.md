@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `10`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -460,7 +460,9 @@ The owner applied the approved autonomous-authorization rule after a read-only
 diligence review of exact blocked record
 `43b3d2b1a208237ab490c58f1a387ef4501c5e8f`. The ordered authorization parents
 are authoritative close `94c87f28436e2ea8899c9a407e1f1413de893603`
-and that exact blocked record. This is a non-destructive, reversible,
+and that exact blocked record. Exact two-parent authorization
+`7286439386ba63080fa7aa1232b62591966b0bea` passed canonical validation; its
+strict child starts only this bounded repair. This is a non-destructive, reversible,
 product-neutral G1 repair within the existing Binance-only long/read-only
 boundary and therefore does not require another user decision.
 
