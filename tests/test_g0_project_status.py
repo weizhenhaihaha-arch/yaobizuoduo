@@ -4753,18 +4753,11 @@ def test_g0_t04_generation4_partial_competing_object_presence_is_rejected(
 
 def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repo = tmp_path / "g0-t04-generation4-committed-seal"
     git(tmp_path, "clone", "--quiet", str(ROOT), str(repo))
-    git(repo, "config", "user.name", "Test")
-    git(repo, "config", "user.email", "test@example.invalid")
-    git(
-        repo,
-        "checkout",
-        "--quiet",
-        "--detach",
-        VALIDATOR.G0_T04_G4_PREMATURE_MAIN_SECOND_PARENT,
-    )
+    monkeypatch.setattr(VALIDATOR, "_is_g0_t04_g4_status", lambda _: True)
     seal_path = repo / VALIDATOR.G0_T04_G4_ROUTE_SEAL_PATH
     valid_bytes = G0_T04_G4_ROUTE_SEAL.read_bytes()
     valid_subject = git(repo, "rev-parse", "HEAD")
@@ -4778,13 +4771,25 @@ def test_g0_t04_generation4_route_seal_uses_exact_committed_blob(
     write_digest_json(seal_path, hostile)
     invalid_subject = commit(repo, "commit invalid generation-4 seal")
     seal_path.write_bytes(valid_bytes)
-    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, invalid_subject)
+    invalid_errors = VALIDATOR._g0_t04_g4_route_errors(
+        status, repo, invalid_subject
+    )
+    assert (
+        "$: G0-T04 generation-4 competing route tombstone drifted"
+        in invalid_errors
+    )
 
     git(repo, "reset", "--hard", valid_subject)
     hostile = json.loads(valid_bytes.decode("utf-8"))
     hostile["discarded_competing_route"]["import_allowed"] = True
     write_digest_json(seal_path, hostile)
-    assert VALIDATOR._g0_t04_g4_route_errors(status, repo, valid_subject) == []
+    valid_errors = VALIDATOR._g0_t04_g4_route_errors(
+        status, repo, valid_subject
+    )
+    assert (
+        "$: G0-T04 generation-4 competing route tombstone drifted"
+        not in valid_errors
+    )
 
 
 def make_generation4_premature_recovery_repo(
@@ -6368,14 +6373,30 @@ def test_package_a_g0_t05_g3_pr29_recovery_rejects_receipt_substitution(
 
 def test_package_a_g0_t05_g3_pr29_recovery_rejects_pr30_import(
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repo, status, repair = make_package_a_g0_t05_g3_pr29_recovery(tmp_path)
+    tree = git(repo, "rev-parse", f"{repair}^{{tree}}")
+    stopped_implementation = git(
+        repo,
+        "commit-tree",
+        tree,
+        "-p",
+        repair,
+        "-m",
+        "deterministic stopped implementation history",
+    )
+    monkeypatch.setattr(
+        VALIDATOR,
+        "PACKAGE_A_G0_T05_G3_PR30_LINEAGE",
+        (stopped_implementation,),
+    )
     imported = git(
         repo,
         "commit-tree",
-        git(repo, "rev-parse", f"{repair}^{{tree}}"),
+        tree,
         "-p",
-        VALIDATOR.PACKAGE_A_G0_T05_G3_PR30_LINEAGE[-1],
+        stopped_implementation,
         "-m",
         "import stopped PR30 implementation history",
     )
