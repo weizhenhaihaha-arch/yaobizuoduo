@@ -421,6 +421,16 @@ real trading. Until both prerequisites are satisfied,
   establish integration, upload, hosted Windows CI, candidate acceptance or G1
   closure; the delivery remains frozen pending the independent cost-balanced
   four-shard lane.
+- `G1-G9-B` is independently accepted and frozen at delivery
+  `f4b377ed515d025fdc6693039dc200bfaa3596f3`, based on the same exact
+  `84142b88280ef76470981df6fcfb8796e67505b3`. It changes only
+  `scripts/verify_full_ci.py` and `tests/test_verify_full_ci.py`. Owner review
+  verified deterministic weighted assignment, complete and disjoint real
+  collection coverage, unchanged four-shard/time/security gates, commit and
+  parent identity, compilation, scope, secrets and clean worktree. The owner
+  rerun passed the verifier tests 33/33 and eight focused shard tests. This
+  acceptance does not establish integration, upload, hosted Windows CI,
+  candidate acceptance or G1 closure.
 
 ## Generation 4 final bounded repair
 
