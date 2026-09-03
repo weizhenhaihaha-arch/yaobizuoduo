@@ -406,6 +406,66 @@ def test_git_output_with_invalid_utf8_fails_closed(
     assert output == "git output is not valid UTF-8 at byte 3"
 
 
+def test_windows_workflow_propagates_native_failures_and_preserves_cleanup() -> None:
+    workflow = (ROOT / ".github/workflows/g0-exact-head.yml").read_text(
+        encoding="utf-8"
+    )
+    windows_step = workflow.split(
+        "- name: Run complete verification under reversible Windows egress isolation",
+        1,
+    )[1].split("- name: Restore Windows egress policy", 1)[0]
+
+    for command, exit_code, condition in (
+        ("'@ | python -", "$pythonProbeExitCode", "-ne 0"),
+        ("node -e", "$nodeProbeExitCode", "-ne 0"),
+        ("curl.exe", "$curlProbeExitCode", "-eq 0"),
+        ("python scripts/verify_full_ci.py", "$verificationExitCode", "-ne 0"),
+    ):
+        command_index = windows_step.index(command)
+        capture_index = windows_step.index(f"{exit_code} = $LASTEXITCODE")
+        check_index = windows_step.index(f"if ({exit_code} {condition})")
+        assert command_index < capture_index < check_index
+
+    verify_failure = windows_step.index(
+        'throw "complete verification failed with exit code $verificationExitCode"'
+    )
+    cleanup = windows_step.index("finally {")
+    restore = windows_step.index("netsh advfirewall import $snapshot", cleanup)
+    restore_failure = windows_step.index('throw "firewall restore failed"', restore)
+    assert verify_failure < cleanup < restore < restore_failure
+    assert "$PSNativeCommandUseErrorActionPreference" not in windows_step
+
+
+def test_powershell_native_failure_survives_successful_cleanup() -> None:
+    pwsh = shutil.which("pwsh")
+    if pwsh is None:
+        pytest.skip("PowerShell runtime is unavailable")
+    python = str(Path(sys.executable)).replace("'", "''")
+    script = f"""
+try {{
+  & '{python}' -c 'raise SystemExit(17)'
+  $verificationExitCode = $LASTEXITCODE
+  if ($verificationExitCode -ne 0) {{
+    throw "complete verification failed with exit code $verificationExitCode"
+  }}
+}}
+finally {{
+  [Console]::Error.WriteLine("cleanup-ran")
+}}
+"""
+
+    result = subprocess.run(
+        [pwsh, "-NoProfile", "-NonInteractive", "-Command", script],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "complete verification failed with exit code 17" in result.stderr
+    assert "cleanup-ran" in result.stderr
+
+
 def _test_git_environment() -> dict[str, str]:
     env = os.environ.copy()
     env.update(
