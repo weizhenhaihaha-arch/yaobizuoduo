@@ -568,8 +568,12 @@ def _clone_reachable_root_fixture(
     """Clone only revision-reachable history and install explicit contract refs."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     _run_git(destination.parent, "init", "--quiet", str(destination))
-    if autocrlf:
-        _run_git(destination, "config", "core.autocrlf", "true")
+    _run_git(
+        destination,
+        "config",
+        "core.autocrlf",
+        "true" if autocrlf else "false",
+    )
     _run_git(destination, "remote", "add", "fixture-source", str(ROOT))
     _run_git(
         destination,
@@ -620,6 +624,10 @@ def git(repo: Path, *args: str) -> str:
         _clone_reachable_root_fixture(Path(args[3]))
         return ""
     result = _run_git(repo, *args)
+    if args and args[0] == "init":
+        explicit_target = Path(args[-1]) if Path(args[-1]).is_absolute() else None
+        initialized_repo = explicit_target or repo
+        _run_git(initialized_repo, "config", "core.autocrlf", "false")
     return result.stdout.strip()
 
 
@@ -3153,6 +3161,7 @@ def test_crlf_checkout_is_portable_but_content_tampering_still_fails(
         autocrlf=True,
         source_revision=G1_T01_GENERATION3_DELIVERY,
     )
+    assert git(repo, "config", "--bool", "core.autocrlf") == "true"
     schema_path = repo / "schemas/project_status.schema.json"
     working_schema = schema_path.read_bytes()
     committed_schema = subprocess.run(
@@ -3205,6 +3214,7 @@ def test_root_fixture_clone_has_only_explicit_refs_and_no_alternates(
 ) -> None:
     repo = tmp_path / "isolated-root"
     _clone_reachable_root_fixture(repo)
+    assert git(repo, "config", "--bool", "core.autocrlf") == "false"
     refs = set(git(repo, "for-each-ref", "--format=%(refname)").splitlines())
     assert refs == {
         "refs/heads/main",
@@ -3215,6 +3225,14 @@ def test_root_fixture_clone_has_only_explicit_refs_and_no_alternates(
         "refs/remotes/origin/codex/g0-t03-finalize",
     }
     assert not (repo / ".git/objects/info/alternates").exists()
+
+
+def test_temporary_git_repository_defaults_to_lf_checkout(tmp_path: Path) -> None:
+    repo = tmp_path / "default-lf"
+
+    git(tmp_path, "init", "--quiet", str(repo))
+
+    assert git(repo, "config", "--bool", "core.autocrlf") == "false"
 
 
 def test_typed_identity_equality_distinguishes_numbers_and_booleans() -> None:
@@ -5529,6 +5547,22 @@ def test_g0_t04_generation4_merged_verification_accepts_exact_evidence(
     tmp_path: Path,
 ) -> None:
     repo, subject, status = make_generation4_merged_verification_repo(tmp_path)
+    ok_receipt, receipt_bytes = VALIDATOR._git_bytes(
+        repo,
+        "show",
+        f"{subject}:{VALIDATOR.G0_T04_G4_PREMATURE_RECEIPT_PATH}",
+    )
+    expected_receipt = (
+        json.dumps(
+            VALIDATOR._g0_t04_g4_merged_verification_receipt(),
+            indent=2,
+            ensure_ascii=False,
+        )
+        + "\n"
+    ).encode("utf-8")
+    assert ok_receipt is True
+    assert receipt_bytes == expected_receipt
+    assert b"\r\n" not in receipt_bytes
     assert VALIDATOR._g0_t04_g4_route_errors(status, repo, subject) == []
     assert VALIDATOR._g0_t04_g4_merged_verification_topology_errors(repo) == []
 
@@ -6191,7 +6225,11 @@ def make_package_a_g0_t05_g3_repo(
         "tests/test_g0_project_status.py",
     ):
         path = repo / relative
-        path.write_text(path.read_text() + "\nPackage reactivation fixture.\n")
+        existing = path.read_bytes().decode("utf-8", errors="strict")
+        normalized = existing.replace("\r\n", "\n").replace("\r", "\n")
+        path.write_bytes(
+            (normalized + "\nPackage reactivation fixture.\n").encode("utf-8")
+        )
     if omitted_path is not None:
         if omitted_path == VALIDATOR.PACKAGE_A_ACTIVATION_PATH:
             (repo / omitted_path).unlink()
