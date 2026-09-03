@@ -331,7 +331,16 @@ def test_parallel_full_suite_is_bounded_and_complete(
 def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    nodeids = [f"tests/test_example.py::test_case_{number}" for number in range(100)]
+    nodeids = [
+        *[
+            f"tests/test_slow_governance.py::test_case_{number:03}"
+            for number in range(479)
+        ],
+        *[
+            f"tests/test_other_{number % 11}.py::test_case_{number:03}"
+            for number in range(136)
+        ],
+    ]
     plugin: dict[str, object] = {}
     exec(VERIFY.SHARD_PLUGIN, plugin)
     partition = plugin["pytest_collection_modifyitems"]
@@ -360,11 +369,12 @@ def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
     assert deselected == []
 
     shards: list[list[str]] = []
+    assignments = VERIFY.balanced_shard_assignments(nodeids, 4)
     for index in range(4):
         selected, deselected = select(4, index)
         shards.append(selected)
         assert selected
-        assert all(VERIFY.shard_index(nodeid, 4) == index for nodeid in selected)
+        assert all(assignments[nodeid] == index for nodeid in selected)
         assert len(selected) + len(deselected) == len(nodeids)
 
     selected_counts = Counter(nodeid for shard in shards for nodeid in shard)
@@ -375,6 +385,30 @@ def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
         for index, left in enumerate(shards)
         for right in shards[index + 1 :]
     )
+    assert max(map(len, shards)) - min(map(len, shards)) <= 1
+    slow_counts = [
+        sum(nodeid.startswith("tests/test_slow_governance.py::") for nodeid in shard)
+        for shard in shards
+    ]
+    assert max(slow_counts) - min(slow_counts) <= 1
+
+    reversed_assignments = VERIFY.balanced_shard_assignments(
+        list(reversed(nodeids)),
+        4,
+    )
+    assert reversed_assignments == assignments
+
+
+@pytest.mark.parametrize("count", [0, 9])
+def test_balanced_shards_reject_invalid_count(count: int) -> None:
+    with pytest.raises(VERIFY.VerificationError, match="shard count"):
+        VERIFY.balanced_shard_assignments(["tests/test_example.py::test_one"], count)
+
+
+def test_balanced_shards_reject_duplicate_nodeids() -> None:
+    nodeid = "tests/test_example.py::test_one"
+    with pytest.raises(VERIFY.VerificationError, match="duplicate node IDs"):
+        VERIFY.balanced_shard_assignments([nodeid, nodeid], 4)
 
 
 def test_complete_suite_passes_outer_shard_identity_to_every_child(

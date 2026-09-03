@@ -53,14 +53,18 @@ REQUIREMENT_RE = re.compile(
 )
 SHARD_PLUGIN = """\
 import os
-from scripts.verify_full_ci import shard_index
+from scripts.verify_full_ci import balanced_shard_assignments
 
 def pytest_collection_modifyitems(config, items):
     count = int(os.environ["G1_CI_SHARD_COUNT"])
     index = int(os.environ["G1_CI_SHARD_INDEX"])
+    assignments = balanced_shard_assignments(
+        [item.nodeid for item in items],
+        count,
+    )
     selected = [
         item for item in items
-        if shard_index(item.nodeid, count) == index
+        if assignments[item.nodeid] == index
     ]
     deselected = [item for item in items if item not in selected]
     if deselected:
@@ -288,8 +292,16 @@ def run(command: list[str], env: dict[str, str]) -> str:
     return result.stdout
 
 
-def shard_index(nodeid: str, count: int) -> int:
-    return int(hashlib.sha256(nodeid.encode("utf-8")).hexdigest(), 16) % count
+def balanced_shard_assignments(nodeids: list[str], count: int) -> dict[str, int]:
+    """Partition a collection evenly without platform-specific timing data."""
+    if not 1 <= count <= 8:
+        raise VerificationError("CI shard count must be an integer from 1 through 8")
+    if len(nodeids) != len(set(nodeids)):
+        raise VerificationError("pytest collection contains duplicate node IDs")
+    return {
+        nodeid: position % count
+        for position, nodeid in enumerate(sorted(nodeids))
+    }
 
 
 def pytest_parallel_args() -> list[str]:
