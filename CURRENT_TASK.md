@@ -167,6 +167,13 @@ scope.
   integration checkpoint only: the one complete acceptance run, a new frozen
   candidate SHA, hosted Windows CI, independent candidate reviews, merge, G1
   closure and G2 authorization are all still pending.
+- The upload channel later recovered through a one-shot HTTP/1.1 Git transport
+  retry. Remote branch readback now binds the two independent deliveries to
+  exact `d21cbb5bfbef880c0ecf4a2d60034d14d751d13e` and
+  `bbb60d4ad517e09cbf1ab3d6ab3a56df88ab5fe9`, and PR #39 temporarily binds the
+  in-progress integration record `e6ab2a3214b76aed11fcb140d4462970dc2ff390`.
+  This clears only the upload backlog; it does not establish a Generation-5
+  candidate or count any resulting workflow run as candidate CI.
 
 ## Generation 4 final bounded repair
 
