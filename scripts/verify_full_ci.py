@@ -334,10 +334,13 @@ def offline_environment(directory: Path) -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("G1_CI_SHARD_COUNT", "1")
     env.setdefault("G1_CI_SHARD_INDEX", "0")
+    env.setdefault(
+        "G1_CI_WORKERS",
+        "8" if env["G1_CI_SHARD_COUNT"] == "1" else "4",
+    )
     env.update(
         {
             "CI": "true",
-            "G1_CI_WORKERS": env.get("G1_CI_WORKERS", "4"),
             "NO_PROXY": "*",
             "no_proxy": "*",
             "PIP_NO_INDEX": "1",
@@ -642,12 +645,13 @@ def balanced_shard_assignments(nodeids: list[str], count: int) -> dict[str, int]
     return assignments
 
 
-def pytest_parallel_args() -> list[str]:
-    workers = os.environ.get("G1_CI_WORKERS", "4")
+def pytest_parallel_args(environment: dict[str, str] | None = None) -> list[str]:
+    environment = os.environ if environment is None else environment
+    workers = environment.get("G1_CI_WORKERS", "8")
     if not workers.isdigit() or not 2 <= int(workers) <= 8:
         raise VerificationError("G1_CI_WORKERS must be an integer from 2 through 8")
-    count = os.environ.get("G1_CI_SHARD_COUNT", "1")
-    index = os.environ.get("G1_CI_SHARD_INDEX", "0")
+    count = environment.get("G1_CI_SHARD_COUNT", "1")
+    index = environment.get("G1_CI_SHARD_INDEX", "0")
     if (
         not count.isdigit()
         or not index.isdigit()
@@ -686,7 +690,7 @@ def run_complete_suite(deadline: float | None = None) -> None:
             raise VerificationError("transport suite was not completely collected")
         run([sys.executable, "-m", "pytest", "-q", TRANSPORT_TEST], env, deadline)
         run(
-            [sys.executable, "-m", "pytest", "-q", *pytest_parallel_args()],
+            [sys.executable, "-m", "pytest", "-q", *pytest_parallel_args(env)],
             env,
             deadline,
         )

@@ -212,6 +212,7 @@ def test_offline_guard_preserves_outer_shard_identity(
 ) -> None:
     monkeypatch.setenv("G1_CI_SHARD_COUNT", "4")
     monkeypatch.setenv("G1_CI_SHARD_INDEX", "3")
+    monkeypatch.delenv("G1_CI_WORKERS", raising=False)
     env = VERIFY.offline_environment(tmp_path)
     guard = (tmp_path / "sitecustomize.py").read_text(encoding="utf-8")
     assert "offline verification forbids network access" in guard
@@ -228,11 +229,29 @@ def test_offline_guard_defaults_to_one_complete_local_shard(
 ) -> None:
     monkeypatch.delenv("G1_CI_SHARD_COUNT", raising=False)
     monkeypatch.delenv("G1_CI_SHARD_INDEX", raising=False)
+    monkeypatch.delenv("G1_CI_WORKERS", raising=False)
 
     env = VERIFY.offline_environment(tmp_path)
 
     assert env["G1_CI_SHARD_COUNT"] == "1"
     assert env["G1_CI_SHARD_INDEX"] == "0"
+    assert env["G1_CI_WORKERS"] == "8"
+    assert VERIFY.pytest_parallel_args(env)[:2] == ["-n", "8"]
+
+
+def test_offline_guard_preserves_explicit_local_worker_override(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("G1_CI_SHARD_COUNT", raising=False)
+    monkeypatch.delenv("G1_CI_SHARD_INDEX", raising=False)
+    monkeypatch.setenv("G1_CI_WORKERS", "2")
+
+    env = VERIFY.offline_environment(tmp_path)
+
+    assert env["G1_CI_SHARD_COUNT"] == "1"
+    assert env["G1_CI_WORKERS"] == "2"
+    assert VERIFY.pytest_parallel_args(env)[:2] == ["-n", "2"]
 
 
 def execute_offline_guard(
@@ -329,6 +348,14 @@ def test_parallel_full_suite_is_bounded_and_complete(
     monkeypatch.setenv("G1_CI_WORKERS", "9")
     with pytest.raises(VERIFY.VerificationError):
         VERIFY.pytest_parallel_args()
+
+    assert VERIFY.pytest_parallel_args(
+        {
+            "G1_CI_WORKERS": "8",
+            "G1_CI_SHARD_COUNT": "1",
+            "G1_CI_SHARD_INDEX": "0",
+        }
+    )[:2] == ["-n", "8"]
 
 
 def test_one_and_four_shard_plugin_selections_are_complete_and_disjoint(
