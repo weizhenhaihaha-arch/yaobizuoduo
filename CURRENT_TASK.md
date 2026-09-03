@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `awaiting_review`
+- Status: `returned`
 - Candidate generation: `7`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -280,6 +280,20 @@ validation is limited to the canonical validator, the exact changed-path set,
 diff cleanliness, clean worktree and secret scan; the complete 620-test local
 evidence remains bound to the unchanged executable tree. Remote exact-head CI
 and both independent reviews must bind the new delivery before acceptance.
+
+Generation-7 candidate `5c6ec94301713917dc27c58baab1ba702209beb9`
+is returned unchanged. PR #40 run `33760692448` passed all four Ubuntu shards,
+failed all four Windows shards, and correctly failed aggregate
+`G0 / exact-head`. Windows shard 1 and shard 2 exposed remaining strict UTF-8
+Git-output and LF/CRLF test-fixture call sites; shard 2 also proved that a
+filesystem `chmod` cannot construct a Git executable-bit fixture on Windows.
+Windows shard 0 and shard 3 exceeded the 15-minute verification-step limit,
+showing that the real four-shard split remains unbalanced by execution cost.
+Independent code/security returned `REQUEST_CHANGES` and architecture/route
+returned `BLOCK`. The user has explicitly authorized a bounded continuation
+that must not affect product behavior or expand governance. The failed
+candidate, run, reviews, local acceptance, and successful Linux evidence remain
+immutable; G2 and Signal V1 stay unauthorized.
 
 ## Generation 4 final bounded repair
 
