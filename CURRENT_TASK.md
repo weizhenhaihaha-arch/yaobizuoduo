@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `3`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -92,3 +92,12 @@ history fixtures without alternates or hidden refs, and fixed test-only author,
 committer and time identity for generated commits. It must use only the minimum
 necessary existing manifest allowlist paths, pass focused regressions and every
 frozen acceptance command, and stop at a new clean `awaiting_review` delivery.
+
+Generation-3 implementation `7c0a1b2877b52a9445f59dd79f1864648915662b`
+keeps the production validator unchanged and makes the final two historical Git
+tests self-contained. The exact Python 3.12.10 raw suite passed 607/607 in
+3279.47 seconds; Transport passed 6/6; the unified offline entrypoint passed
+canonical validation, Transport 6/6, the complete four-worker suite 607/607 in
+1083.38 seconds, dependency integrity, frontend 10/10, production build,
+compilation and diff checks. Delivery stops at `awaiting_review`; hosted CI,
+independent reviews, merge, G2 and every product capability remain unclaimed.

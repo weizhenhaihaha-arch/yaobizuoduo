@@ -1,5 +1,20 @@
 # Project Memory
 
+- 2026-09-03 Asia/Shanghai: G1-T01 generation 3 final bounded fixture repair
+  implementation `7c0a1b2877b52a9445f59dd79f1864648915662b`
+  changed only `tests/test_g0_project_status.py`. The G0-T04 committed-seal
+  regression now tests the selected commit blob in a HEAD-reachable isolated
+  fixture without requiring an abandoned historical object, and the G0-T05
+  PR30-import regression constructs its stopped lineage deterministically in
+  the temporary repository. The two exact failures pass 2/2 under Python
+  3.12.10. The one final raw suite passed 607/607 in 3279.47 seconds; Transport
+  passed 6/6; the unified offline entrypoint passed canonical validation,
+  Transport 6/6, the four-worker suite 607/607 in 1083.38 seconds, `pip check`,
+  offline npm integrity, frontend 10/10, production build, compilation and
+  diff checks. No production validator, product, strategy, UI, market,
+  credential, trading, deployment, ruleset or G2 behavior changed. Delivery
+  stops at `awaiting_review`; hosted CI and independent reviews remain pending.
+
 - 2026-07-25 Asia/Shanghai: G1-T01 generation 2 implementation
   `3702d4c65e6ae5b1642ce8e09883390bebfb93e6` completed the bounded same-card
   repair and local acceptance. Exact Python 3.12.10 with the 24-artifact hashed
