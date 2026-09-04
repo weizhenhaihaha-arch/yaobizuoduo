@@ -43,6 +43,26 @@ scope/diff/secret/clean checks and independent review. The accepted integrated
 SHA receives one complete local validation; failure, a new root, or required
 scope expansion stops without Generation 15.
 
+### Generation 14 two-file repair acceptance
+
+The trend-signal and strategy engineer's delivery
+`82ba378475742acf1f39a0a003d376ccdcbb7f93`, directly based on exact start
+`2a54c323a1c04e2cdf74fa014a442e4308c828b1`, is independently accepted and
+frozen. Only `scripts/verify_full_ci.py` and `tests/test_verify_full_ci.py`
+changed. Verifier-owned output now uses strict UTF-8 bytes instead of the host
+text code page; non-ASCII Git diff output works under an ASCII-strict simulated
+code page, while invalid Unicode and invalid subprocess UTF-8 still fail
+closed.
+
+Owner verification passed the complete focused verifier file with 47 passed
+and one existing Windows-only skip, compilation, exact scope, diff, clean
+worktree and secret checks. Independent code/security returned `APPROVE` and
+architecture/route returned `CLEAR`. The 870-second local deadline, hosted
+15/20-minute limits, test collection, four-shard workflow, dependencies,
+process cleanup, governance and product code remain unchanged. This accepted
+delivery is not yet the complete-validation candidate, upload, hosted CI,
+merge, G1 closure, P1, G2 or UI authority.
+
 ## Generation 13 clean dependency preparation authorization
 
 The product owner explicitly authorized one environment-preparation retry after
