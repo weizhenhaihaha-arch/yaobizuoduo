@@ -63,6 +63,31 @@ equivalence/performance regression coverage. Group B, all verifier behavior,
 deadlines, workflow, test collection, assertions, governance semantics and
 product paths remain forbidden.
 
+### Generation 12 performance delivery acceptance
+
+The trend-signal and strategy engineer's repaired delivery
+`64d27ca45f1dfb8b5df12c95fd75853f3643f08a`, based on exact Generation 12
+start `3fb67cbf22a97ab2c4b5ae6e010170b4b64c8038` through preserved first delivery
+`ba034c8813911844ccf27caf38e0a4636243bd7e`, is independently accepted and
+frozen. Only `scripts/validate_project_status.py` and
+`tests/test_g0_project_status.py` changed. The repair caches only strict
+full-SHA Git object/history reads inside one synchronous `validate()` context;
+remote URL, visible refs, worktree status, HEAD/ref verification and unknown
+Git command shapes remain live and fail closed. The unsafe whole-history
+aggregate cache from the first delivery was removed.
+
+Owner verification passed ten focused cache/live-state/canonical tests in 1.77
+seconds and the repository-aware canonical test in 39.58 seconds, plus
+compilation, diff, two-file scope, clean-worktree and secret checks. Independent
+code/security review returned `APPROVE`; independent architecture/route review
+returned `CLEAR` for the frozen synchronous, single-repository execution model.
+Future asynchronous validation or concurrent Git object mutation is only a
+non-blocking observation and is not authorized for speculative work here. This
+acceptance is not the complete validation, candidate, upload, hosted CI, merge,
+G1 closure, G2 or product authority. The exact acceptance/integration child
+gets Generation 12's one complete local validation opportunity under the
+unchanged 870-second deadline.
+
 ## Generation 11 final timing exception
 
 The product owner explicitly authorized one final, bounded repair after
