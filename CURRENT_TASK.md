@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `15`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -66,6 +66,22 @@ returned `APPROVE` and architecture/route returned `CLEAR`, both bound to the
 exact delivery. The next exact owner acceptance subject receives the sole
 complete local validation. This acceptance is not upload, hosted CI, merge,
 G1 closure, G2 or product/UI authority.
+
+### Generation 15-R1 sole complete local validation
+
+Exact accepted integration subject
+`83dca4f45ca5f7b4d5e871004a740070fcebc706` consumed Generation 15-R1's one
+complete local validation opportunity and returned `FULL_CI_OK` within the
+unchanged 870-second deadline. Canonical status, Transport collection and
+execution 6/6, the complete backend suite with 646 passed and two existing
+platform-only skips in 276.37 seconds, Python dependency integrity, offline
+frontend dependency readback, frontend 10/10, production build, Python
+compilation and final diff checks all passed. The worktree remained clean.
+
+The strict child is only the new frozen local `awaiting_review` candidate. The
+complete validation must not be rerun. Upload, exact hosted Ubuntu/Windows CI,
+accepted-pending-merge, merge, main CI, finalization, G1 closure, G2 and every
+product/UI write remain unestablished.
 
 ## Generation 14 Windows output-encoding authorization
 
