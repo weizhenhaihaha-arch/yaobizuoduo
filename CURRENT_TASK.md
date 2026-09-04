@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `12`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -43,6 +43,25 @@ validation. A remaining timeout, new root cause, output change, dirty worktree
 or identity mismatch stops Generation 12 without an automatic Generation 13.
 G2 and all product writes remain inactive until G1 legally closes and P1 shared
 contracts are frozen.
+
+### Frozen Generation 12 performance root
+
+Owner diagnosis freezes only file group A. A single canonical-status pytest
+case did not complete before a bounded stop at 321.89 seconds, and a separate
+ordinary repository-aware validator run remained CPU-active until its bounded
+stop at 111.74 seconds. The captured stack repeatedly cycles through
+`_blocked_reauthorization_errors()` -> `_history_errors()` ->
+`_parent_status_errors()` for nested immutable blocked-generation ancestry,
+while re-running Git reads such as schema-control lookups. This establishes the
+single repair root as uncached repeated validation of the same immutable Git
+history and Git objects.
+
+Implementation is therefore limited to `scripts/validate_project_status.py`
+and `tests/test_g0_project_status.py`. The engineer may add validation-scoped
+memoization for immutable Git/status/schema/history results and direct
+equivalence/performance regression coverage. Group B, all verifier behavior,
+deadlines, workflow, test collection, assertions, governance semantics and
+product paths remain forbidden.
 
 ## Generation 11 final timing exception
 
