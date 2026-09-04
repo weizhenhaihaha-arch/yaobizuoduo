@@ -42,6 +42,29 @@ blocks the card without another automatic repair. This grants no G2 or Signal
 V1 product write before G1 legally closes and the owner freezes the P1 shared
 contracts.
 
+### Generation 11 timing delivery acceptance
+
+The trend-signal and strategy engineer's exact delivery
+`4c4c02d2e7d8191b38dfb2b71be40eb37cc73daa`, directly based on the verified
+Generation 11 start `4afeb52da87fa66f9b0d503d4e85f76b95d07c16`, is independently accepted and
+frozen. Its diff changes only `scripts/verify_full_ci.py` and
+`tests/test_verify_full_ci.py`: the one shared verifier deadline is now exactly
+870 seconds and a direct regression proves the initial budget, monotonic
+deadline and fail-closed exact-cutoff behavior. No existing test is removed,
+skipped or weakened; four-shard behavior, strict UTF-8/CRLF handling, egress
+isolation and process-tree cleanup are unchanged. The hosted verifier steps
+remain 15 minutes and the matrix job remains 20 minutes.
+
+Owner verification passed 45 focused tests with one existing Windows-only Job
+Object test skipped on macOS, compilation, exact-parent/scope/diff checks,
+clean-worktree inspection and secret scan. Independent read-only review
+returned `APPROVE` after 12 focused passes with 34 deselected, compilation,
+workflow timeout inspection and the same scope/security checks. This is
+accepted implementation evidence only. The owner must now create one unique
+integrated SHA and run its single permitted complete local validation; a
+timeout or new independent root blocks the card. Nothing here is upload,
+hosted CI, merge, G1 closure, G2 activation or product authority.
+
 ## Frozen scope
 
 Only the exact G1-T01 `allowed_paths` in
