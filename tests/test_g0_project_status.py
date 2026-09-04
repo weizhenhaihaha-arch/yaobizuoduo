@@ -768,7 +768,12 @@ def git(repo: Path, *args: str) -> str:
     ):
         _clone_reachable_root_fixture(Path(args[3]))
         return ""
-    result = _run_git(repo, *args)
+    command = (
+        ("-c", "core.autocrlf=input", *args)
+        if args and args[0] == "add"
+        else args
+    )
+    result = _run_git(repo, *command)
     if args and args[0] == "init":
         explicit_target = Path(args[-1]) if Path(args[-1]).is_absolute() else None
         initialized_repo = explicit_target or repo
@@ -3340,10 +3345,10 @@ def test_fixture_commits_have_fixed_identity_and_are_reproducible(
     tmp_path: Path,
 ) -> None:
     commits = []
-    for name in ("first", "second"):
+    for name, newline in (("first", b"\n"), ("second", b"\r\n")):
         repo = tmp_path / name
         git(repo.parent, "init", "--quiet", str(repo))
-        (repo / "fixture.txt").write_text("fixed fixture\n", encoding="utf-8")
+        (repo / "fixture.txt").write_bytes(b"fixed fixture" + newline)
         commits.append(commit(repo, "deterministic fixture"))
         assert git(repo, "show", "-s", "--format=%an <%ae>", "HEAD") == (
             "Governance Fixture <governance-fixture@example.invalid>"

@@ -636,13 +636,13 @@ def test_run_emits_chinese_git_diff_as_strict_utf8_under_ascii_code_page(
     freeze_fixture_repository(tmp_path, tracked.name)
     tracked.write_text("中文差异\n", encoding="utf-8")
     driver = (
-        "import importlib.util, pathlib, sys; "
+        "import importlib.util, os, pathlib, sys; "
         "path=pathlib.Path(sys.argv[1]); "
         "spec=importlib.util.spec_from_file_location('verify_full_ci', path); "
         "module=importlib.util.module_from_spec(spec); "
         "spec.loader.exec_module(module); "
         "module.ROOT=pathlib.Path(sys.argv[2]); "
-        "module.run(['git', 'diff', '--binary', 'HEAD', '--'], {})"
+        "module.run(['git', 'diff', '--binary', 'HEAD', '--'], os.environ.copy())"
     )
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "ascii:strict"
@@ -927,25 +927,49 @@ def test_windows_job_closes_descendant_after_command_root_exits(
 def test_keyboard_interrupt_cleans_process_tree_before_propagating(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    cleaned: list[object] = []
+    cleaned: list[tuple[object, object | None]] = []
+    assigned: list[object] = []
 
     class FakeProcess:
+        _handle = 99
         returncode = None
 
         def communicate(self, timeout: float) -> tuple[bytes, None]:
             raise KeyboardInterrupt
 
+    class FakeWindowsJob:
+        closed = False
+
+        def assign(self, target: object) -> None:
+            assert target._handle == 99
+            assigned.append(target)
+
+        def close(self) -> None:
+            self.closed = True
+
     process = FakeProcess()
+    windows_job = FakeWindowsJob()
+
+    def fake_terminate(target: object, **kwargs: object) -> None:
+        job = kwargs.get("windows_job")
+        cleaned.append((target, job))
+        if job is not None:
+            job.close()
+
     monkeypatch.setattr(VERIFY.subprocess, "Popen", lambda *args, **kwargs: process)
+    monkeypatch.setattr(VERIFY, "create_windows_kill_job", lambda: windows_job)
     monkeypatch.setattr(
         VERIFY,
         "terminate_process_tree",
-        lambda target, **kwargs: cleaned.append(target),
+        fake_terminate,
     )
 
     with pytest.raises(KeyboardInterrupt):
         VERIFY.run(["command"], {}, time.monotonic() + 1)
-    assert cleaned == [process]
+    expected_job = windows_job if os.name == "nt" else None
+    assert cleaned == [(process, expected_job)]
+    assert assigned == ([process] if os.name == "nt" else [])
+    assert windows_job.closed is (os.name == "nt")
 
 
 def test_all_fail_closed_flags_are_mandatory(monkeypatch: pytest.MonkeyPatch) -> None:
