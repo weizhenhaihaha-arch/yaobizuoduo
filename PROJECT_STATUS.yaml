@@ -25,8 +25,8 @@
     {
       "task_id": "G1-T01",
       "risk": "D1",
-      "state": "in_progress",
-      "transition": {"from": "authorized", "to": "in_progress"},
+      "state": "blocked",
+      "transition": {"from": "in_progress", "to": "blocked"},
       "candidate_generation": 12
     }
   ],
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "G1-T01 generation-12 used its sole complete local validation on exact integrated head 5ff60af5dff9bf03b1a2ccf735423463112fd75c: canonical status, Transport 6/6, complete backend 644 passed with 2 platform-only skips in 265.37 seconds, and Python dependency integrity passed; the later offline frontend dependency check failed because this isolated worktree had no frontend/node_modules and npm reported ten exact packages as unmet; this is a new validation-environment root outside the frozen validator-performance repair, so no rerun, automatic Generation 13, candidate, upload, CI, G2 or Signal V1 product write is authorized"
+  ],
   "next_authorization": {"gate": "G2", "task_id": "G2-T01", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

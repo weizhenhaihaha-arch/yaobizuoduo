@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `blocked`
 - Candidate generation: `12`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -87,6 +87,33 @@ acceptance is not the complete validation, candidate, upload, hosted CI, merge,
 G1 closure, G2 or product authority. The exact acceptance/integration child
 gets Generation 12's one complete local validation opportunity under the
 unchanged 870-second deadline.
+
+### Generation 12 terminal validation result
+
+Generation 12 used its sole complete local validation on exact acceptance and
+integration head `5ff60af5dff9bf03b1a2ccf735423463112fd75c`. Canonical project status and
+mandatory Transport collection/execution 6/6 passed. The unchanged complete
+backend suite passed 644 tests with two platform-only skips in 265.37 seconds,
+and Python dependency integrity passed. This confirms that the accepted
+validator-performance repair removed the prior multi-minute canonical
+bottleneck without changing the backend result set.
+
+The next offline frontend dependency check failed because this isolated
+Generation 12 worktree did not contain `frontend/node_modules`; npm reported
+all ten exact frontend dependencies as unmet. Frontend tests/build, compilation
+and final diff checks were therefore not reached and are not claimed. A
+read-only check confirmed the dependency tree is absent in this worktree while
+older isolated G1 worktrees contain their own installed trees. This is a new
+validation-environment root, not the frozen repeated-Git-history performance
+root and not evidence of a product or frontend source defect.
+
+The exact SHA will not be rerun. Generation 12 stops as `blocked` with no
+automatic Generation 13, candidate, upload, hosted CI, merge or G1 closure.
+G2 remains `not_authorized`, P1 is inactive and Signal V1 product code may not
+start. Further action requires an explicit product-owner decision authorizing
+a clean pinned frontend dependency bootstrap before a new exact-head complete
+validation opportunity; no timeout, test, workflow, governance, product,
+credential or trading expansion is implied.
 
 ## Generation 11 final timing exception
 
