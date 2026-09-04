@@ -1371,17 +1371,27 @@ def _immutable_git_command(args: tuple[str, ...]) -> bool:
     if command == "cat-file":
         return len(args) == 3 and args[1] in {"-e", "-t"} and immutable_revision(args[2])
     if command == "ls-tree":
-        return len(args) >= 2 and immutable_revision(args[1])
-    if command == "merge-base" and "--is-ancestor" in args:
-        revisions = [value for value in args[1:] if not value.startswith("-")]
-        return len(revisions) == 2 and all(immutable_revision(value) for value in revisions)
+        return (
+            len(args) == 4
+            and immutable_revision(args[1])
+            and args[2] == "--"
+            and bool(args[3])
+            and not args[3].startswith("-")
+        )
+    if command == "merge-base":
+        return (
+            len(args) == 4
+            and args[1] == "--is-ancestor"
+            and immutable_revision(args[2])
+            and immutable_revision(args[3])
+        )
     if command == "rev-list":
-        revisions = [
-            value
-            for value in args[1:]
-            if not value.startswith("-") and value != "1"
-        ]
-        return bool(revisions) and all(immutable_revision(value) for value in revisions)
+        if len(args) == 5 and args[1:4] == ("--parents", "-n", "1"):
+            return immutable_revision(args[4])
+        if len(args) == 3 and args[1] == "--first-parent":
+            return immutable_revision(args[2])
+        if len(args) >= 3 and args[1] == "--topo-order":
+            return all(immutable_revision(value) for value in args[2:])
     return False
 
 
@@ -6112,28 +6122,6 @@ def _governed_first_parent_chain(root: Path, head: str, current_schema: dict[str
 
 
 def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[str, Any]) -> list[str]:
-    cache = _VALIDATION_CACHE.get()
-    immutable_subjects = all(
-        re.fullmatch(r"[0-9a-f]{40}", subject) for subject in (head, baseline)
-    )
-    schema_key = hashlib.sha256(
-        json.dumps(
-            current_schema,
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        ).encode("utf-8")
-    ).hexdigest()
-    cache_key = ("history_errors", str(root.resolve()), head, baseline, schema_key)
-    if cache is not None and immutable_subjects and cache_key in cache:
-        return list(cache[cache_key])
-    errors = _history_errors_uncached(root, head, baseline, current_schema)
-    if cache is not None and immutable_subjects:
-        cache[cache_key] = tuple(errors)
-    return errors
-
-
-def _history_errors_uncached(root: Path, head: str, baseline: str, current_schema: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     current = _status_at(root, head)
     ledger = current.get("transition_ledger") if type(current) is dict else None

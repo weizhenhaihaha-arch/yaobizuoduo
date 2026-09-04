@@ -206,39 +206,43 @@ def test_canonical_status_and_documents_are_valid() -> None:
     assert result.stdout.endswith("project-status.v2\n")
 
 
-def test_validation_cache_reuses_immutable_history_without_sharing_mutable_output(
+def test_validation_cache_never_hides_live_repository_state_changes(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    calls = 0
-    head = "a" * 40
-    baseline = "b" * 40
-    schema = {"type": "object"}
+    calls: dict[tuple[str, ...], int] = {}
 
-    def fake_history_errors(
-        root: Path, subject: str, authorization: str, current_schema: dict
-    ) -> list[str]:
-        nonlocal calls
-        calls += 1
-        assert (root, subject, authorization, current_schema) == (
-            ROOT,
-            head,
-            baseline,
-            schema,
-        )
-        return ["stable diagnostic"]
+    class Result:
+        returncode = 0
+
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout.encode("utf-8")
+
+    outputs = {
+        ("remote", "get-url", "origin"): ("https://github.com/a/old", "https://github.com/a/new"),
+        ("for-each-ref", "--format=%(objectname)"): ("a" * 40, "b" * 40),
+        ("status", "--porcelain", "--untracked-files=all"): ("", "?? changed"),
+    }
+
+    def fake_run(command: list[str], **kwargs: object) -> Result:
+        args = tuple(command[1:])
+        index = calls.get(args, 0)
+        calls[args] = index + 1
+        return Result(outputs[args][index])
 
     def fake_validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
-        first = VALIDATOR._history_errors(ROOT, head, baseline, schema)
-        first.append("caller mutation")
-        return VALIDATOR._history_errors(ROOT, head, baseline, schema)
+        assert VALIDATOR._git(ROOT, "remote", "get-url", "origin")[1].endswith("/old")
+        assert VALIDATOR._git(ROOT, "remote", "get-url", "origin")[1].endswith("/new")
+        assert VALIDATOR._git(ROOT, "for-each-ref", "--format=%(objectname)")[1] == "a" * 40
+        assert VALIDATOR._git(ROOT, "for-each-ref", "--format=%(objectname)")[1] == "b" * 40
+        assert VALIDATOR._git(ROOT, "status", "--porcelain", "--untracked-files=all")[1] == ""
+        assert VALIDATOR._git(ROOT, "status", "--porcelain", "--untracked-files=all")[1] == "?? changed"
+        return []
 
-    monkeypatch.setattr(VALIDATOR, "_history_errors_uncached", fake_history_errors)
+    monkeypatch.setattr(VALIDATOR.subprocess, "run", fake_run)
     monkeypatch.setattr(VALIDATOR, "_validate_uncached", fake_validate)
 
-    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == ["stable diagnostic"]
-    assert calls == 1
-    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == ["stable diagnostic"]
-    assert calls == 2
+    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == []
+    assert set(calls.values()) == {2}
 
 
 def test_validation_cache_reuses_immutable_status_and_schema_reads_per_call(
@@ -295,6 +299,8 @@ def test_validation_cache_reuses_only_git_reads_bound_to_immutable_objects(
         assert VALIDATOR._is_ancestor(ROOT, older, newer)
         assert VALIDATOR._git(ROOT, "rev-parse", "HEAD")[0]
         assert VALIDATOR._git(ROOT, "rev-parse", "HEAD")[0]
+        assert VALIDATOR._git(ROOT, "rev-list", "--all", newer)[0]
+        assert VALIDATOR._git(ROOT, "rev-list", "--all", newer)[0]
         return []
 
     monkeypatch.setattr(VALIDATOR.subprocess, "run", fake_run)
@@ -303,6 +309,46 @@ def test_validation_cache_reuses_only_git_reads_bound_to_immutable_objects(
     assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == []
     assert calls.count(("merge-base", "--is-ancestor", older, newer)) == 1
     assert calls.count(("rev-parse", "HEAD")) == 2
+    assert calls.count(("rev-list", "--all", newer)) == 2
+
+
+def test_validation_cache_restores_nested_and_exception_contexts(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    sentinel = {("sentinel",): "outer"}
+    nesting = False
+    observed: list[dict] = []
+
+    def nested_validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+        nonlocal nesting
+        current = VALIDATOR._VALIDATION_CACHE.get()
+        assert current is not None and current is not sentinel
+        observed.append(current)
+        if not nesting:
+            nesting = True
+            assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == []
+            nesting = False
+            assert VALIDATOR._VALIDATION_CACHE.get() is current
+        return []
+
+    token = VALIDATOR._VALIDATION_CACHE.set(sentinel)
+    try:
+        monkeypatch.setattr(VALIDATOR, "_validate_uncached", nested_validate)
+        assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == []
+        assert observed[0] is not observed[1]
+        assert VALIDATOR._VALIDATION_CACHE.get() is sentinel
+
+        def raising_validate(
+            status_path: Path, schema_path: Path, repo_root: Path | None
+        ) -> list[str]:
+            raise RuntimeError("expected test exception")
+
+        monkeypatch.setattr(VALIDATOR, "_validate_uncached", raising_validate)
+        with pytest.raises(RuntimeError, match="expected test exception"):
+            VALIDATOR.validate(ROOT, SCHEMA, ROOT)
+        assert VALIDATOR._VALIDATION_CACHE.get() is sentinel
+    finally:
+        VALIDATOR._VALIDATION_CACHE.reset(token)
 
 
 def test_valid_awaiting_review_fixture_is_accepted() -> None:
