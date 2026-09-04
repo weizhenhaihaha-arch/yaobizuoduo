@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import contextvars
 import functools
 import hashlib
 import json
@@ -20,6 +21,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STATUS = ROOT / "PROJECT_STATUS.yaml"
 DEFAULT_SCHEMA = ROOT / "schemas" / "project_status.schema.json"
+_VALIDATION_CACHE: contextvars.ContextVar[dict[tuple[Any, ...], Any] | None] = (
+    contextvars.ContextVar("project_status_validation_cache", default=None)
+)
+_FULL_SHA = re.compile(r"[0-9a-f]{40}")
 BOOTSTRAP_TASK = "G0-T01"
 BOOTSTRAP_BASELINE = "7aadae13efd45023d19bf8a280f7680667c930fa"
 LEDGER_ANCHOR = "fa047696761f235cb1e5cd94bbf1881b49e4bb21"
@@ -238,6 +243,12 @@ G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED = frozenset(
         "scripts/validate_project_status.py",
         "tests/test_g0_project_status.py",
     }
+)
+G0_T06_WORKFLOW_MAIN_CI_RECOVERY = (
+    "e742ddb42b15a56e65f863d89121117119bbf5e5"
+)
+G0_T06_WORKFLOW_RECOVERED_MAIN = (
+    "94c87f28436e2ea8899c9a407e1f1413de893603"
 )
 PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN = (
     "d3a617ab3081e03276a96142ae2b76349e7b2ef9"
@@ -528,6 +539,15 @@ def _payload_digest(value: dict[str, Any]) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+def _canonical_text_bytes(payload: bytes) -> bytes:
+    """Return the platform-neutral byte form used for governed text digests."""
+    return payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def _canonical_text_digest(payload: bytes) -> str:
+    return hashlib.sha256(_canonical_text_bytes(payload)).hexdigest()
+
+
 def _package_a_manifest_errors(
     root: Path, subject_sha: str | None = None
 ) -> list[str]:
@@ -576,7 +596,7 @@ def _package_a_manifest_errors(
             manifest, manifest_schema, manifest_schema
         )
     ]
-    schema_digest = hashlib.sha256(schema_bytes).hexdigest()
+    schema_digest = _canonical_text_digest(schema_bytes)
     if (
         schema_digest != PACKAGE_A_SCHEMA_SHA256
         or manifest.get("schema_sha256") != PACKAGE_A_SCHEMA_SHA256
@@ -858,6 +878,37 @@ def _package_a_reactivation_receipt() -> dict[str, Any]:
     return receipt
 
 
+def _package_a_valid_baseline(
+    task_id: str,
+    expected_previous: str,
+    baseline_status: dict[str, Any] | None,
+    root: Path,
+    baseline: str,
+) -> bool:
+    try:
+        valid_previous_card_baseline = (
+            type(baseline_status) is dict
+            and baseline_status["active_tasks"][0].get("task_id") == expected_previous
+            and baseline_status["active_tasks"][0].get("state") == "closed"
+        )
+    except (KeyError, IndexError, TypeError):
+        valid_previous_card_baseline = False
+    workflow_governed: str | None = None
+    workflow_errors: list[str] = []
+    if task_id == "G1-T01" and type(baseline_status) is dict:
+        workflow_governed, workflow_errors = _g0_t06_workflow_terminal_bridge(
+            baseline_status,
+            root,
+            baseline,
+            require_canonical_main=False,
+        )
+    return valid_previous_card_baseline or (
+        task_id == "G1-T01"
+        and workflow_governed is not None
+        and not workflow_errors
+    )
+
+
 def _package_a_persistence_errors(
     status: dict[str, Any], root: Path, head: str
 ) -> list[str]:
@@ -887,14 +938,13 @@ def _package_a_persistence_errors(
     errors.extend(_package_a_manifest_errors(root, baseline))
     expected_previous = "G0-T04" if task_id == "G0-T05" else "G0-T05"
     baseline_status = _status_at(root, baseline)
-    try:
-        valid_baseline = (
-            type(baseline_status) is dict
-            and baseline_status["active_tasks"][0].get("task_id") == expected_previous
-            and baseline_status["active_tasks"][0].get("state") == "closed"
-        )
-    except (KeyError, IndexError, TypeError):
-        valid_baseline = False
+    valid_baseline = _package_a_valid_baseline(
+        task_id,
+        expected_previous,
+        baseline_status,
+        root,
+        baseline,
+    )
     if not valid_baseline:
         errors.append(
             f"$.package_a: {task_id} baseline must be the exact closed {expected_previous}"
@@ -1302,20 +1352,81 @@ def _document_errors(status: dict[str, Any], repo_root: Path) -> list[str]:
     return errors
 
 
+def _immutable_git_command(args: tuple[str, ...]) -> bool:
+    """Return whether a read-only Git command is fully bound to immutable objects."""
+    if not args:
+        return False
+
+    def immutable_revision(value: str) -> bool:
+        if ".." in value:
+            left, right = value.split("..", 1)
+            return bool(_FULL_SHA.fullmatch(left) and _FULL_SHA.fullmatch(right))
+        subject = value.split(":", 1)[0]
+        subject = re.sub(r"\^\{(?:commit|tree)\}$", "", subject)
+        return bool(_FULL_SHA.fullmatch(subject))
+
+    command = args[0]
+    if command in {"show", "rev-parse"}:
+        return len(args) == 2 and immutable_revision(args[1])
+    if command == "cat-file":
+        return len(args) == 3 and args[1] in {"-e", "-t"} and immutable_revision(args[2])
+    if command == "ls-tree":
+        return (
+            len(args) == 4
+            and immutable_revision(args[1])
+            and args[2] == "--"
+            and bool(args[3])
+            and not args[3].startswith("-")
+        )
+    if command == "merge-base":
+        return (
+            len(args) == 4
+            and args[1] == "--is-ancestor"
+            and immutable_revision(args[2])
+            and immutable_revision(args[3])
+        )
+    if command == "rev-list":
+        if len(args) == 5 and args[1:4] == ("--parents", "-n", "1"):
+            return immutable_revision(args[4])
+        if len(args) == 3 and args[1] == "--first-parent":
+            return immutable_revision(args[2])
+        if len(args) >= 3 and args[1] == "--topo-order":
+            return all(immutable_revision(value) for value in args[2:])
+    return False
+
+
 def _git(root: Path, *args: str) -> tuple[bool, str]:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("git_text", str(root.resolve()), args)
+    if cache is not None and _immutable_git_command(args) and cache_key in cache:
+        return cache[cache_key]
     try:
-        result = subprocess.run(["git", *args], cwd=root, text=True, capture_output=True, check=False)
-    except (OSError, UnicodeError):
-        return False, ""
-    return result.returncode == 0, result.stdout.strip()
+        result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
+    except OSError:
+        return False, "git command could not be started"
+    try:
+        stdout = result.stdout.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+        return False, f"git output is not valid UTF-8 at byte {exc.start}"
+    outcome = (result.returncode == 0, stdout)
+    if cache is not None and _immutable_git_command(args):
+        cache[cache_key] = outcome
+    return outcome
 
 
 def _git_bytes(root: Path, *args: str) -> tuple[bool, bytes]:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("git_bytes", str(root.resolve()), args)
+    if cache is not None and _immutable_git_command(args) and cache_key in cache:
+        return cache[cache_key]
     try:
         result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
     except OSError:
         return False, b""
-    return result.returncode == 0, result.stdout
+    outcome = (result.returncode == 0, result.stdout)
+    if cache is not None and _immutable_git_command(args):
+        cache[cache_key] = outcome
+    return outcome
 
 
 def _github_repository_identity(remote_url: str) -> tuple[str, str] | None:
@@ -1435,6 +1546,10 @@ def _is_first_parent_ancestor(root: Path, older: str, newer: str) -> bool:
 
 
 def _status_at(root: Path, sha: str) -> dict[str, Any] | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("status", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return copy.deepcopy(cache[cache_key])
     ok, text = _git(root, "show", f"{sha}:PROJECT_STATUS.yaml")
     if not ok:
         return None
@@ -1442,10 +1557,17 @@ def _status_at(root: Path, sha: str) -> dict[str, Any] | None:
         value = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
     except (json.JSONDecodeError, ValueError):
         return None
-    return value if type(value) is dict else None
+    result = value if type(value) is dict else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = copy.deepcopy(result)
+    return result
 
 
 def _schema_at(root: Path, sha: str) -> dict[str, Any] | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("schema", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return copy.deepcopy(cache[cache_key])
     ok, text = _git(root, "show", f"{sha}:schemas/project_status.schema.json")
     if not ok:
         return None
@@ -1453,12 +1575,22 @@ def _schema_at(root: Path, sha: str) -> dict[str, Any] | None:
         value = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
     except (json.JSONDecodeError, ValueError):
         return None
-    return value if type(value) is dict else None
+    result = value if type(value) is dict else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = copy.deepcopy(result)
+    return result
 
 
 def _schema_digest_at(root: Path, sha: str) -> str | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("schema_digest", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return cache[cache_key]
     ok, payload = _git_bytes(root, "show", f"{sha}:schemas/project_status.schema.json")
-    return hashlib.sha256(payload).hexdigest() if ok else None
+    result = _canonical_text_digest(payload) if ok else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = result
+    return result
 
 
 def _schema_control_from_bytes(payload: bytes) -> dict[str, Any] | None:
@@ -1470,8 +1602,15 @@ def _schema_control_from_bytes(payload: bytes) -> dict[str, Any] | None:
 
 
 def _schema_control_at(root: Path, sha: str) -> dict[str, Any] | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("schema_control", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return copy.deepcopy(cache[cache_key])
     ok, payload = _git_bytes(root, "show", f"{sha}:{SCHEMA_CONTROL_PATH}")
-    return _schema_control_from_bytes(payload) if ok else None
+    result = _schema_control_from_bytes(payload) if ok else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = copy.deepcopy(result)
+    return result
 
 
 def _schema_control_errors(control: Any, status: dict[str, Any]) -> list[str]:
@@ -1657,7 +1796,7 @@ def _schema_authority_document_errors(status: dict[str, Any], schema_path: Path)
     if type(revision) is not int or revision < 1 or type(digest) is not str or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
         return ["$.schema_authority: revision and digest require exact canonical types"]
     try:
-        actual_digest = hashlib.sha256(schema_path.read_bytes()).hexdigest()
+        actual_digest = _canonical_text_digest(schema_path.read_bytes())
     except OSError:
         return ["$.schema_authority: canonical schema bytes are unreadable"]
     errors: list[str] = []
@@ -2993,6 +3132,60 @@ def _g0_t04_g4_premature_recovery_lineage_errors(
     return errors
 
 
+def _g0_t04_g4_competing_route_errors(root: Path) -> list[str]:
+    """Validate the optional tombstoned route objects without requiring them."""
+    competing_auth_present = _git(
+        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_AUTH}^{{commit}}"
+    )[0]
+    competing_start_present = _git(
+        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_START}^{{commit}}"
+    )[0]
+    if competing_auth_present != competing_start_present:
+        return [
+            "$: G0-T04 generation-4 competing route objects are only partially present"
+        ]
+    if not competing_auth_present:
+        return []
+    competing_ok, competing_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_AUTH
+    )
+    competing_tree_ok, competing_tree = _git(
+        root, "rev-parse", f"{G0_T04_G4_COMPETING_AUTH}^{{tree}}"
+    )
+    competing_message_ok, competing_message = _git(
+        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_AUTH
+    )
+    competing_start_ok, competing_start_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_START
+    )
+    competing_start_tree_ok, competing_start_tree = _git(
+        root, "rev-parse", f"{G0_T04_G4_COMPETING_START}^{{tree}}"
+    )
+    competing_start_message_ok, competing_start_message = _git(
+        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_START
+    )
+    if (
+        (competing_line.split() if competing_ok else [])
+        != [
+            G0_T04_G4_COMPETING_AUTH,
+            G0_T04_G4_BASELINE,
+            G0_T04_G4_BLOCKED_MAIN,
+        ]
+        or not competing_tree_ok
+        or competing_tree != "11098e342e3706e47ff74ddea7f6515475339a89"
+        or not competing_message_ok
+        or competing_message != "Authorize G0-T04 generation 4"
+        or (competing_start_line.split() if competing_start_ok else [])
+        != [G0_T04_G4_COMPETING_START, G0_T04_G4_COMPETING_AUTH]
+        or not competing_start_tree_ok
+        or competing_start_tree != "0296e60d4cb54cbc509dfd13b0ba54809d848b25"
+        or not competing_start_message_ok
+        or competing_start_message != "Start G0-T04 generation 4 implementation"
+    ):
+        return ["$: G0-T04 generation-4 competing route topology drifted"]
+    return []
+
+
 def _g0_t04_g4_route_errors(
     status: dict[str, Any], root: Path, head: str
 ) -> list[str]:
@@ -3262,55 +3455,7 @@ def _g0_t04_g4_route_errors(
         != "ca7aa3b416024ed44f57ab8cfa8de94f39995f04"
     ):
         errors.append("$: G0-T04 generation-4 abandoned route topology drifted")
-    competing_auth_present = _git(
-        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_AUTH}^{{commit}}"
-    )[0]
-    competing_start_present = _git(
-        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_START}^{{commit}}"
-    )[0]
-    if competing_auth_present != competing_start_present:
-        errors.append(
-            "$: G0-T04 generation-4 competing route objects are only partially present"
-        )
-    elif competing_auth_present:
-        competing_ok, competing_line = _git(
-            root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_AUTH
-        )
-        competing_tree_ok, competing_tree = _git(
-            root, "rev-parse", f"{G0_T04_G4_COMPETING_AUTH}^{{tree}}"
-        )
-        competing_message_ok, competing_message = _git(
-            root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_AUTH
-        )
-        competing_start_ok, competing_start_line = _git(
-            root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_START
-        )
-        competing_start_tree_ok, competing_start_tree = _git(
-            root, "rev-parse", f"{G0_T04_G4_COMPETING_START}^{{tree}}"
-        )
-        competing_start_message_ok, competing_start_message = _git(
-            root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_START
-        )
-        if (
-            (competing_line.split() if competing_ok else [])
-            != [
-                G0_T04_G4_COMPETING_AUTH,
-                G0_T04_G4_BASELINE,
-                G0_T04_G4_BLOCKED_MAIN,
-            ]
-            or not competing_tree_ok
-            or competing_tree != "11098e342e3706e47ff74ddea7f6515475339a89"
-            or not competing_message_ok
-            or competing_message != "Authorize G0-T04 generation 4"
-            or (competing_start_line.split() if competing_start_ok else [])
-            != [G0_T04_G4_COMPETING_START, G0_T04_G4_COMPETING_AUTH]
-            or not competing_start_tree_ok
-            or competing_start_tree != "0296e60d4cb54cbc509dfd13b0ba54809d848b25"
-            or not competing_start_message_ok
-            or competing_start_message
-            != "Start G0-T04 generation 4 implementation"
-        ):
-            errors.append("$: G0-T04 generation-4 competing route topology drifted")
+    errors.extend(_g0_t04_g4_competing_route_errors(root))
     ok_start, start_parents = _git(
         root, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
     )
@@ -6065,7 +6210,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
         if (
             not ok
             or SCHEMA_BOOTSTRAP_SUBJECT not in governed_chain
-            or hashlib.sha256(schema_payload).hexdigest() != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
+            or _canonical_text_digest(schema_payload) != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
             or type(migration) is not dict
             or migration.get("preauthority_history_sha256") != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
         ):
@@ -8976,6 +9121,11 @@ def _g0_t04_anomaly_post_merge_repair_parent_errors(
     *,
     require_current_main: bool,
 ) -> list[str] | None:
+    try:
+        if status["active_tasks"][0].get("task_id") != "G0-T04":
+            return None
+    except (KeyError, IndexError, TypeError):
+        return None
     if _is_g0_t04_g4_status(status):
         return None
     if root is None or child_sha is None or child_sha == G0_T04_ANOMALY_MERGE:
@@ -10298,7 +10448,7 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+def _validate_uncached(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
     try:
         status = json.loads(status_path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys)
         schema = json.loads(schema_path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys)
@@ -10322,6 +10472,14 @@ def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> li
             errors.extend(_document_errors(status, repo_root))
             errors.extend(_repository_errors(status, status_path, repo_root, schema))
     return sorted(set(errors))
+
+
+def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+    token = _VALIDATION_CACHE.set({})
+    try:
+        return _validate_uncached(status_path, schema_path, repo_root)
+    finally:
+        _VALIDATION_CACHE.reset(token)
 
 
 def main() -> int:
