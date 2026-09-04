@@ -45,6 +45,28 @@ two-test-file repair assigned to the existing trend-signal and strategy
 engineer. Candidate, review and CI identities remain clear; G2 and every
 product/UI write remain inactive.
 
+### Generation 15-R1 two-test-file repair acceptance
+
+Delivery `802753effb754d2cea0e569ce5b09c4492d094af`, directly based on
+corrected start `30b21e553a3dbe5f643f7591b748e7de2040fe1b`, is independently
+accepted and frozen. Only `tests/test_g0_project_status.py` and
+`tests/test_verify_full_ci.py` changed. Temporary Git fixtures normalize staged
+CRLF to LF at the test helper boundary, the Chinese-diff driver preserves the
+real environment while retaining ASCII-strict output, and the KeyboardInterrupt
+test double now covers Windows Job assignment, cleanup, close and propagation.
+Production validator/verifier code and all product code are unchanged.
+
+Owner verification passed the three direct regressions 3/3, Python compilation,
+repository-aware canonical validation, exact parent/scope/diff and clean
+worktree checks. The engineer additionally reported 27 Windows-failure-node
+governance regressions passing and the verifier file at 47 passed with one
+existing non-Windows platform skip; collection remains 487 plus 48 with no
+test-function additions/deletions or new skip/xfail. Independent code/security
+returned `APPROVE` and architecture/route returned `CLEAR`, both bound to the
+exact delivery. The next exact owner acceptance subject receives the sole
+complete local validation. This acceptance is not upload, hosted CI, merge,
+G1 closure, G2 or product/UI authority.
+
 ## Generation 14 Windows output-encoding authorization
 
 The product owner explicitly authorized one single-root repair after exact
