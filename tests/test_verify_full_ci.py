@@ -603,6 +603,22 @@ def test_main_uses_one_deadline_for_the_entire_verifier(
     assert observed == [123.0, 123.0, 123.0]
 
 
+def test_full_ci_deadline_is_exactly_870_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    now = [100.0]
+    monkeypatch.setattr(VERIFY.time, "monotonic", lambda: now[0])
+
+    deadline = VERIFY.new_deadline()
+
+    assert VERIFY.FULL_CI_TIMEOUT_SECONDS == 870
+    assert deadline == 970.0
+    assert VERIFY.remaining_seconds(deadline) == 870.0
+    now[0] = deadline
+    with pytest.raises(VERIFY.VerificationError, match="exceeded 870s limit"):
+        VERIFY.remaining_seconds(deadline)
+
+
 def test_run_rejects_non_utf8_output() -> None:
     with pytest.raises(VERIFY.VerificationError, match="not valid UTF-8"):
         VERIFY.run(
