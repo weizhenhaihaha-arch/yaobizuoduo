@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `11`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -23,6 +23,11 @@ first parent is authoritative close
 `94c87f28436e2ea8899c9a407e1f1413de893603` and whose second parent is the
 immutable Generation 10 blocked record
 `078bb26e30e8fd8f01eb18d026c24bdde77f4540`.
+
+Exact two-parent authorization
+`c7528d458292d40deeae7e04652d29109a14f6d7` passed canonical validation. Its
+strict child activates only this final timing exception and dispatches it back
+to the original trend-signal and strategy engineer.
 
 The trend-signal and strategy engineer may change only
 `scripts/verify_full_ci.py` and `tests/test_verify_full_ci.py` to increase the
