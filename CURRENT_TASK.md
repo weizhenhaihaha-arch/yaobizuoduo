@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `awaiting_review`
 - Candidate generation: `13`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -64,6 +64,20 @@ Tracked state, whitespace, fixture inventory, authorized scope and secret scan
 all passed. No official-registry fallback was needed and no tracked source,
 test, lock, workflow, product or UI file changed. The strict child of this
 record is the sole Generation 13 complete-validation subject.
+
+### Generation 13 complete local validation
+
+The sole complete local validation ran once on exact subject
+`032f8203ee4bfa5cc62222c7f82b275d33232fbd` and returned `FULL_CI_OK` under the
+unchanged 870-second deadline. Canonical status and Transport collection/run
+6/6 passed; the complete backend suite passed 644 tests with two platform-only
+skips in 267.79 seconds; Python dependency integrity passed; offline frontend
+dependency readback passed; frontend tests passed 10/10; the production build,
+Python compilation and final whitespace check passed. The worktree remained
+clean and no tracked file was changed by validation. This strict child records
+only a local `awaiting_review` candidate. Upload, hosted Ubuntu/Windows CI,
+independent reviews, merge, G1 closure, G2 and product/UI authority remain
+unestablished.
 
 ## Generation 12 performance-only authorization
 
