@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `13`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -41,6 +41,13 @@ subject and run `scripts/verify_full_ci.py --offline --fail-closed
 validation failure, code/lock/workflow drift, dirty state, identity mismatch or
 new root stops without an automatic Generation 14. G2, P1 and all Signal V1/UI
 product writes remain inactive until G1 legally closes.
+
+Exact Generation 13 authorization `c499d751797fd7aaa6f4196a985dbc9cc873d71c`
+passed the canonical project-status validator with ordered parents
+`[94c87f28436e2ea8899c9a407e1f1413de893603,
+124fbc9829c552064e1c0c561750f5e6439097f0]`. The owner now starts only the
+clean dependency preflight described above. No product/UI work, tracked source
+change or complete-validation run is active at this point.
 
 ## Generation 12 performance-only authorization
 
