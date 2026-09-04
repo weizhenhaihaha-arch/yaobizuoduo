@@ -1,39 +1,33 @@
 # 后续工作流程与授权门禁
 
-更新日期：2026-07-24（Asia/Shanghai）
+更新日期：2026-07-25（Asia/Shanghai）
 
-`PROJECT_STATUS.yaml` 是唯一当前机器状态源。G0-T04 generation 4 已在
-terminal main `dcb942a80a91312fad12d90b5e362cbdd0611017` 完整收口；其
-push/main run `30043450574` 成功。
+`PROJECT_STATUS.yaml` 是唯一当前机器状态源。Package A 的 G0 治理链已在
+authoritative baseline `94c87f28436e2ea8899c9a407e1f1413de893603`
+完整收口。当前唯一获授权任务是 `G1-T01` generation 2，风险等级 `D1`。
 
-当前唯一工作是 Package A / G0-T05 generation 3 `closed` terminal
-收口。正式实现
-从 exact implementation main
-`d3a617ab3081e03276a96142ae2b76349e7b2ef9` 启动；该 main 的 ordered
-parents 为 `[f56c5969051694b35bb77289fbf4868b5e723bef,
-ea91b842cc36b77acc77f83b7f189349e8e9ca4a]`，tree 为
-`e08eb6de1c07415316e3ab0895fd58f9c178b322`。
+本卡只建立一个开发者与 GitHub CI 共用的跨平台完整验证入口：
 
-实现/交付必须保持从 exact implementation main 开始的严格单父链，累计
-变更不得超出 manifest 中 G0-T05 的精确七路径。Package A payload、
-manifest/schema blobs、ruleset readback、terminal N、generation 选择与现有
-activation receipt 均保持冻结。
+```bash
+python3 scripts/verify_full_ci.py --offline --fail-closed --require-transport
+```
 
-G1-T01 在 G0-T05 完整 closed 前继续 `not_authorized`；能力保持
-`OFFLINE_EVIDENCE_ACCEPTED`。
-市场网络、凭证、交易、产品实现、工作流/规则集修改、部署、发布及本机系统
-修改全部禁止。
+入口必须在精确 Python 3.12.10、Node、npm 与带 SHA-256 制品哈希的递归依赖
+锁下运行，强制收集并通过
+`tests/test_m5_transport.py`，同时覆盖 canonical governance、完整 Python
+测试、前端测试与构建、fixture 摘要、依赖完整性、秘密扫描和冻结路径边界。
+本地与 GitHub 的稳定汇总检查名保持 `G0 / exact-head`；Linux 与 Windows
+必须使用相同入口。CI 在依赖安装后启用可逆的操作系统级出站隔离，并要求
+Python、Node 与 curl 子进程拒绝探针全部通过。每个平台的完整测试集合使用
+确定性哈希划分为四个无重叠分片，分片并集必须等于完整集合；分片内使用有界
+pytest 并行，每个任务硬限制 20 分钟。任何缺失、跳过、网络回退、分片缺口、
+超时或平台差异都失败即停。
 
-Exact implementation `5862c7b4b7c9080ba20ed40e0a81f157d72a7cc5` 已完成
-本地验收：canonical validator、60 个聚焦测试、551 个非 transport Python
-测试、10 个 frontend 测试、frontend production build、compileall、diff
-与 secret 检查均通过。Exact delivery HEAD
-`a29c5f35bbbaada717c69c9d9b4749a07db2c464` 的 CI `30087724361`
-成功，最终独立 code/security `APPROVE` 与
-architecture/route/time-causality `CLEAR` 均已绑定该候选。Acceptance
-`3f30ac7f…` 的 exact-head CI `30087824072` 成功；protected-main merge
-`c7ed7691…` 保持 ordered parents `[d3a617…, 3f30ac7…]`，其 main CI
-`30087883412` 成功。Finalization `27ff7803…` 的 exact-head CI
-`30087966580` 成功；当前提交为其 strict-child close record。下一步只允许
-terminal merge `[c7ed7691…, exact close record]` 与 authoritative-main CI；
-该终态全绿前不得激活 G1-T01。
+累计变更不得超出 Package A manifest 中 `G1-T01.allowed_paths`。Package A
+manifest/activation、ruleset `19526291`、产品行为与
+`OFFLINE_EVIDENCE_ACCEPTED` 能力上限保持不变。
+
+本卡开发交付只能停在干净的 `awaiting_review` 候选，等待独立
+code/security 与 architecture/product-route 审查。开发者不得 push、创建
+PR、合并或启动下一卡。G2+、市场网络、凭证、账户、订单、交易、ruleset
+修改、部署、发布及 LOCAL-PREVIEW 扩展均未获授权。
