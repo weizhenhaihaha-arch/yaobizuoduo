@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `awaiting_review`
+- Status: `blocked`
 - Candidate generation: `14`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -78,6 +78,32 @@ The strict child is only the new frozen local `awaiting_review` candidate.
 The complete validation must not be rerun. Upload, exact hosted Ubuntu/Windows
 CI, accepted-pending-merge, merge, main CI, finalization, G1 closure, P1, G2,
 Signal V1 and UI work remain unestablished.
+
+### Generation 14 hosted-Windows stop
+
+Frozen candidate `622e8b1a29790ee31a29931d233556412947f6ef` was uploaded by a
+normal fast-forward to the existing PR #40 branch, and both Git remote readback
+and PR head matched exactly. Exact-head run `33839681522` completed with Ubuntu
+4/4 successful, Windows 0/4 successful, and aggregate `G0 / exact-head`
+failed. Both independent reviews remain bound to this exact candidate as
+code/security `APPROVE` and architecture/route `CLEAR`.
+
+The old pre-test `charmap` failure is absent: every Windows shard passed setup,
+exact identity, canonical status, pinned dependencies and entered the real
+pytest suite. The four Windows shards then failed 7, 5, 6 and 10 tests
+respectively. Repeated failures concern temporary-repository exact-HEAD identity
+and immutable receipt/digest drift in `tests/test_g0_project_status.py`. Shard 3
+also proves two Windows-specific test paths not covered by the macOS acceptance:
+the Chinese-diff regression is routed through the existing Job Object gate and
+returns nonzero, and the KeyboardInterrupt fake process lacks the native
+`_handle` required by that gate.
+
+These are new test-execution roots outside the single output-encoding repair.
+The explicit stop condition applies: Generation 14 is `blocked`; there is no
+rerun, repair, automatic Generation 15, merge, G1 closure, P1 contract work,
+G2, Signal V1 or UI implementation under this card. The successful local full
+validation, accepted two-file repair, exact upload, Ubuntu 4/4 and dual review
+remain valid evidence but do not substitute for Windows 4/4 or aggregate CI.
 
 ## Generation 13 clean dependency preparation authorization
 
