@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import contextvars
 import functools
 import hashlib
 import json
@@ -20,6 +21,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_STATUS = ROOT / "PROJECT_STATUS.yaml"
 DEFAULT_SCHEMA = ROOT / "schemas" / "project_status.schema.json"
+_VALIDATION_CACHE: contextvars.ContextVar[dict[tuple[Any, ...], Any] | None] = (
+    contextvars.ContextVar("project_status_validation_cache", default=None)
+)
+_FULL_SHA = re.compile(r"[0-9a-f]{40}")
 BOOTSTRAP_TASK = "G0-T01"
 BOOTSTRAP_BASELINE = "7aadae13efd45023d19bf8a280f7680667c930fa"
 LEDGER_ANCHOR = "fa047696761f235cb1e5cd94bbf1881b49e4bb21"
@@ -1347,7 +1352,44 @@ def _document_errors(status: dict[str, Any], repo_root: Path) -> list[str]:
     return errors
 
 
+def _immutable_git_command(args: tuple[str, ...]) -> bool:
+    """Return whether a read-only Git command is fully bound to immutable objects."""
+    if not args:
+        return False
+
+    def immutable_revision(value: str) -> bool:
+        if ".." in value:
+            left, right = value.split("..", 1)
+            return bool(_FULL_SHA.fullmatch(left) and _FULL_SHA.fullmatch(right))
+        subject = value.split(":", 1)[0]
+        subject = re.sub(r"\^\{(?:commit|tree)\}$", "", subject)
+        return bool(_FULL_SHA.fullmatch(subject))
+
+    command = args[0]
+    if command in {"show", "rev-parse"}:
+        return len(args) == 2 and immutable_revision(args[1])
+    if command == "cat-file":
+        return len(args) == 3 and args[1] in {"-e", "-t"} and immutable_revision(args[2])
+    if command == "ls-tree":
+        return len(args) >= 2 and immutable_revision(args[1])
+    if command == "merge-base" and "--is-ancestor" in args:
+        revisions = [value for value in args[1:] if not value.startswith("-")]
+        return len(revisions) == 2 and all(immutable_revision(value) for value in revisions)
+    if command == "rev-list":
+        revisions = [
+            value
+            for value in args[1:]
+            if not value.startswith("-") and value != "1"
+        ]
+        return bool(revisions) and all(immutable_revision(value) for value in revisions)
+    return False
+
+
 def _git(root: Path, *args: str) -> tuple[bool, str]:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("git_text", str(root.resolve()), args)
+    if cache is not None and _immutable_git_command(args) and cache_key in cache:
+        return cache[cache_key]
     try:
         result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
     except OSError:
@@ -1356,15 +1398,25 @@ def _git(root: Path, *args: str) -> tuple[bool, str]:
         stdout = result.stdout.decode("utf-8", errors="strict").strip()
     except UnicodeDecodeError as exc:
         return False, f"git output is not valid UTF-8 at byte {exc.start}"
-    return result.returncode == 0, stdout
+    outcome = (result.returncode == 0, stdout)
+    if cache is not None and _immutable_git_command(args):
+        cache[cache_key] = outcome
+    return outcome
 
 
 def _git_bytes(root: Path, *args: str) -> tuple[bool, bytes]:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("git_bytes", str(root.resolve()), args)
+    if cache is not None and _immutable_git_command(args) and cache_key in cache:
+        return cache[cache_key]
     try:
         result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
     except OSError:
         return False, b""
-    return result.returncode == 0, result.stdout
+    outcome = (result.returncode == 0, result.stdout)
+    if cache is not None and _immutable_git_command(args):
+        cache[cache_key] = outcome
+    return outcome
 
 
 def _github_repository_identity(remote_url: str) -> tuple[str, str] | None:
@@ -1484,6 +1536,10 @@ def _is_first_parent_ancestor(root: Path, older: str, newer: str) -> bool:
 
 
 def _status_at(root: Path, sha: str) -> dict[str, Any] | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("status", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return copy.deepcopy(cache[cache_key])
     ok, text = _git(root, "show", f"{sha}:PROJECT_STATUS.yaml")
     if not ok:
         return None
@@ -1491,10 +1547,17 @@ def _status_at(root: Path, sha: str) -> dict[str, Any] | None:
         value = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
     except (json.JSONDecodeError, ValueError):
         return None
-    return value if type(value) is dict else None
+    result = value if type(value) is dict else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = copy.deepcopy(result)
+    return result
 
 
 def _schema_at(root: Path, sha: str) -> dict[str, Any] | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("schema", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return copy.deepcopy(cache[cache_key])
     ok, text = _git(root, "show", f"{sha}:schemas/project_status.schema.json")
     if not ok:
         return None
@@ -1502,12 +1565,22 @@ def _schema_at(root: Path, sha: str) -> dict[str, Any] | None:
         value = json.loads(text, object_pairs_hook=_reject_duplicate_keys)
     except (json.JSONDecodeError, ValueError):
         return None
-    return value if type(value) is dict else None
+    result = value if type(value) is dict else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = copy.deepcopy(result)
+    return result
 
 
 def _schema_digest_at(root: Path, sha: str) -> str | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("schema_digest", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return cache[cache_key]
     ok, payload = _git_bytes(root, "show", f"{sha}:schemas/project_status.schema.json")
-    return _canonical_text_digest(payload) if ok else None
+    result = _canonical_text_digest(payload) if ok else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = result
+    return result
 
 
 def _schema_control_from_bytes(payload: bytes) -> dict[str, Any] | None:
@@ -1519,8 +1592,15 @@ def _schema_control_from_bytes(payload: bytes) -> dict[str, Any] | None:
 
 
 def _schema_control_at(root: Path, sha: str) -> dict[str, Any] | None:
+    cache = _VALIDATION_CACHE.get()
+    cache_key = ("schema_control", str(root.resolve()), sha)
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha) and cache_key in cache:
+        return copy.deepcopy(cache[cache_key])
     ok, payload = _git_bytes(root, "show", f"{sha}:{SCHEMA_CONTROL_PATH}")
-    return _schema_control_from_bytes(payload) if ok else None
+    result = _schema_control_from_bytes(payload) if ok else None
+    if cache is not None and re.fullmatch(r"[0-9a-f]{40}", sha):
+        cache[cache_key] = copy.deepcopy(result)
+    return result
 
 
 def _schema_control_errors(control: Any, status: dict[str, Any]) -> list[str]:
@@ -6032,6 +6112,28 @@ def _governed_first_parent_chain(root: Path, head: str, current_schema: dict[str
 
 
 def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[str, Any]) -> list[str]:
+    cache = _VALIDATION_CACHE.get()
+    immutable_subjects = all(
+        re.fullmatch(r"[0-9a-f]{40}", subject) for subject in (head, baseline)
+    )
+    schema_key = hashlib.sha256(
+        json.dumps(
+            current_schema,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    cache_key = ("history_errors", str(root.resolve()), head, baseline, schema_key)
+    if cache is not None and immutable_subjects and cache_key in cache:
+        return list(cache[cache_key])
+    errors = _history_errors_uncached(root, head, baseline, current_schema)
+    if cache is not None and immutable_subjects:
+        cache[cache_key] = tuple(errors)
+    return errors
+
+
+def _history_errors_uncached(root: Path, head: str, baseline: str, current_schema: dict[str, Any]) -> list[str]:
     errors: list[str] = []
     current = _status_at(root, head)
     ledger = current.get("transition_ledger") if type(current) is dict else None
@@ -10358,7 +10460,7 @@ def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
-def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+def _validate_uncached(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
     try:
         status = json.loads(status_path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys)
         schema = json.loads(schema_path.read_text(encoding="utf-8"), object_pairs_hook=_reject_duplicate_keys)
@@ -10382,6 +10484,14 @@ def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> li
             errors.extend(_document_errors(status, repo_root))
             errors.extend(_repository_errors(status, status_path, repo_root, schema))
     return sorted(set(errors))
+
+
+def validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+    token = _VALIDATION_CACHE.set({})
+    try:
+        return _validate_uncached(status_path, schema_path, repo_root)
+    finally:
+        _VALIDATION_CACHE.reset(token)
 
 
 def main() -> int:

@@ -206,6 +206,105 @@ def test_canonical_status_and_documents_are_valid() -> None:
     assert result.stdout.endswith("project-status.v2\n")
 
 
+def test_validation_cache_reuses_immutable_history_without_sharing_mutable_output(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = 0
+    head = "a" * 40
+    baseline = "b" * 40
+    schema = {"type": "object"}
+
+    def fake_history_errors(
+        root: Path, subject: str, authorization: str, current_schema: dict
+    ) -> list[str]:
+        nonlocal calls
+        calls += 1
+        assert (root, subject, authorization, current_schema) == (
+            ROOT,
+            head,
+            baseline,
+            schema,
+        )
+        return ["stable diagnostic"]
+
+    def fake_validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+        first = VALIDATOR._history_errors(ROOT, head, baseline, schema)
+        first.append("caller mutation")
+        return VALIDATOR._history_errors(ROOT, head, baseline, schema)
+
+    monkeypatch.setattr(VALIDATOR, "_history_errors_uncached", fake_history_errors)
+    monkeypatch.setattr(VALIDATOR, "_validate_uncached", fake_validate)
+
+    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == ["stable diagnostic"]
+    assert calls == 1
+    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == ["stable diagnostic"]
+    assert calls == 2
+
+
+def test_validation_cache_reuses_immutable_status_and_schema_reads_per_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+    subject = "c" * 40
+
+    def fake_git(root: Path, *args: str) -> tuple[bool, str]:
+        calls.append(args)
+        if args == ("show", f"{subject}:PROJECT_STATUS.yaml"):
+            return True, '{"kind":"status"}'
+        if args == ("show", f"{subject}:schemas/project_status.schema.json"):
+            return True, '{"kind":"schema"}'
+        raise AssertionError(args)
+
+    def fake_validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+        status = VALIDATOR._status_at(ROOT, subject)
+        schema = VALIDATOR._schema_at(ROOT, subject)
+        assert status == {"kind": "status"}
+        assert schema == {"kind": "schema"}
+        status["kind"] = "mutated"
+        schema["kind"] = "mutated"
+        assert VALIDATOR._status_at(ROOT, subject) == {"kind": "status"}
+        assert VALIDATOR._schema_at(ROOT, subject) == {"kind": "schema"}
+        return []
+
+    monkeypatch.setattr(VALIDATOR, "_git", fake_git)
+    monkeypatch.setattr(VALIDATOR, "_validate_uncached", fake_validate)
+
+    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == []
+    assert len(calls) == 2
+    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == []
+    assert len(calls) == 4
+
+
+def test_validation_cache_reuses_only_git_reads_bound_to_immutable_objects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, ...]] = []
+    older = "d" * 40
+    newer = "e" * 40
+
+    class Result:
+        returncode = 0
+        stdout = b""
+
+    def fake_run(command: list[str], **kwargs: object) -> Result:
+        calls.append(tuple(command[1:]))
+        return Result()
+
+    def fake_validate(status_path: Path, schema_path: Path, repo_root: Path | None) -> list[str]:
+        assert VALIDATOR._is_ancestor(ROOT, older, newer)
+        assert VALIDATOR._is_ancestor(ROOT, older, newer)
+        assert VALIDATOR._git(ROOT, "rev-parse", "HEAD")[0]
+        assert VALIDATOR._git(ROOT, "rev-parse", "HEAD")[0]
+        return []
+
+    monkeypatch.setattr(VALIDATOR.subprocess, "run", fake_run)
+    monkeypatch.setattr(VALIDATOR, "_validate_uncached", fake_validate)
+
+    assert VALIDATOR.validate(ROOT, SCHEMA, ROOT) == []
+    assert calls.count(("merge-base", "--is-ancestor", older, newer)) == 1
+    assert calls.count(("rev-parse", "HEAD")) == 2
+
+
 def test_valid_awaiting_review_fixture_is_accepted() -> None:
     assert run_validator(FIXTURES / "valid_awaiting_review.json").returncode == 0
 
