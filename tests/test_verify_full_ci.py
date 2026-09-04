@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 import importlib.util
+import io
 import json
 import os
 from pathlib import Path
@@ -625,6 +626,55 @@ def test_run_rejects_non_utf8_output() -> None:
             [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'\\xff')"],
             os.environ.copy(),
         )
+
+
+def test_run_emits_chinese_git_diff_as_strict_utf8_under_ascii_code_page(
+    tmp_path: Path,
+) -> None:
+    tracked = tmp_path / "example.txt"
+    tracked.write_text("baseline\n", encoding="utf-8")
+    freeze_fixture_repository(tmp_path, tracked.name)
+    tracked.write_text("中文差异\n", encoding="utf-8")
+    driver = (
+        "import importlib.util, pathlib, sys; "
+        "path=pathlib.Path(sys.argv[1]); "
+        "spec=importlib.util.spec_from_file_location('verify_full_ci', path); "
+        "module=importlib.util.module_from_spec(spec); "
+        "spec.loader.exec_module(module); "
+        "module.ROOT=pathlib.Path(sys.argv[2]); "
+        "module.run(['git', 'diff', '--binary', 'HEAD', '--'], {})"
+    )
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "ascii:strict"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            driver,
+            str(ROOT / "scripts" / "verify_full_ci.py"),
+            str(tmp_path),
+        ],
+        env=env,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
+    output = result.stdout.decode("utf-8", errors="strict")
+    assert "+ git diff --binary HEAD --\n" in output
+    assert "+中文差异" in output
+    assert result.stderr == b""
+
+
+def test_utf8_output_writer_rejects_unencodable_text() -> None:
+    stream = io.TextIOWrapper(io.BytesIO(), encoding="ascii", errors="strict")
+
+    with pytest.raises(
+        VERIFY.VerificationError,
+        match="cannot be encoded as UTF-8",
+    ):
+        VERIFY.write_utf8(stream, "\udcff")
 
 
 @pytest.mark.parametrize("resists_term", [False, True])

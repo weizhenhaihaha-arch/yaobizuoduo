@@ -152,6 +152,24 @@ class VerificationError(RuntimeError):
     pass
 
 
+def write_utf8(stream: object, text: str) -> None:
+    """Write verifier output as strict UTF-8, independent of the host code page."""
+    try:
+        payload = text.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as exc:
+        raise VerificationError("verifier output cannot be encoded as UTF-8") from exc
+    binary_stream = getattr(stream, "buffer", None)
+    if binary_stream is not None:
+        binary_stream.write(payload)
+        binary_stream.flush()
+        return
+    try:
+        stream.write(payload.decode("utf-8", errors="strict"))
+        stream.flush()
+    except (UnicodeDecodeError, UnicodeEncodeError) as exc:
+        raise VerificationError("verifier output cannot be written as UTF-8") from exc
+
+
 def read_json(path: Path) -> dict:
     value = json.loads(path.read_text(encoding="utf-8"))
     if type(value) is not dict:
@@ -547,7 +565,7 @@ def terminate_process_tree(
 
 def run(command: list[str], env: dict[str, str], deadline: float | None = None) -> str:
     deadline = new_deadline() if deadline is None else deadline
-    print("+", " ".join(command), flush=True)
+    write_utf8(sys.stdout, "+ " + " ".join(command) + "\n")
     popen_options: dict[str, object] = {}
     windows_job: WindowsKillJob | None = None
     windows_job_assigned = False
@@ -615,7 +633,7 @@ def run(command: list[str], env: dict[str, str], deadline: float | None = None) 
         raise VerificationError(
             f"command output is not valid UTF-8: {' '.join(command)}"
         ) from exc
-    print(output, end="")
+    write_utf8(sys.stdout, output)
     if process.returncode:
         raise VerificationError(
             f"command failed with exit {process.returncode}: {' '.join(command)}"
@@ -723,9 +741,9 @@ def main() -> int:
         validate_fixtures_scope_and_secrets(deadline)
         run_complete_suite(deadline)
     except (OSError, subprocess.SubprocessError, VerificationError, ValueError) as exc:
-        print(f"FULL_CI_FAILED: {exc}", file=sys.stderr)
+        write_utf8(sys.stderr, f"FULL_CI_FAILED: {exc}\n")
         return 1
-    print("FULL_CI_OK: G1-T01 complete offline verification passed")
+    write_utf8(sys.stdout, "FULL_CI_OK: G1-T01 complete offline verification passed\n")
     return 0
 
 
