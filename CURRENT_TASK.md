@@ -49,6 +49,22 @@ passed the canonical project-status validator with ordered parents
 clean dependency preflight described above. No product/UI work, tracked source
 change or complete-validation run is active at this point.
 
+### Generation 13 dependency preflight acceptance
+
+The clean preflight on exact start `623015bd28c3053a45ff2bd8cbc1a3490f41fa73`
+used Node `24.14.0` and npm `11.9.0`. `frontend/node_modules` was initially
+absent, then `npm --prefix frontend ci --ignore-scripts --offline` installed
+142 packages from the local cache and reported zero vulnerabilities. Offline
+`npm ls --all` succeeded and the ten direct packages exactly matched the
+unchanged manifest. `frontend/package.json` retained SHA-256
+`a34daf0cd3b4a3c57cb8f12179dcaed167857ba76055f3f0dc87b37cc24197ee` and
+`frontend/package-lock.json` retained SHA-256
+`a7102e645d5df34e3539000c6793cab99179d778fbdab64b2692ca8558d729c3`.
+Tracked state, whitespace, fixture inventory, authorized scope and secret scan
+all passed. No official-registry fallback was needed and no tracked source,
+test, lock, workflow, product or UI file changed. The strict child of this
+record is the sole Generation 13 complete-validation subject.
+
 ## Generation 12 performance-only authorization
 
 The product owner explicitly authorized one evidence-led performance repair
