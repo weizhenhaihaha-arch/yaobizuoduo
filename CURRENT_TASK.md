@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `15`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -37,6 +37,13 @@ test collection and assertions, 870-second and hosted 15/20-minute limits,
 four-shard identity, workflow, dependencies, governance, product, strategy,
 market, API, database and UI are frozen. A fourth root, scope expansion or a
 failed corrected authorization/start validation stops without dispatch.
+
+Corrected Generation 15-R1 authorization
+`5b57014269c9520efe46b4bfe79fb280b904faab` passed repository-aware canonical
+validation with the required ordered parents. Its strict child starts only the
+two-test-file repair assigned to the existing trend-signal and strategy
+engineer. Candidate, review and CI identities remain clear; G2 and every
+product/UI write remain inactive.
 
 ## Generation 14 Windows output-encoding authorization
 
