@@ -25,8 +25,8 @@
     {
       "task_id": "G1-T01",
       "risk": "D1",
-      "state": "in_progress",
-      "transition": {"from": "authorized", "to": "in_progress"},
+      "state": "blocked",
+      "transition": {"from": "in_progress", "to": "blocked"},
       "candidate_generation": 11
     }
   ],
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "G1-T01 generation-11 used its sole complete local validation on exact integrated head 5e1dad5a1f3750fdb4b6d2406d7cf243c8adfb29: canonical status and Transport 6/6 passed, then the unchanged complete backend suite exceeded the shared 870-second fail-closed deadline with eight local workers; process-tree cleanup completed and the worktree remained clean; this user-authorized final timing exception is exhausted, so no rerun, further timeout increase, candidate, upload, CI, G2 or Signal V1 product write is authorized"
+  ],
   "next_authorization": {"gate": "G2", "task_id": "G2-T01", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

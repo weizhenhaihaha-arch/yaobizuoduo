@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `in_progress`
+- Status: `blocked`
 - Candidate generation: `11`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -64,6 +64,23 @@ accepted implementation evidence only. The owner must now create one unique
 integrated SHA and run its single permitted complete local validation; a
 timeout or new independent root blocks the card. Nothing here is upload,
 hosted CI, merge, G1 closure, G2 activation or product authority.
+
+### Generation 11 terminal validation result
+
+The sole complete local validation of exact integrated head
+`5e1dad5a1f3750fdb4b6d2406d7cf243c8adfb29` passed canonical project status
+and mandatory Transport collection/execution 6/6. The unchanged complete
+backend suite then exceeded the one shared 870-second deadline under eight
+local workers and failed closed. The verifier reaped its process tree and the
+worktree remained clean. Python dependency, frontend test/build, compilation
+and final diff stages were not reached, so none is claimed for this run.
+
+This was the one complete-validation opportunity explicitly authorized for
+Generation 11. It will not be rerun, the deadline will not be increased again,
+and no candidate, upload or remote CI will be created from this SHA. G1-T01 is
+`blocked`; G2 remains `not_authorized`, P1 is not active, and no Signal V1
+product code may start. Further action requires a new product-owner decision
+because the bounded final timing exception has been exhausted.
 
 ## Frozen scope
 
