@@ -239,6 +239,12 @@ G0_T06_WORKFLOW_MAIN_CI_RECOVERY_REQUIRED = frozenset(
         "tests/test_g0_project_status.py",
     }
 )
+G0_T06_WORKFLOW_MAIN_CI_RECOVERY = (
+    "e742ddb42b15a56e65f863d89121117119bbf5e5"
+)
+G0_T06_WORKFLOW_RECOVERED_MAIN = (
+    "94c87f28436e2ea8899c9a407e1f1413de893603"
+)
 PACKAGE_A_G0_T05_G3_IMPLEMENTATION_MAIN = (
     "d3a617ab3081e03276a96142ae2b76349e7b2ef9"
 )
@@ -528,6 +534,15 @@ def _payload_digest(value: dict[str, Any]) -> str:
     return hashlib.sha256(canonical).hexdigest()
 
 
+def _canonical_text_bytes(payload: bytes) -> bytes:
+    """Return the platform-neutral byte form used for governed text digests."""
+    return payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
+def _canonical_text_digest(payload: bytes) -> str:
+    return hashlib.sha256(_canonical_text_bytes(payload)).hexdigest()
+
+
 def _package_a_manifest_errors(
     root: Path, subject_sha: str | None = None
 ) -> list[str]:
@@ -576,7 +591,7 @@ def _package_a_manifest_errors(
             manifest, manifest_schema, manifest_schema
         )
     ]
-    schema_digest = hashlib.sha256(schema_bytes).hexdigest()
+    schema_digest = _canonical_text_digest(schema_bytes)
     if (
         schema_digest != PACKAGE_A_SCHEMA_SHA256
         or manifest.get("schema_sha256") != PACKAGE_A_SCHEMA_SHA256
@@ -858,6 +873,37 @@ def _package_a_reactivation_receipt() -> dict[str, Any]:
     return receipt
 
 
+def _package_a_valid_baseline(
+    task_id: str,
+    expected_previous: str,
+    baseline_status: dict[str, Any] | None,
+    root: Path,
+    baseline: str,
+) -> bool:
+    try:
+        valid_previous_card_baseline = (
+            type(baseline_status) is dict
+            and baseline_status["active_tasks"][0].get("task_id") == expected_previous
+            and baseline_status["active_tasks"][0].get("state") == "closed"
+        )
+    except (KeyError, IndexError, TypeError):
+        valid_previous_card_baseline = False
+    workflow_governed: str | None = None
+    workflow_errors: list[str] = []
+    if task_id == "G1-T01" and type(baseline_status) is dict:
+        workflow_governed, workflow_errors = _g0_t06_workflow_terminal_bridge(
+            baseline_status,
+            root,
+            baseline,
+            require_canonical_main=False,
+        )
+    return valid_previous_card_baseline or (
+        task_id == "G1-T01"
+        and workflow_governed is not None
+        and not workflow_errors
+    )
+
+
 def _package_a_persistence_errors(
     status: dict[str, Any], root: Path, head: str
 ) -> list[str]:
@@ -887,14 +933,13 @@ def _package_a_persistence_errors(
     errors.extend(_package_a_manifest_errors(root, baseline))
     expected_previous = "G0-T04" if task_id == "G0-T05" else "G0-T05"
     baseline_status = _status_at(root, baseline)
-    try:
-        valid_baseline = (
-            type(baseline_status) is dict
-            and baseline_status["active_tasks"][0].get("task_id") == expected_previous
-            and baseline_status["active_tasks"][0].get("state") == "closed"
-        )
-    except (KeyError, IndexError, TypeError):
-        valid_baseline = False
+    valid_baseline = _package_a_valid_baseline(
+        task_id,
+        expected_previous,
+        baseline_status,
+        root,
+        baseline,
+    )
     if not valid_baseline:
         errors.append(
             f"$.package_a: {task_id} baseline must be the exact closed {expected_previous}"
@@ -1304,10 +1349,14 @@ def _document_errors(status: dict[str, Any], repo_root: Path) -> list[str]:
 
 def _git(root: Path, *args: str) -> tuple[bool, str]:
     try:
-        result = subprocess.run(["git", *args], cwd=root, text=True, capture_output=True, check=False)
-    except (OSError, UnicodeError):
-        return False, ""
-    return result.returncode == 0, result.stdout.strip()
+        result = subprocess.run(["git", *args], cwd=root, capture_output=True, check=False)
+    except OSError:
+        return False, "git command could not be started"
+    try:
+        stdout = result.stdout.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError as exc:
+        return False, f"git output is not valid UTF-8 at byte {exc.start}"
+    return result.returncode == 0, stdout
 
 
 def _git_bytes(root: Path, *args: str) -> tuple[bool, bytes]:
@@ -1458,7 +1507,7 @@ def _schema_at(root: Path, sha: str) -> dict[str, Any] | None:
 
 def _schema_digest_at(root: Path, sha: str) -> str | None:
     ok, payload = _git_bytes(root, "show", f"{sha}:schemas/project_status.schema.json")
-    return hashlib.sha256(payload).hexdigest() if ok else None
+    return _canonical_text_digest(payload) if ok else None
 
 
 def _schema_control_from_bytes(payload: bytes) -> dict[str, Any] | None:
@@ -1657,7 +1706,7 @@ def _schema_authority_document_errors(status: dict[str, Any], schema_path: Path)
     if type(revision) is not int or revision < 1 or type(digest) is not str or re.fullmatch(r"[0-9a-f]{64}", digest) is None:
         return ["$.schema_authority: revision and digest require exact canonical types"]
     try:
-        actual_digest = hashlib.sha256(schema_path.read_bytes()).hexdigest()
+        actual_digest = _canonical_text_digest(schema_path.read_bytes())
     except OSError:
         return ["$.schema_authority: canonical schema bytes are unreadable"]
     errors: list[str] = []
@@ -2993,6 +3042,60 @@ def _g0_t04_g4_premature_recovery_lineage_errors(
     return errors
 
 
+def _g0_t04_g4_competing_route_errors(root: Path) -> list[str]:
+    """Validate the optional tombstoned route objects without requiring them."""
+    competing_auth_present = _git(
+        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_AUTH}^{{commit}}"
+    )[0]
+    competing_start_present = _git(
+        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_START}^{{commit}}"
+    )[0]
+    if competing_auth_present != competing_start_present:
+        return [
+            "$: G0-T04 generation-4 competing route objects are only partially present"
+        ]
+    if not competing_auth_present:
+        return []
+    competing_ok, competing_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_AUTH
+    )
+    competing_tree_ok, competing_tree = _git(
+        root, "rev-parse", f"{G0_T04_G4_COMPETING_AUTH}^{{tree}}"
+    )
+    competing_message_ok, competing_message = _git(
+        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_AUTH
+    )
+    competing_start_ok, competing_start_line = _git(
+        root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_START
+    )
+    competing_start_tree_ok, competing_start_tree = _git(
+        root, "rev-parse", f"{G0_T04_G4_COMPETING_START}^{{tree}}"
+    )
+    competing_start_message_ok, competing_start_message = _git(
+        root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_START
+    )
+    if (
+        (competing_line.split() if competing_ok else [])
+        != [
+            G0_T04_G4_COMPETING_AUTH,
+            G0_T04_G4_BASELINE,
+            G0_T04_G4_BLOCKED_MAIN,
+        ]
+        or not competing_tree_ok
+        or competing_tree != "11098e342e3706e47ff74ddea7f6515475339a89"
+        or not competing_message_ok
+        or competing_message != "Authorize G0-T04 generation 4"
+        or (competing_start_line.split() if competing_start_ok else [])
+        != [G0_T04_G4_COMPETING_START, G0_T04_G4_COMPETING_AUTH]
+        or not competing_start_tree_ok
+        or competing_start_tree != "0296e60d4cb54cbc509dfd13b0ba54809d848b25"
+        or not competing_start_message_ok
+        or competing_start_message != "Start G0-T04 generation 4 implementation"
+    ):
+        return ["$: G0-T04 generation-4 competing route topology drifted"]
+    return []
+
+
 def _g0_t04_g4_route_errors(
     status: dict[str, Any], root: Path, head: str
 ) -> list[str]:
@@ -3262,55 +3365,7 @@ def _g0_t04_g4_route_errors(
         != "ca7aa3b416024ed44f57ab8cfa8de94f39995f04"
     ):
         errors.append("$: G0-T04 generation-4 abandoned route topology drifted")
-    competing_auth_present = _git(
-        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_AUTH}^{{commit}}"
-    )[0]
-    competing_start_present = _git(
-        root, "cat-file", "-e", f"{G0_T04_G4_COMPETING_START}^{{commit}}"
-    )[0]
-    if competing_auth_present != competing_start_present:
-        errors.append(
-            "$: G0-T04 generation-4 competing route objects are only partially present"
-        )
-    elif competing_auth_present:
-        competing_ok, competing_line = _git(
-            root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_AUTH
-        )
-        competing_tree_ok, competing_tree = _git(
-            root, "rev-parse", f"{G0_T04_G4_COMPETING_AUTH}^{{tree}}"
-        )
-        competing_message_ok, competing_message = _git(
-            root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_AUTH
-        )
-        competing_start_ok, competing_start_line = _git(
-            root, "rev-list", "--parents", "-n", "1", G0_T04_G4_COMPETING_START
-        )
-        competing_start_tree_ok, competing_start_tree = _git(
-            root, "rev-parse", f"{G0_T04_G4_COMPETING_START}^{{tree}}"
-        )
-        competing_start_message_ok, competing_start_message = _git(
-            root, "show", "-s", "--format=%B", G0_T04_G4_COMPETING_START
-        )
-        if (
-            (competing_line.split() if competing_ok else [])
-            != [
-                G0_T04_G4_COMPETING_AUTH,
-                G0_T04_G4_BASELINE,
-                G0_T04_G4_BLOCKED_MAIN,
-            ]
-            or not competing_tree_ok
-            or competing_tree != "11098e342e3706e47ff74ddea7f6515475339a89"
-            or not competing_message_ok
-            or competing_message != "Authorize G0-T04 generation 4"
-            or (competing_start_line.split() if competing_start_ok else [])
-            != [G0_T04_G4_COMPETING_START, G0_T04_G4_COMPETING_AUTH]
-            or not competing_start_tree_ok
-            or competing_start_tree != "0296e60d4cb54cbc509dfd13b0ba54809d848b25"
-            or not competing_start_message_ok
-            or competing_start_message
-            != "Start G0-T04 generation 4 implementation"
-        ):
-            errors.append("$: G0-T04 generation-4 competing route topology drifted")
+    errors.extend(_g0_t04_g4_competing_route_errors(root))
     ok_start, start_parents = _git(
         root, "rev-list", "--parents", "-n", "1", G0_T04_G4_START
     )
@@ -6065,7 +6120,7 @@ def _history_errors(root: Path, head: str, baseline: str, current_schema: dict[s
         if (
             not ok
             or SCHEMA_BOOTSTRAP_SUBJECT not in governed_chain
-            or hashlib.sha256(schema_payload).hexdigest() != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
+            or _canonical_text_digest(schema_payload) != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
             or type(migration) is not dict
             or migration.get("preauthority_history_sha256") != SCHEMA_PREAUTHORITY_HISTORY_DIGEST
         ):
@@ -8976,6 +9031,11 @@ def _g0_t04_anomaly_post_merge_repair_parent_errors(
     *,
     require_current_main: bool,
 ) -> list[str] | None:
+    try:
+        if status["active_tasks"][0].get("task_id") != "G0-T04":
+            return None
+    except (KeyError, IndexError, TypeError):
+        return None
     if _is_g0_t04_g4_status(status):
         return None
     if root is None or child_sha is None or child_sha == G0_T04_ANOMALY_MERGE:
