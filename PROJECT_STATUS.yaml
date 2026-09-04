@@ -25,8 +25,8 @@
     {
       "task_id": "G1-T01",
       "risk": "D1",
-      "state": "awaiting_review",
-      "transition": {"from": "in_progress", "to": "awaiting_review"},
+      "state": "blocked",
+      "transition": {"from": "awaiting_review", "to": "blocked"},
       "candidate_generation": 13
     }
   ],
@@ -34,9 +34,9 @@
     "authorization_baseline_sha": "94c87f28436e2ea8899c9a407e1f1413de893603",
     "implementation_sha": "032f8203ee4bfa5cc62222c7f82b275d33232fbd",
     "candidate": {
-      "commit_sha": null,
+      "commit_sha": "d0e7c9b494f67d5663f4eb3878ea0dd295106216",
       "local_verification": {"status": "success", "subject": "delivery_head"},
-      "ci": {"status": "not_established", "subject_sha": null, "run_id": null, "url": null}
+      "ci": {"status": "failure", "subject_sha": "d0e7c9b494f67d5663f4eb3878ea0dd295106216", "run_id": "33837192832", "url": "https://github.com/weizhenhaihaha-arch/yaobizuoduo/actions/runs/33837192832"}
     },
     "closure": {
       "commit_sha": null,
@@ -52,9 +52,9 @@
     }
   },
   "review": {
-    "code_security": "pending",
-    "architecture": "pending",
-    "reviewed_candidate_sha": null
+    "code_security": "approve",
+    "architecture": "clear",
+    "reviewed_candidate_sha": "d0e7c9b494f67d5663f4eb3878ea0dd295106216"
   },
   "bootstrap_exception": null,
   "capability": {
@@ -62,7 +62,9 @@
     "legacy_maximum": "OFFLINE_EVIDENCE_ACCEPTED"
   },
   "release": {"product_owner_approval": null, "release_manifest": null},
-  "blockers": [],
+  "blockers": [
+    "G1-T01 Generation 13 candidate d0e7c9b494f67d5663f4eb3878ea0dd295106216 was uploaded without history rewrite to existing PR #40, but exact-head run 33837192832 failed: all four Ubuntu shards passed, while all four Windows shards failed before test execution because verify_full_ci.py attempted to emit Git diff output containing U+7684 through the runner's locale-dependent charmap codec; aggregate G0 / exact-head therefore failed. This is a new hosted-Windows output-encoding root outside the environment-only Generation 13 authorization. The card stops without rerun, repair, Generation 14, merge, G1 closure, P1, G2, Signal V1 or UI work."
+  ],
   "next_authorization": {"gate": "G2", "task_id": "G2-T01", "state": "not_authorized"},
   "governed_documents": [
     "AGENTS.md",

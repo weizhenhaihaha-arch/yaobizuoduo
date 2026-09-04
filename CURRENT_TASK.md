@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `awaiting_review`
+- Status: `blocked`
 - Candidate generation: `13`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
@@ -838,3 +838,20 @@ suite 611/611 in 986.47 seconds, dependency integrity, frontend 10/10,
 production build, compilation and diff checks. Delivery stops at
 `awaiting_review`; hosted CI, independent reviews, merge, G2 and every product
 capability remain unclaimed.
+
+## Generation 13 hosted-CI stop
+
+Frozen candidate `d0e7c9b494f67d5663f4eb3878ea0dd295106216` was uploaded by a
+normal fast-forward to the existing PR #40 branch and exact remote readback
+matched. Exact-head run `33837192832` passed all four Ubuntu shards and failed
+all four Windows shards. Every Windows log contains the same fail-closed error
+before test execution: the complete verifier attempted to emit Git diff output
+containing Unicode character U+7684 through the runner's locale-dependent
+`charmap` codec. Aggregate `G0 / exact-head` consequently failed.
+
+This is a new hosted-Windows output-encoding root outside Generation 13's
+environment-only retry. The explicit stop condition applies: no CI rerun,
+repair, Generation 14, merge, G1 closure, P1 contract work, G2 Signal V1 or UI
+implementation is authorized by this card. Local `FULL_CI_OK`, independent
+code/security `APPROVE`, architecture/route `CLEAR`, successful upload and PR
+identity remain valid but do not substitute for remote Windows CI.
