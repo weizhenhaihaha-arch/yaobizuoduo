@@ -3,7 +3,7 @@
 - Task ID: `G1-T01`
 - Gate: G1
 - Risk: `D1`
-- Status: `authorized`
+- Status: `in_progress`
 - Candidate generation: `14`
 - Baseline: `94c87f28436e2ea8899c9a407e1f1413de893603`
 
